@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# SwiftPM
+.build/
+Package.resolved
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+
+# Xcode
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# 인증·환경
+.netrc
+.env
+.env.*
+
+# AI 로컬 산출물
+docs/superpowers/
+.agents/specs/*
+!.agents/specs/README.md
+.agents/plans/
