@@ -14,6 +14,12 @@
 - Review consumer-facing documentation and public behavior tests with every public API change.
 - Treat `Sendable`, actor isolation, cancellation, and error mapping as explicit review points for concurrency changes.
 
+## Development Comments
+
+- Write development comments in Korean, matching the commit-message language policy.
+- Add a concise comment to each implementation type, variable, and method that explains its intended use and core logic.
+- Keep implementation names in comments in their original form.
+
 ## Documentation and Response
 
 - Store AI workflow and rule documents under `.agents/`.
