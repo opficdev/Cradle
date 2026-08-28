@@ -1,0 +1,119 @@
+name: Build
+
+on:
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Swift Build
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Swift Version
+        run: swift --version
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          set +e
+          swift build 2>&1 | tee build.log
+          buildStatus=${PIPESTATUS[0]}
+          set -e
+          exit $buildStatus
+
+      - name: Upload build log artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+
+  test:
+    name: Swift Test
+    needs: build
+    if: ${{ needs.build.result == 'success' }}
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/test.yml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      pr_actor: ${{ github.actor }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      pr_head_sha: ${{ github.event.pull_request.head.sha }}
+
+  notify_pr_failure:
+    name: Notify PR Failure (Build)
+    needs: build
+    if: ${{ always() && needs.build.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Download build log artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: build-log
+          path: artifacts
+        continue-on-error: true
+
+      - name: Comment on Failed PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const pullRequest = context.payload.pull_request;
+            if (!pullRequest) {
+              core.info('No PR context; skipping comment.');
+              return;
+            }
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            let body = [
+              `@${context.actor} build CI가 실패했습니다.`,
+              '',
+              `- Workflow: ${context.workflow}`,
+              `- Branch: ${pullRequest.head.ref}`,
+              `- Commit: ${pullRequest.head.sha}`,
+              `- Run: ${runUrl}`,
+            ].join('\n');
+
+            const logPath = 'artifacts/build.log';
+            if (fs.existsSync(logPath)) {
+              const log = fs.readFileSync(logPath, 'utf8');
+              const lines = log.split(/\r?\n/);
+              const errorLines = lines.filter((line) =>
+                /error:/i.test(line) || /fatal error:/i.test(line)
+              );
+              const trimmedLines = errorLines.slice(0, 30);
+              if (0 < trimmedLines.length) {
+                body += '\n\n### 오류 요약\n```\n' + trimmedLines.join('\n') + '\n```';
+              } else {
+                body += '\n\n### 오류 요약\n로그에서 에러 라인을 찾지 못했습니다.';
+              }
+            } else {
+              body += '\n\n### 오류 요약\nbuild.log를 찾지 못했습니다.';
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pullRequest.number,
+              body,
+            });
