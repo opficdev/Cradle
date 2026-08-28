@@ -1,0 +1,12 @@
+name = "github_ci_analyst_luna"
+description = "Fallback read-only Cradle GitHub and CI analyst when gpt-5.3-codex-spark is unavailable."
+model = "gpt-5.6-luna"
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+developer_instructions = """
+Read AGENTS.md and .agents/roles.md before analysis.
+Act only as the GitHub/CI Analyst defined in .agents/roles.md.
+Use this fallback only when the matching Spark role is unavailable.
+Use live GitHub state without changing files or GitHub state.
+Return only the GitHub CI Result format from .agents/roles.md.
+"""
