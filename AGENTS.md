@@ -10,7 +10,7 @@
 | Task | Required document |
 | --- | --- |
 | Every task | `.agents/rules/general.md` |
-| Non-trivial design, planning, implementation, review, or verification | `.agents/roles.md` |
+| Non-trivial design, planning, implementation, review, or verification | `.agents/roles.md`, `.agents/workflows.md` |
 | Public API, Macro, generated code, compiler diagnostic, runtime ownership, Swift Concurrency, package target, dependency, or architecture documentation | `.agents/rules/architecture.md` |
 | Approved Spec creation or review | `.agents/specs/README.md` |
 | Workflow, Git, commit, CI, Release, documentation, or verification | `.agents/rules/project-workflows.md` |
