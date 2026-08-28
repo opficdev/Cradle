@@ -1,0 +1,237 @@
+name: Release Swift Package
+
+run-name: Release v${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic Versioning core version without the v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swift-package-release
+  queue: max
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      target_sha: ${{ steps.version.outputs.target_sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify branch and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/develop"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Validate version
+        id: version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf 'version must be an X.Y.Z Semantic Versioning core version\n' >&2
+            exit 1
+          fi
+          printf 'tag=v%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
+          printf 'target_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag and Release absence
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null
+          tag_status=$?
+          set -e
+          case "$tag_status" in
+            0)
+              printf 'tag already exists: %s\n' "$TAG" >&2
+              exit 1
+              ;;
+            2)
+              ;;
+            *)
+              printf 'failed to check tag: %s\n' "$TAG" >&2
+              exit "$tag_status"
+              ;;
+          esac
+
+          set +e
+          release_response="$(gh api -i "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>&1)"
+          release_status=$?
+          set -e
+          if [ "$release_status" -eq 0 ]; then
+            printf 'Release already exists: %s\n' "$TAG" >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "$release_response" | grep -Eq 'HTTP/[0-9.]+ 404'; then
+            printf '%s\n' "$release_response" >&2
+            exit "$release_status"
+          fi
+
+  ci:
+    name: Run reusable CI
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish Release
+    needs: [prepare, ci]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      TARGET_SHA: ${{ needs.prepare.outputs.target_sha }}
+
+    steps:
+      - name: Checkout target commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.target_sha }}
+          fetch-depth: 0
+
+      - name: Revalidate branch, target, tag, and Release absence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/develop"
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null
+          tag_status=$?
+          set -e
+          case "$tag_status" in
+            0)
+              printf 'tag already exists: %s\n' "$TAG" >&2
+              exit 1
+              ;;
+            2)
+              ;;
+            *)
+              printf 'failed to check tag: %s\n' "$TAG" >&2
+              exit "$tag_status"
+              ;;
+          esac
+
+          set +e
+          release_response="$(gh api -i "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>&1)"
+          release_status=$?
+          set -e
+          if [ "$release_status" -eq 0 ]; then
+            printf 'Release already exists: %s\n' "$TAG" >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "$release_response" | grep -Eq 'HTTP/[0-9.]+ 404'; then
+            printf '%s\n' "$release_response" >&2
+            exit "$release_status"
+          fi
+
+      - name: Create Korean release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous_tag="$(git tag --merged "$TARGET_SHA" --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n 1)"
+          if [ -n "$previous_tag" ]; then
+            change_range="$previous_tag..$TARGET_SHA"
+          else
+            change_range="$TARGET_SHA"
+          fi
+
+          git log --no-merges --format='- %h %s' "$change_range" > release-changes.md
+          test -s release-changes.md
+
+          {
+            printf '## 변경 사항\n\n'
+            cat release-changes.md
+            printf '\n## 기준\n\n'
+            printf -- '- 이전 tag: %s\n' "${previous_tag:-없음}"
+            printf -- '- 기준 commit: %s\n' "$TARGET_SHA"
+          } > release-notes.md
+
+          test -s release-notes.md
+          rg -qF "$TARGET_SHA" release-notes.md
+
+      - name: Create draft Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            --draft \
+            --target "$TARGET_SHA" \
+            --title "Cradle $TAG 릴리스" \
+            --notes-file release-notes.md
+
+      - name: Verify draft Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh release view "$TAG" --json tagName --jq '.tagName')" = "$TAG"
+          test "$(gh release view "$TAG" --json targetCommitish --jq '.targetCommitish')" = "$TARGET_SHA"
+          test "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = true
+          test "$(gh release view "$TAG" --json isPrerelease --jq '.isPrerelease')" = false
+          test "$(gh release view "$TAG" --json publishedAt --jq '.publishedAt == null')" = true
+          test "$(gh release view "$TAG" --json assets --jq '.assets | length')" -eq 0
+          gh release view "$TAG" --json body --jq '.body' | grep -q '[^[:space:]]'
+
+      - name: Verify remote tag commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          fetch_status=$?
+          set -e
+          if [ "$fetch_status" -ne 0 ]; then
+            git tag "$TAG" "$TARGET_SHA"
+            git push origin "refs/tags/$TAG"
+            git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          fi
+          test "$(git rev-parse "$TAG^{commit}")" = "$TARGET_SHA"
+
+      - name: Publish draft Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG" --draft=false
+
+      - name: Verify published Release and remote tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh release view "$TAG" --json tagName --jq '.tagName')" = "$TAG"
+          test "$(gh release view "$TAG" --json targetCommitish --jq '.targetCommitish')" = "$TARGET_SHA"
+          test "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = false
+          test "$(gh release view "$TAG" --json isPrerelease --jq '.isPrerelease')" = false
+          test "$(gh release view "$TAG" --json publishedAt --jq '.publishedAt == null')" = false
+          test "$(gh release view "$TAG" --json assets --jq '.assets | length')" -eq 0
+          git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          test "$(git rev-parse "$TAG^{commit}")" = "$TARGET_SHA"
