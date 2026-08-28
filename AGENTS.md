@@ -24,6 +24,14 @@
 - Public API, Macro expansion, compiler diagnostics, runtime ownership, Swift Concurrency, and target dependency direction are explicit repository boundaries.
 - Pull requests, issues, reviews, and Release documents must be written in Korean.
 
+## Pull Request Review Guidance
+
+- Write review summaries, findings, and inline comments in Korean.
+- Before reviewing a pull request, identify and fully analyze its linked issue, then verify the diff against the issue scope, out-of-scope items, and acceptance criteria before reporting findings.
+- Treat the linked issue as the primary review contract. If no linked issue exists or its scope is ambiguous, report that limitation before making a scope-compliance claim.
+- Separate issue-compliance findings from technical findings. For each finding, cite the relevant issue criterion and the exact file or line evidence.
+- Prioritize correctness, regressions, public API stability, Macro and Swift Concurrency safety, scope drift, and missing tests over style preferences.
+
 ## Local Planning Artifacts
 
 - Store Specs under `.agents/specs/` and Plans under `.agents/plans/`.
