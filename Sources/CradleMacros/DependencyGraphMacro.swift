@@ -7,6 +7,7 @@
 
 import SwiftSyntax
 import SwiftSyntaxBuilder
+import SwiftDiagnostics
 import SwiftSyntaxMacros
 
 // `@Provide` factory를 호출하는 기본 `internal` 생성 접근자 추가
@@ -18,18 +19,31 @@ struct DependencyGraphMacro: MemberMacro {
 		conformingTo protocols: [TypeSyntax],
 		in context: some MacroExpansionContext
 	) throws -> [DeclSyntax] {
-		guard let graph = declaration.as(ClassDeclSyntax.self) else {
+		guard let graph = declaration.as(ClassDeclSyntax.self),
+			isFinal(graph),
+			graph.genericParameterClause == nil,
+			graph.genericWhereClause == nil else {
+			context.diagnose(Diagnostic(node: node, message: CradleMacroDiagnostic.invalidGraph))
 			return []
 		}
 
-		return graph.memberBlock.members.compactMap { member in
-			guard let function = member.decl.as(FunctionDeclSyntax.self),
-				containsAttribute(named: "Provide", in: function.attributes),
-				let provider = providerDescriptor(from: function) else {
-				return nil
-			}
+		// graph 본체에서 읽은 provider 검증 결과
+		let providerResult = providers(in: graph, context: context)
+		// 기존 instance member 이름
+		let memberNames = instanceMemberNames(in: graph)
+		// 생성 접근자 이름 충돌 검증 결과
+		let hasAccessorError = diagnoseAccessorNameErrors(
+			in: providerResult.descriptors,
+			memberNames: memberNames,
+			context: context
+		)
 
-			return DeclSyntax(
+		guard !providerResult.hasError, !hasAccessorError else {
+			return []
+		}
+
+		return providerResult.descriptors.map { provider in
+			DeclSyntax(
 				"""
 				internal func \(raw: provider.accessorName)() -> \(raw: provider.returnType.trimmedDescription) {
 				    \(raw: provider.factoryName)()
@@ -39,25 +53,122 @@ struct DependencyGraphMacro: MemberMacro {
 		}
 	}
 
+	// graph 본체의 `@Provide` factory 검증과 수집
+	private static func providers(
+		in graph: ClassDeclSyntax,
+		context: some MacroExpansionContext
+	) -> (descriptors: [ProviderDescriptor], hasError: Bool) {
+		var hasError = false
+		var descriptors: [ProviderDescriptor] = []
+
+		for member in graph.memberBlock.members {
+			guard let attribute = provideAttribute(in: member.decl) else {
+				continue
+			}
+			guard let function = member.decl.as(FunctionDeclSyntax.self) else {
+				context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderDeclaration))
+				hasError = true
+				continue
+			}
+
+			guard let provider = providerDescriptor(
+				from: function,
+				attribute: attribute,
+				in: context
+			) else {
+				hasError = true
+				continue
+			}
+
+			descriptors.append(provider)
+		}
+
+		return (descriptors, hasError)
+	}
+
+	// 생성 접근자 이름 중복과 기존 member 충돌 진단
+	private static func diagnoseAccessorNameErrors(
+		in providers: [ProviderDescriptor],
+		memberNames: Set<String>,
+		context: some MacroExpansionContext
+	) -> Bool {
+		let counts = providers.reduce(into: [String: Int]()) { counts, provider in
+			counts[provider.accessorName, default: 0] += 1
+		}
+
+		var hasError = false
+		for provider in providers {
+			if counts[provider.accessorName] != 1 {
+				context.diagnose(Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.duplicateAccessor))
+				hasError = true
+			}
+			if memberNames.contains(provider.accessorName) {
+				context.diagnose(Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.existingMemberCollision))
+				hasError = true
+			}
+		}
+
+		return hasError
+	}
+
 	// G1의 정상 provider 문법을 접근자 생성 정보로 변환
-	private static func providerDescriptor(from function: FunctionDeclSyntax) -> ProviderDescriptor? {
-		guard function.modifiers.contains(where: { $0.name.tokenKind == .keyword(.private) }),
-			!function.modifiers.contains(where: {
-				$0.name.tokenKind == .keyword(.static) || $0.name.tokenKind == .keyword(.class)
-			}),
+	private static func providerDescriptor(
+		from function: FunctionDeclSyntax,
+		attribute: AttributeSyntax,
+		in context: some MacroExpansionContext
+	) -> ProviderDescriptor? {
+		guard isPrivate(function) else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderDeclaration))
+			return nil
+		}
+		guard !isTypeMember(function),
 			function.signature.parameterClause.parameters.isEmpty,
 			function.genericParameterClause == nil,
-			function.signature.effectSpecifiers == nil,
-			let returnClause = function.signature.returnClause,
-			function.body != nil,
-			let accessorName = accessorName(for: returnClause.type) else {
+			function.genericWhereClause == nil,
+			function.signature.effectSpecifiers == nil else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderSignature))
+			return nil
+		}
+		guard let returnClause = function.signature.returnClause,
+			function.body != nil else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.missingProviderResultOrBody))
+			return nil
+		}
+		guard let accessorName = accessorName(for: returnClause.type) else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.unsupportedProviderResult))
+			return nil
+		}
+		guard isValidAccessorName(accessorName) else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidAccessorName))
 			return nil
 		}
 
 		return ProviderDescriptor(
+			attribute: attribute,
 			factoryName: function.name.text,
 			returnType: returnClause.type,
 			accessorName: accessorName
 		)
+	}
+
+	// final class graph 판별
+	private static func isFinal(_ graph: ClassDeclSyntax) -> Bool {
+		graph.modifiers.contains { modifier in
+			modifier.name.tokenKind == .keyword(.final)
+		}
+	}
+
+	// private provider 판별
+	private static func isPrivate(_ function: FunctionDeclSyntax) -> Bool {
+		function.modifiers.contains { modifier in
+			modifier.name.tokenKind == .keyword(.private)
+		}
+	}
+
+	// static 또는 class provider 판별
+	private static func isTypeMember(_ function: FunctionDeclSyntax) -> Bool {
+		function.modifiers.contains { modifier in
+			modifier.name.tokenKind == .keyword(.static) || modifier.name.tokenKind == .keyword(.class)
+		}
 	}
 }
