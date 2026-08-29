@@ -76,6 +76,54 @@ final class AppGraph {
 }
 """
 
+// 숫자가 이어지는 initialism provider를 포함하는 원본 graph 문법
+private let initialismGraphSource = """
+@DependencyGraph
+final class InitialismGraph {
+	@Provide
+	private func makeSHA256() -> SHA256 { SHA256() }
+	@Provide
+	private func makeHTTP2Client() -> HTTP2Client { HTTP2Client() }
+	@Provide
+	private func makeHTTPClient() -> HTTPClient { HTTPClient() }
+	@Provide
+	private func makeURLSession() -> URLSession { URLSession() }
+	@Provide
+	private func makeID() -> ID { ID() }
+}
+"""
+
+// 숫자가 이어지는 initialism 접근자가 추가된 graph 문법
+private let expandedInitialismGraphSource = """
+final class InitialismGraph {
+	private func makeSHA256() -> SHA256 { SHA256() }
+	private func makeHTTP2Client() -> HTTP2Client { HTTP2Client() }
+	private func makeHTTPClient() -> HTTPClient { HTTPClient() }
+	private func makeURLSession() -> URLSession { URLSession() }
+	private func makeID() -> ID { ID() }
+
+    internal func sha256() -> SHA256 {
+        makeSHA256()
+    }
+
+    internal func http2Client() -> HTTP2Client {
+        makeHTTP2Client()
+    }
+
+    internal func httpClient() -> HTTPClient {
+        makeHTTPClient()
+    }
+
+    internal func urlSession() -> URLSession {
+        makeURLSession()
+    }
+
+    internal func id() -> ID {
+        makeID()
+    }
+}
+"""
+
 // provider 없는 graph의 member 미추가 확인
 @Test
 func emptyGraphDoesNotAddMember() {
@@ -97,6 +145,16 @@ func createsAccessorsFromConcreteReturnTypes() {
 	assertMacroExpansion(
 		appGraphSource,
 		expandedSource: expandedAppGraphSource,
+		macros: testMacros
+	)
+}
+
+// 숫자가 이어지는 initialism 접근자 이름 확인
+@Test
+func createsAccessorsForInitialismsWithDigits() {
+	assertMacroExpansion(
+		initialismGraphSource,
+		expandedSource: expandedInitialismGraphSource,
 		macros: testMacros
 	)
 }

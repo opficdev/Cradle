@@ -182,6 +182,10 @@ private func lowerCamelCase(_ name: String) -> String {
 	if uppercaseCount == 1 {
 		return String(first).lowercased() + String(characters.dropFirst())
 	}
+	if !characters[uppercaseCount].isLowercase {
+		let prefix = String(characters.prefix(uppercaseCount)).lowercased()
+		return prefix + String(characters.dropFirst(uppercaseCount))
+	}
 
 	let prefix = String(characters.prefix(uppercaseCount - 1)).lowercased()
 	return prefix + String(characters.dropFirst(uppercaseCount - 1))
