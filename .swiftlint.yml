@@ -1,0 +1,15 @@
+disabled_rules:
+  - nesting
+
+included:
+  - Sources
+  - Tests
+
+line_length:
+  ignores_comments: true
+  ignores_interpolated_strings: true
+  ignores_multiline_strings: true
+
+reporter: "xcode"
+
+strict: true
