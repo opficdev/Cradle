@@ -26,11 +26,34 @@ func publicAccessorCannotExposeInternalReturnType() throws {
 		.deletingLastPathComponent()
 		.deletingLastPathComponent()
 		.appendingPathComponent("CompileFixtures/PublicGraphLeaksInternalService")
-	// build 전용 임시 scratch 경로
-	let scratchDirectory = FileManager.default.temporaryDirectory
+	// fixture build 자료를 함께 정리할 임시 directory
+	let temporaryDirectory = FileManager.default.temporaryDirectory
 		.appendingPathComponent(UUID().uuidString)
+	// SwiftPM build artifact 전용 scratch 경로
+	let scratchDirectory = temporaryDirectory
+		.appendingPathComponent("scratch")
+	// compiler output 기록 file 경로
+	let outputFileURL = temporaryDirectory
+		.appendingPathComponent("compiler-output.log")
+	try FileManager.default.createDirectory(
+		at: temporaryDirectory,
+		withIntermediateDirectories: true
+	)
 	defer {
-		try? FileManager.default.removeItem(at: scratchDirectory)
+		try? FileManager.default.removeItem(at: temporaryDirectory)
+	}
+	// compiler output file 생성 결과
+	let createdOutputFile = FileManager.default.createFile(
+		atPath: outputFileURL.path,
+		contents: nil
+	)
+	guard createdOutputFile else {
+		throw CocoaError(.fileWriteUnknown)
+	}
+	// compiler output 기록 file handle
+	let outputFileHandle = try FileHandle(forWritingTo: outputFileURL)
+	defer {
+		try? outputFileHandle.close()
 	}
 	// fixture build process
 	let process = Process()
@@ -43,17 +66,17 @@ func publicAccessorCannotExposeInternalReturnType() throws {
 		"--scratch-path",
 		scratchDirectory.path
 	]
-	// compiler output 수집 pipe
-	let outputPipe = Pipe()
-	process.standardOutput = outputPipe
-	process.standardError = outputPipe
+	// compiler output 기록 file 연결
+	process.standardOutput = outputFileHandle
+	process.standardError = outputFileHandle
 
 	try process.run()
 	process.waitUntilExit()
+	try outputFileHandle.close()
 
 	// access-control 오류 확인용 compiler output
 	let output = String(
-		data: outputPipe.fileHandleForReading.readDataToEndOfFile(),
+		data: try Data(contentsOf: outputFileURL),
 		encoding: .utf8
 	) ?? ""
 
