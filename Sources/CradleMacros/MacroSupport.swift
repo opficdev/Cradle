@@ -111,7 +111,8 @@ func accessLevel(of graph: ClassDeclSyntax) -> AccessLevel {
 func instanceMemberNames(in graph: ClassDeclSyntax) -> Set<String> {
 	graph.memberBlock.members.reduce(into: Set<String>()) { names, member in
 		if let function = member.decl.as(FunctionDeclSyntax.self),
-			!hasTypeMemberModifier(in: function.modifiers) {
+			!hasTypeMemberModifier(in: function.modifiers),
+			function.signature.parameterClause.parameters.isEmpty {
 			names.insert(function.name.text)
 			return
 		}
