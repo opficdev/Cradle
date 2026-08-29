@@ -100,3 +100,42 @@ func createsAccessorsFromConcreteReturnTypes() {
 		macros: testMacros
 	)
 }
+
+// graph 접근 수준을 따르는 생성 접근자 확인
+@Test
+func accessorsUseTheGraphAccessLevel() {
+	// graph와 생성 접근자의 기대 접근 수준
+	let fixtures = [
+		("private", "private"),
+		("fileprivate", "fileprivate"),
+		("", "internal"),
+		("internal", "internal"),
+		("package", "package"),
+		("public", "public")
+	]
+
+	for (graphAccess, accessorAccess) in fixtures {
+		// Macro 입력에 사용할 graph 접근 수정자
+		let graphModifier = graphAccess.isEmpty ? "" : "\(graphAccess) "
+
+		assertMacroExpansion(
+			"""
+			@DependencyGraph
+			\(graphModifier)final class Graph {
+				@Provide
+				private func makeService() -> Service { Service() }
+			}
+			""",
+			expandedSource: """
+			\(graphModifier)final class Graph {
+				private func makeService() -> Service { Service() }
+
+			    \(accessorAccess) func service() -> Service {
+			        makeService()
+			    }
+			}
+			""",
+			macros: testMacros
+		)
+	}
+}

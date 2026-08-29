@@ -30,9 +30,14 @@ let package = Package(
 			]
 		),
 		.target(name: "Cradle", dependencies: ["CradleMacros"]),
+		.target(
+			name: "CradleConsumerFixture",
+			dependencies: ["Cradle"],
+			path: "Tests/CradleConsumerFixture"
+		),
 		.testTarget(
 			name: "CradleTests",
-			dependencies: ["Cradle"]
+			dependencies: ["Cradle", "CradleConsumerFixture"]
 		),
 		.testTarget(
 			name: "CradleMacrosTests",

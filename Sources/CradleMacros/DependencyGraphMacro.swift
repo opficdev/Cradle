@@ -29,6 +29,8 @@ struct DependencyGraphMacro: MemberMacro {
 
 		// graph 본체에서 읽은 provider 검증 결과
 		let providerResult = providers(in: graph, context: context)
+		// 생성 접근자에 적용할 graph 접근 수준
+		let graphAccess = accessLevel(of: graph)
 		// 기존 instance member 이름
 		let memberNames = instanceMemberNames(in: graph)
 		// 생성 접근자 이름 충돌 검증 결과
@@ -43,9 +45,12 @@ struct DependencyGraphMacro: MemberMacro {
 		}
 
 		return providerResult.descriptors.map { provider in
-			DeclSyntax(
+			// graph 접근 수준을 포함한 생성 접근자 선언부
+			let accessorSignature = "\(graphAccess.rawValue) func \(provider.accessorName)()"
+
+			return DeclSyntax(
 				"""
-				internal func \(raw: provider.accessorName)() -> \(raw: provider.returnType.trimmedDescription) {
+				\(raw: accessorSignature) -> \(raw: provider.returnType.trimmedDescription) {
 				    \(raw: provider.factoryName)()
 				}
 				"""

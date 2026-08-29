@@ -9,6 +9,15 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftDiagnostics
 
+// graph 생성 접근자에 적용할 Swift 접근 수준
+enum AccessLevel: String {
+	case `private`
+	case `fileprivate`
+	case `internal`
+	case `package`
+	case `public`
+}
+
 // G1 Macro 오류 message 정의
 enum CradleMacroDiagnostic: DiagnosticMessage {
 	case invalidGraph
@@ -86,6 +95,16 @@ func provideAttribute(in declaration: some DeclSyntaxProtocol) -> AttributeSynta
 	declaration.asProtocol(WithAttributesSyntax.self).flatMap { attributed in
 		attribute(named: "Provide", in: attributed.attributes)
 	}
+}
+
+// graph 선언의 생성 접근자 적용 수준 반환
+func accessLevel(of graph: ClassDeclSyntax) -> AccessLevel {
+	for modifier in graph.modifiers {
+		if let level = AccessLevel(rawValue: modifier.name.text) {
+			return level
+		}
+	}
+	return .internal
 }
 
 // graph 직접 instance member 이름 수집
