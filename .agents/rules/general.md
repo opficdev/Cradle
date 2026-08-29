@@ -16,7 +16,8 @@
 
 ## Development Comments
 
-- Write development comments in Korean, matching the commit-message language policy.
+- Use `//` for development comments. Do not use `///` for development comments.
+- Write development comments in Korean noun phrases, matching the prose form used in internal commit messages.
 - Add a concise comment to each implementation type, variable, and method that explains its intended use and core logic.
 - Keep implementation names in comments in their original form.
 
