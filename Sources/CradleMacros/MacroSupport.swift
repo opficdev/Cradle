@@ -126,10 +126,18 @@ func providerParameterDescriptors(
 		}
 		// 의존성 평가를 지연시키는 매개변수 type attribute
 		let attributes = parameter.type.as(AttributedTypeSyntax.self)?.attributes ?? []
+		// 입력 AST의 식별자로 백틱 표기까지 포함한 autoclosure 감지
+		let hasAutoclosure = attributes.contains { element in
+			guard let attribute = element.as(AttributeSyntax.self),
+				let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
+				return false
+			}
+			return identifier.name.identifier?.name == "autoclosure"
+		}
 		guard parameter.defaultValue == nil,
 			parameter.ellipsis == nil,
 			!hasUnsupportedSpecifier,
-			!containsAttribute(named: "autoclosure", in: attributes),
+			!hasAutoclosure,
 			localName != "_" else {
 			return nil
 		}

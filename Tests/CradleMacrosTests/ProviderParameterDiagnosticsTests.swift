@@ -45,6 +45,42 @@ func providerParameterDiagnosticsRejectUnsupportedSyntax(parameter: String) {
 	)
 }
 
+// 등록된 의존성이 있어도 백틱 autoclosure와 escaping 조합을 거부하는지 확인
+@Test(arguments: [
+	"@`autoclosure`",
+	"@`autoclosure` @escaping",
+	"@escaping @`autoclosure`",
+	"@`autoclosure` @`escaping`"
+])
+func providerParameterDiagnosticsRejectEscapedAutoclosure(attributes: String) {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide
+			private func makeFeature(service: \(attributes) () -> Service) -> Feature { Feature() }
+			@Provide
+			private func makeService() -> Service { Service() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeFeature(service: \(attributes) () -> Service) -> Feature { Feature() }
+			private func makeService() -> Service { Service() }
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
+					+ "등록 생성 접근자와 일치해야 합니다.",
+				line: 3,
+				column: 2
+			)
+		],
+		macros: testMacros
+	)
+}
+
 // 일반 graph member나 누락 이름으로 provider 연결을 대신하지 않는지 확인
 @Test(arguments: [
 	"// 등록 provider 없음",
