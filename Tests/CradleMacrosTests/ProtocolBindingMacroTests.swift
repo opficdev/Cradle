@@ -187,3 +187,27 @@ func protocolBindingPreservesEscapedNames() {
 		macros: testMacros
 	)
 }
+
+// 프로토콜 반환 접근자에 그래프의 공개 접근 수준 적용 확인
+@Test
+func protocolBindingPreservesGraphAccessLevel() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		public final class Graph {
+			@Provide
+			private func makeRepository() -> any Repository { InternalRepository() }
+		}
+		""",
+		expandedSource: """
+		public final class Graph {
+			private func makeRepository() -> any Repository { InternalRepository() }
+
+		    public func repository() -> any Repository {
+		        makeRepository()
+		    }
+		}
+		""",
+		macros: testMacros
+	)
+}

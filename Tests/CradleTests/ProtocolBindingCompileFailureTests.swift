@@ -18,13 +18,14 @@ private struct ProtocolBindingCompileResult {
 	let output: String
 }
 
-// 프로토콜 반환과 의존성 전달의 타입 오류를 Swift 컴파일러가 거부하는지 확인
+// 프로토콜 반환·인자 전달·공개 접근 수준의 오류를 Swift 컴파일러가 거부하는지 확인
 @Test
 func protocolBindingRejectsInvalidConsumerPrograms() throws {
 	// 의도한 오류별 fixture와 반드시 포함할 타입 이름
 	let cases = [
 		("ProtocolBindingNonconformingImplementation", ["NonconformingRepository", "RequiredRepository"]),
-		("ProtocolBindingMismatchedDependency", ["ProvidedRepository", "ExpectedRepository"])
+		("ProtocolBindingMismatchedDependency", ["ProvidedRepository", "ExpectedRepository"]),
+		("PublicGraphLeaksInternalProtocol", ["InternalRepositoryContract"])
 	]
 
 	for (name, requiredTypes) in cases {
@@ -42,8 +43,11 @@ func protocolBindingRejectsInvalidConsumerPrograms() throws {
 		if name == "ProtocolBindingNonconformingImplementation" {
 			#expect(result.output.contains("return expression of type"))
 			#expect(result.output.contains("does not conform"))
-		} else {
+		} else if name == "ProtocolBindingMismatchedDependency" {
 			#expect(result.output.contains("does not conform") || result.output.contains("cannot convert"))
+		} else {
+			#expect(result.output.contains("method cannot be declared public"))
+			#expect(result.output.contains("internal type"))
 		}
 	}
 }
