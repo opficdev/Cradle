@@ -63,5 +63,5 @@ func missingProviderDependencyFailsAtBuildTime() throws {
 
 	#expect(process.terminationReason == .exit)
 	#expect(process.terminationStatus != 0)
-	#expect(output.contains("지역 이름이 등록 생성 접근자와 일치해야 합니다"))
+	#expect(output.contains("`makeMissingService`의 매개변수 `missingRepository`에 대응하는 등록이 없습니다."))
 }
