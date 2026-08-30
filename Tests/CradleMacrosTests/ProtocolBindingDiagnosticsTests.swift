@@ -29,10 +29,12 @@ func protocolBindingRejectsMissingAccessor() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				id: .init(domain: "Cradle", id: "invalidProviderParameter"),
-				message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 등록 생성 접근자와 일치해야 합니다.",
-				line: 3,
-				column: 2
+				id: .init(domain: "Cradle", id: "missingRegistration"),
+				message: "`makeConsumer`의 매개변수 `missing`에 대응하는 등록이 없습니다.",
+				line: 4,
+				column: 28,
+				highlights: ["missing"],
+				notes: [NoteSpec(message: "`makeConsumer` Factory가 이 의존성을 요구합니다.", line: 3, column: 2)]
 			)
 		],
 		macros: testMacros

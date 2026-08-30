@@ -96,6 +96,8 @@ struct ProviderParameterDescriptor {
 	let externalLabel: String?
 	// 의존 생성 접근자와 일치할 지역 이름
 	let localName: String
+	// 누락 오류를 표시할 원본 지역 이름 토큰
+	let localNameToken: TokenSyntax
 
 	// 외부 인자 레이블을 보존한 생성 접근자 호출
 	func factoryArgument(accessorName: String) -> String {
@@ -146,7 +148,8 @@ func providerParameterDescriptors(
 		descriptors.append(
 			ProviderParameterDescriptor(
 				externalLabel: label == "_" ? nil : label,
-				localName: localName
+				localName: localName,
+				localNameToken: name
 			)
 		)
 	}

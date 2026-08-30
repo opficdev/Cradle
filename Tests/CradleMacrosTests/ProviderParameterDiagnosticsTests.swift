@@ -108,10 +108,12 @@ func providerParameterDiagnosticsRejectNonProviderConnection(member: String) {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
-					+ "등록 생성 접근자와 일치해야 합니다.",
-				line: 4,
-				column: 2
+				id: .init(domain: "Cradle", id: "missingRegistration"),
+				message: "`makeService`의 매개변수 `dependency`에 대응하는 등록이 없습니다.",
+				line: 5,
+				column: 27,
+				highlights: ["dependency"],
+				notes: [NoteSpec(message: "`makeService` Factory가 이 의존성을 요구합니다.", line: 4, column: 2)]
 			)
 		],
 		macros: testMacros
@@ -139,10 +141,12 @@ func providerParameterDiagnosticsRequireExactAccessorName() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
-					+ "등록 생성 접근자와 일치해야 합니다.",
-				line: 3,
-				column: 2
+				id: .init(domain: "Cradle", id: "missingRegistration"),
+				message: "`makeClient`의 매개변수 `urlsession`에 대응하는 등록이 없습니다.",
+				line: 4,
+				column: 26,
+				highlights: ["urlsession"],
+				notes: [NoteSpec(message: "`makeClient` Factory가 이 의존성을 요구합니다.", line: 3, column: 2)]
 			)
 		],
 		macros: testMacros

@@ -143,7 +143,19 @@ struct DependencyGraphMacro: MemberMacro {
 		for provider in providers {
 			for parameter in provider.parameters where accessorNames[parameter.localName] == nil {
 				context.diagnose(
-					Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.invalidProviderParameter)
+					Diagnostic(
+						node: parameter.localNameToken,
+						message: MissingRegistrationDiagnostic(
+							factoryName: provider.factoryName,
+							localName: parameter.localName
+						),
+						notes: [
+							Note(
+								node: Syntax(provider.attribute),
+								message: MissingRegistrationProviderNote(factoryName: provider.factoryName)
+							)
+						]
+					)
 				)
 				hasError = true
 			}
