@@ -8,8 +8,12 @@
 import SwiftSyntaxMacrosTestSupport
 import Testing
 
-// G1 범위 밖 반환 타입 거부 확인
-@Test(arguments: ["some Service", "Service?", "[Service]", "(Service, Service)", "() -> Service"])
+// 명목 타입과 단일 프로토콜 외 반환 문법 거부 확인
+@Test(arguments: [
+	"some Service", "Service?", "[Service]", "(Service, Service)", "() -> Service",
+	"any Service & OtherService", "any Service<Value>", "any Domain<Value>.Service",
+	"(any Service)?", "[any Service]", "any Service.Type", "(any Service).Type"
+])
 func dependencyGraphRejectsRemainingUnsupportedProviderReturnTypes(returnType: String) {
 	// Macro 확장 입력 source
 	let source = """
@@ -31,7 +35,36 @@ func dependencyGraphRejectsRemainingUnsupportedProviderReturnTypes(returnType: S
 		expandedSource: expandedSource,
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` 반환 타입은 generic argument가 없는 구체 명목 타입이어야 합니다.",
+				id: .init(domain: "Cradle", id: "unsupportedProviderResult"),
+				message: "`@Provide` 반환 타입은 제네릭 인자가 없는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다.",
+				line: 3,
+				column: 2
+			)
+		],
+		macros: testMacros
+	)
+}
+
+// 명시적으로 합성한 프로토콜 반환 타입 거부 확인
+@Test
+func dependencyGraphRejectsProtocolCompositionReturnType() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide
+			private func makeService() -> any Service & OtherService { Service() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeService() -> any Service & OtherService { Service() }
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "unsupportedProviderResult"),
+				message: "`@Provide` 반환 타입은 제네릭 인자가 없는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다.",
 				line: 3,
 				column: 2
 			)

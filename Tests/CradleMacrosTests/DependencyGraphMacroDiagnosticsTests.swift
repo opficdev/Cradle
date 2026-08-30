@@ -226,33 +226,6 @@ func dependencyGraphRejectsProviderWithoutReturnType() {
 	)
 }
 
-// 구체 명목 타입 아닌 반환값 거부 확인
-@Test
-func dependencyGraphRejectsUnsupportedProviderReturnType() {
-	assertMacroExpansion(
-		"""
-		@DependencyGraph
-		final class Graph {
-			@Provide
-			private func makeService() -> any Service { Service() }
-		}
-		""",
-		expandedSource: """
-		final class Graph {
-			private func makeService() -> any Service { Service() }
-		}
-		""",
-		diagnostics: [
-			DiagnosticSpec(
-				message: "`@Provide` 반환 타입은 generic argument가 없는 구체 명목 타입이어야 합니다.",
-				line: 3,
-				column: 2
-			)
-		],
-		macros: testMacros
-	)
-}
-
 // generic specialization 반환 타입 거부 확인
 @Test
 func dependencyGraphRejectsGenericSpecializationReturnType() {
@@ -271,7 +244,8 @@ func dependencyGraphRejectsGenericSpecializationReturnType() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` 반환 타입은 generic argument가 없는 구체 명목 타입이어야 합니다.",
+				id: .init(domain: "Cradle", id: "unsupportedProviderResult"),
+				message: "`@Provide` 반환 타입은 제네릭 인자가 없는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다.",
 				line: 3,
 				column: 2
 			)
