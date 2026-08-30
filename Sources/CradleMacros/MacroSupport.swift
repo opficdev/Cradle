@@ -116,9 +116,12 @@ func providerParameterDescriptors(
 		let hasUnsupportedSpecifier = parameter.type.tokens(viewMode: .sourceAccurate).contains { token in
 			token.tokenKind == .keyword(.inout) || token.tokenKind == .keyword(.some)
 		}
+		// 의존성 평가를 지연시키는 매개변수 type attribute
+		let attributes = parameter.type.as(AttributedTypeSyntax.self)?.attributes ?? []
 		guard parameter.defaultValue == nil,
 			parameter.ellipsis == nil,
 			!hasUnsupportedSpecifier,
+			!containsAttribute(named: "autoclosure", in: attributes),
 			localName != "_" else {
 			return nil
 		}

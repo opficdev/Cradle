@@ -15,7 +15,9 @@ import Testing
 	"service: inout Service",
 	"_ _: Service",
 	"service: some Service",
-	"services: [some Service]"
+	"services: [some Service]",
+	"service: @autoclosure () -> Service",
+	"service: @autoclosure @escaping () -> Service"
 ])
 func providerParameterDiagnosticsRejectUnsupportedSyntax(parameter: String) {
 	assertMacroExpansion(
