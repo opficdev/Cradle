@@ -28,7 +28,6 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 	case missingProviderResultOrBody
 	case unsupportedProviderResult
 	case invalidAccessorName
-	case duplicateAccessor
 	case existingMemberCollision
 
 	// Cradle Macro diagnostic 식별자
@@ -57,8 +56,6 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 			"`@Provide` 반환 타입은 제네릭 인자가 없는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다."
 		case .invalidAccessorName:
 			"`@Provide` 반환 타입에서 유효한 생성 접근자 이름을 만들 수 없습니다."
-		case .duplicateAccessor:
-			"반환 타입이 만드는 생성 접근자 이름이 중복됩니다."
 		case .existingMemberCollision:
 			"생성 접근자 이름이 기존 instance member와 충돌합니다."
 		}

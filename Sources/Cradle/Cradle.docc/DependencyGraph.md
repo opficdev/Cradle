@@ -190,6 +190,48 @@ Factory 이름은 생성 접근자 이름에 영향을 주지 않습니다. 매�
 | `SHA256` | `sha256()` |
 | `HTTP2Client` | `http2Client()` |
 
+### 중복 등록 진단
+
+같은 그래프에서 백틱 표기를 제외한 생성 접근자 이름이 같으면 매크로가 중복 등록을 오류로 진단합니다. Factory 이름을 바꿔도 반환 타입에서 만드는 접근자 이름이 같으면 충돌합니다. 매크로는 `typealias`가 가리키는 실제 타입이나 프로토콜 선언을 분석해 중복을 판단하지 않습니다.
+
+다음 구성에서는 두 Factory의 반환 타입이 모두 `any Repository`여서 생성 접근자 이름 `repository`가 중복됩니다.
+
+```swift
+import Cradle
+
+protocol Repository {}
+struct FirstRepository: Repository {}
+struct SecondRepository: Repository {}
+
+@DependencyGraph
+final class AppGraph {
+	@Provide
+	private func makeFirst() -> any Repository {
+		FirstRepository()
+	}
+
+	@Provide
+	private func makeSecond() -> any Repository {
+		SecondRepository()
+	}
+}
+```
+
+매크로는 충돌 그룹에서 처음 선언된 Factory의 반환 타입에 오류 하나를 표시하고 반환 타입 전체를 강조합니다. 위 예시에서는 `makeFirst()`의 `any Repository`를 가리킵니다.
+
+```text
+error: `repository` 생성 접근자를 만드는 등록이 중복됩니다.
+```
+
+같은 그룹의 모든 `@Provide`에는 Factory 이름과 반환 타입을 담은 보조 설명을 표시합니다. 첫 번째 Factory의 등록 위치도 포함하므로 위 예시에서는 두 보조 설명을 확인할 수 있습니다.
+
+```text
+note: `makeFirst` Factory의 등록입니다. 반환 타입은 `any Repository`입니다.
+note: `makeSecond` Factory의 등록입니다. 반환 타입은 `any Repository`입니다.
+```
+
+등록이 세 개 이상 겹쳐도 그룹마다 오류 하나와 등록 수만큼의 보조 설명을 표시합니다. 그룹과 보조 설명은 Factory 선언 순서를 따릅니다. 첫 번째 Factory는 오류 위치를 정하는 기준일 뿐 우선 등록으로 선택되지 않습니다. 중복이 발견되면 관련 없는 유효 등록을 포함해 그래프의 생성 접근자를 하나도 만들지 않습니다.
+
 ## 접근 수준과 초기화
 
 생성 접근자는 그래프와 같은 접근 수준을 가집니다. `public` 그래프를 다른 모듈에서 사용하려면 그래프가 `public init()`을 직접 선언해야 합니다. `public` 생성 접근자의 반환 타입도 외부에서 접근할 수 있어야 합니다.

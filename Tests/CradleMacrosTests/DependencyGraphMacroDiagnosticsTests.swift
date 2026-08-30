@@ -275,14 +275,15 @@ func dependencyGraphRejectsDuplicateAccessorName() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "반환 타입이 만드는 생성 접근자 이름이 중복됩니다.",
-				line: 3,
-				column: 2
-			),
-			DiagnosticSpec(
-				message: "반환 타입이 만드는 생성 접근자 이름이 중복됩니다.",
-				line: 5,
-				column: 2
+				id: .init(domain: "Cradle", id: "duplicateAccessor"),
+				message: "`service` 생성 접근자를 만드는 등록이 중복됩니다.",
+				line: 4,
+				column: 30,
+				highlights: ["Service"],
+				notes: [
+					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `Service`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 반환 타입은 `Feature.Service`입니다.", line: 5, column: 2)
+				]
 			)
 		],
 		macros: testMacros
