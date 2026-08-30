@@ -23,7 +23,9 @@ final class MissingProviderDependencyGraph {
 
 	// 등록되지 않은 지역 이름을 요구하는 provider
 	@Provide
-	private func makeMissingService(missingRepository: MissingRepository) -> MissingService {
+	private func makeMissingService(
+		repository missingRepository: MissingRepository
+	) -> MissingService {
 		MissingService()
 	}
 }
