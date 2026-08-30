@@ -76,14 +76,15 @@ func providerDependencyConnectionRejectsEscapedDuplicateAccessors() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "반환 타입이 만드는 생성 접근자 이름이 중복됩니다.",
-				line: 3,
-				column: 2
-			),
-			DiagnosticSpec(
-				message: "반환 타입이 만드는 생성 접근자 이름이 중복됩니다.",
-				line: 5,
-				column: 2
+				id: .init(domain: "Cradle", id: "duplicateAccessor"),
+				message: "`dependency` 생성 접근자를 만드는 등록이 중복됩니다.",
+				line: 4,
+				column: 30,
+				highlights: ["dependency"],
+				notes: [
+					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `dependency`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 반환 타입은 ``dependency``입니다.", line: 5, column: 2)
+				]
 			)
 		],
 		macros: testMacros

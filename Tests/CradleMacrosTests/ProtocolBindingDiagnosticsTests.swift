@@ -63,15 +63,18 @@ func protocolBindingRejectsDuplicateAccessors() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "duplicateAccessor"),
-				message: "반환 타입이 만드는 생성 접근자 이름이 중복됩니다.",
-				line: 3,
-				column: 2
-			),
-			DiagnosticSpec(
-				id: .init(domain: "Cradle", id: "duplicateAccessor"),
-				message: "반환 타입이 만드는 생성 접근자 이름이 중복됩니다.",
-				line: 5,
-				column: 2
+				message: "`repository` 생성 접근자를 만드는 등록이 중복됩니다.",
+				line: 4,
+				column: 30,
+				highlights: ["any Repository"],
+				notes: [
+					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `any Repository`입니다.", line: 3, column: 2),
+					NoteSpec(
+						message: "`makeSecond` Factory의 등록입니다. 반환 타입은 `any Domain.Repository`입니다.",
+						line: 5,
+						column: 2
+					)
+				]
 			)
 		],
 		macros: testMacros
