@@ -47,11 +47,13 @@ struct DependencyGraphMacro: MemberMacro {
 		return providerResult.descriptors.map { provider in
 			// graph 접근 수준을 포함한 생성 접근자 선언부
 			let accessorSignature = "\(graphAccess.rawValue) func \(provider.accessorName)()"
+			// 선언 순서와 외부 레이블을 보존한 provider factory 인자
+			let arguments = provider.parameters.map(\.factoryArgument).joined(separator: ", ")
 
 			return DeclSyntax(
 				"""
 				\(raw: accessorSignature) -> \(raw: provider.returnType.trimmedDescription) {
-				    \(raw: provider.factoryName)()
+				    \(raw: provider.factoryName)(\(raw: arguments))
 				}
 				"""
 			)
@@ -116,7 +118,7 @@ struct DependencyGraphMacro: MemberMacro {
 		return hasError
 	}
 
-	// G1의 정상 provider 문법을 접근자 생성 정보로 변환
+	// 정상 provider 문법을 접근자 생성 정보로 변환
 	private static func providerDescriptor(
 		from function: FunctionDeclSyntax,
 		attribute: AttributeSyntax,
@@ -127,11 +129,16 @@ struct DependencyGraphMacro: MemberMacro {
 			return nil
 		}
 		guard !isTypeMember(function),
-			function.signature.parameterClause.parameters.isEmpty,
 			function.genericParameterClause == nil,
 			function.genericWhereClause == nil,
 			function.signature.effectSpecifiers == nil else {
 			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderSignature))
+			return nil
+		}
+		guard let parameters = providerParameterDescriptors(
+			from: function.signature.parameterClause.parameters
+		) else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderParameter))
 			return nil
 		}
 		guard let returnClause = function.signature.returnClause,
@@ -152,7 +159,8 @@ struct DependencyGraphMacro: MemberMacro {
 			attribute: attribute,
 			factoryName: function.name.text,
 			returnType: returnClause.type,
-			accessorName: accessorName
+			accessorName: accessorName,
+			parameters: parameters
 		)
 	}
 
