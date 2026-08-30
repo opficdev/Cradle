@@ -43,6 +43,9 @@ struct DependencyGraphMacro: MemberMacro {
 		guard !providerResult.hasError, !hasAccessorError else {
 			return []
 		}
+		guard !diagnoseProviderParameterErrors(in: providerResult.descriptors, context: context) else {
+			return []
+		}
 
 		return providerResult.descriptors.map { provider in
 			// graph 접근 수준을 포함한 생성 접근자 선언부
@@ -111,6 +114,28 @@ struct DependencyGraphMacro: MemberMacro {
 			}
 			if memberNames.contains(provider.accessorName) {
 				context.diagnose(Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.existingMemberCollision))
+				hasError = true
+			}
+		}
+
+		return hasError
+	}
+
+	// provider 생성 접근자 집합에 없는 매개변수 연결 진단
+	private static func diagnoseProviderParameterErrors(
+		in providers: [ProviderDescriptor],
+		context: some MacroExpansionContext
+	) -> Bool {
+		// 현재 graph의 provider가 생성할 접근자 이름
+		let accessorNames = Set(providers.map(\.accessorName))
+		// provider 매개변수 연결 오류 포함 여부
+		var hasError = false
+
+		for provider in providers {
+			for parameter in provider.parameters where !accessorNames.contains(parameter.localName) {
+				context.diagnose(
+					Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.invalidProviderParameter)
+				)
 				hasError = true
 			}
 		}
