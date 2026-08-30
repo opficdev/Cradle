@@ -54,7 +54,7 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 		case .missingProviderResultOrBody:
 			"`@Provide` factory는 명시적 반환 타입과 본문이 필요합니다."
 		case .unsupportedProviderResult:
-			"`@Provide` 반환 타입은 generic argument가 없는 구체 명목 타입이어야 합니다."
+			"`@Provide` 반환 타입은 제네릭 인자가 없는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다."
 		case .invalidAccessorName:
 			"`@Provide` 반환 타입에서 유효한 생성 접근자 이름을 만들 수 없습니다."
 		case .duplicateAccessor:
@@ -214,9 +214,16 @@ private func hasTypeMemberModifier(in modifiers: DeclModifierListSyntax) -> Bool
 	}
 }
 
-// 구체 명목 반환 타입 마지막 identifier의 접근자 이름 변환
+// 명목 타입과 단일 프로토콜 반환 타입의 접근자 이름 생성
 func accessorName(for returnType: TypeSyntax) -> String? {
-	guard let identifier = terminalIdentifier(in: returnType) else {
+	// 최상위 any 표기만 제거한 이름 분석용 타입
+	let type = if let existential = returnType.as(SomeOrAnyTypeSyntax.self),
+		existential.someOrAnySpecifier.tokenKind == .keyword(.any) {
+		existential.constraint
+	} else {
+		returnType
+	}
+	guard let identifier = terminalIdentifier(in: type) else {
 		return nil
 	}
 	return lowerCamelCase(identifier)
