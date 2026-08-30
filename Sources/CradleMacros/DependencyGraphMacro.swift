@@ -112,14 +112,34 @@ struct DependencyGraphMacro: MemberMacro {
 		memberNames: Set<String>,
 		context: some MacroExpansionContext
 	) -> Bool {
-		let counts = providers.reduce(into: [String: Int]()) { counts, provider in
-			counts[provider.accessorIdentifier, default: 0] += 1
-		}
-
+		// 같은 생성 접근자의 원본 등록을 선언 순서대로 보관
+		let groups = Dictionary(grouping: providers, by: \.accessorIdentifier)
+		// 이미 오류를 표시한 중복 그룹의 식별자
+		var reported = Set<String>()
+		// 중복 등록 또는 기존 멤버 충돌 포함 여부
 		var hasError = false
 		for provider in providers {
-			if counts[provider.accessorIdentifier] != 1 {
-				context.diagnose(Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.duplicateAccessor))
+			// 현재 등록의 백틱 정규화 접근자 식별자
+			let identifier = provider.accessorIdentifier
+			// 중복 그룹의 첫 등록에서만 원본 반환 타입 오류 발행
+			if let group = groups[identifier], 1 < group.count, reported.insert(identifier).inserted {
+				// 대표를 포함한 모든 충돌 Factory의 등록 위치 연결
+				let notes = group.map { registration in
+					Note(
+						node: Syntax(registration.attribute),
+						message: DuplicateRegistrationProviderNote(
+							factoryName: registration.factoryName,
+							returnType: registration.returnType.trimmedDescription
+						)
+					)
+				}
+				context.diagnose(
+					Diagnostic(
+						node: provider.returnType,
+						message: DuplicateRegistrationDiagnostic(accessorIdentifier: identifier),
+						notes: notes
+					)
+				)
 				hasError = true
 			}
 			if memberNames.contains(provider.accessorName) {
