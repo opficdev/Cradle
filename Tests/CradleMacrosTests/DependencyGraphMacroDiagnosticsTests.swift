@@ -145,25 +145,25 @@ func dependencyGraphRejectsNonPrivateProvider() {
 	)
 }
 
-// 매개변수와 effect specifier provider 거부 확인
+// effect specifier provider 거부 확인
 @Test
-func dependencyGraphRejectsProviderWithParameterAndEffect() {
+func dependencyGraphRejectsProviderEffect() {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
 		final class Graph {
 			@Provide
-			private func makeService(value: Value) async throws -> Service { Service() }
+			private func makeService() async throws -> Service { Service() }
 		}
 		""",
 		expandedSource: """
 		final class Graph {
-			private func makeService(value: Value) async throws -> Service { Service() }
+			private func makeService() async throws -> Service { Service() }
 		}
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` factory는 매개변수, generic, type method, `async`, `throws`, `rethrows`를 가질 수 없습니다.",
+				message: "`@Provide` factory는 generic, type method, `async`, `throws`, `rethrows`를 가질 수 없습니다.",
 				line: 3,
 				column: 2
 			)
@@ -190,7 +190,7 @@ func dependencyGraphRejectsGenericTypeMemberProvider() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` factory는 매개변수, generic, type method, `async`, `throws`, `rethrows`를 가질 수 없습니다.",
+				message: "`@Provide` factory는 generic, type method, `async`, `throws`, `rethrows`를 가질 수 없습니다.",
 				line: 3,
 				column: 2
 			)

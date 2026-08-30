@@ -18,12 +18,13 @@ enum AccessLevel: String {
 	case `public`
 }
 
-// G1 Macro 오류 message 정의
+// Cradle Macro 오류 message 정의
 enum CradleMacroDiagnostic: DiagnosticMessage {
 	case invalidGraph
 	case invalidProvidePlacement
 	case invalidProviderDeclaration
 	case invalidProviderSignature
+	case invalidProviderParameter
 	case missingProviderResultOrBody
 	case unsupportedProviderResult
 	case invalidAccessorName
@@ -45,8 +46,11 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 		case .invalidProviderDeclaration:
 			"`@Provide` factory는 private instance method여야 합니다."
 		case .invalidProviderSignature:
-			"`@Provide` factory는 매개변수, generic, type method, `async`, `throws`, "
+			"`@Provide` factory는 generic, type method, `async`, `throws`, "
 				+ "`rethrows`를 가질 수 없습니다."
+		case .invalidProviderParameter:
+			"`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
+				+ "등록 생성 접근자와 일치해야 합니다."
 		case .missingProviderResultOrBody:
 			"`@Provide` factory는 명시적 반환 타입과 본문이 필요합니다."
 		case .unsupportedProviderResult:
@@ -60,7 +64,7 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 		}
 	}
 
-	// G1 구성 오류 severity
+	// Cradle 구성 오류 severity
 	var severity: DiagnosticSeverity { .error }
 }
 
@@ -74,6 +78,80 @@ struct ProviderDescriptor {
 	let returnType: TypeSyntax
 	// 반환 타입에서 만든 생성 접근자 이름
 	let accessorName: String
+	// provider factory 호출에 사용할 매개변수
+	let parameters: [ProviderParameterDescriptor]
+
+	// 백틱 표기를 제외한 생성 접근자 비교용 식별자
+	var accessorIdentifier: String {
+		guard accessorName.hasPrefix("`"), accessorName.hasSuffix("`") else {
+			return accessorName
+		}
+		return String(accessorName.dropFirst().dropLast())
+	}
+}
+
+// provider factory 인자 생성용 매개변수 정보 보관
+struct ProviderParameterDescriptor {
+	// 원래 provider의 외부 인자 레이블
+	let externalLabel: String?
+	// 의존 생성 접근자와 일치할 지역 이름
+	let localName: String
+
+	// 외부 인자 레이블을 보존한 생성 접근자 호출
+	func factoryArgument(accessorName: String) -> String {
+		// 등록된 생성 접근자의 백틱 표기를 보존한 호출문
+		let dependency = "\(accessorName)()"
+		guard let externalLabel else {
+			return dependency
+		}
+		return "\(externalLabel): \(dependency)"
+	}
+}
+
+// 지원하는 provider 매개변수를 호출문 생성 정보로 변환
+func providerParameterDescriptors(
+	from parameters: FunctionParameterListSyntax
+) -> [ProviderParameterDescriptor]? {
+	// provider factory 매개변수별 호출 정보
+	var descriptors: [ProviderParameterDescriptor] = []
+
+	for parameter in parameters {
+		// 두 이름 매개변수를 포함한 지역 이름 token
+		let name = parameter.secondName ?? parameter.firstName
+		// 백틱을 제외한 실제 연결 식별자
+		let localName = name.identifier?.name ?? name.text
+		// `inout` 또는 암시적 generic을 만드는 `some` 포함 여부
+		let hasUnsupportedSpecifier = parameter.type.tokens(viewMode: .sourceAccurate).contains { token in
+			token.tokenKind == .keyword(.inout) || token.tokenKind == .keyword(.some)
+		}
+		// 의존성 평가를 지연시키는 매개변수 type attribute
+		let attributes = parameter.type.as(AttributedTypeSyntax.self)?.attributes ?? []
+		// 입력 AST의 식별자로 백틱 표기까지 포함한 autoclosure 감지
+		let hasAutoclosure = attributes.contains { element in
+			guard let attribute = element.as(AttributeSyntax.self),
+				let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
+				return false
+			}
+			return identifier.name.identifier?.name == "autoclosure"
+		}
+		guard parameter.defaultValue == nil,
+			parameter.ellipsis == nil,
+			!hasUnsupportedSpecifier,
+			!hasAutoclosure,
+			localName != "_" else {
+			return nil
+		}
+		// 백틱 표기를 보존한 외부 인자 레이블
+		let label = parameter.firstName.trimmedDescription
+		descriptors.append(
+			ProviderParameterDescriptor(
+				externalLabel: label == "_" ? nil : label,
+				localName: localName
+			)
+		)
+	}
+
+	return descriptors
 }
 
 // 지정한 이름 attribute의 선언 포함 여부 확인

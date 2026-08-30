@@ -43,15 +43,30 @@ struct DependencyGraphMacro: MemberMacro {
 		guard !providerResult.hasError, !hasAccessorError else {
 			return []
 		}
+		// 중복 검증을 통과한 식별자와 생성 접근자 원문 표기 연결
+		let accessorNames = Dictionary(uniqueKeysWithValues: providerResult.descriptors.map { provider in
+			(provider.accessorIdentifier, provider.accessorName)
+		})
+		guard !diagnoseProviderParameterErrors(
+			in: providerResult.descriptors,
+			accessorNames: accessorNames,
+			context: context
+		) else {
+			return []
+		}
 
 		return providerResult.descriptors.map { provider in
 			// graph 접근 수준을 포함한 생성 접근자 선언부
 			let accessorSignature = "\(graphAccess.rawValue) func \(provider.accessorName)()"
+			// 연결 검증을 통과한 접근자로 선언 순서와 외부 레이블을 보존한 factory 인자 생성
+			let arguments = provider.parameters.map { parameter in
+				parameter.factoryArgument(accessorName: accessorNames[parameter.localName]!)
+			}.joined(separator: ", ")
 
 			return DeclSyntax(
 				"""
 				\(raw: accessorSignature) -> \(raw: provider.returnType.trimmedDescription) {
-				    \(raw: provider.factoryName)()
+				    \(raw: provider.factoryName)(\(raw: arguments))
 				}
 				"""
 			)
@@ -98,12 +113,12 @@ struct DependencyGraphMacro: MemberMacro {
 		context: some MacroExpansionContext
 	) -> Bool {
 		let counts = providers.reduce(into: [String: Int]()) { counts, provider in
-			counts[provider.accessorName, default: 0] += 1
+			counts[provider.accessorIdentifier, default: 0] += 1
 		}
 
 		var hasError = false
 		for provider in providers {
-			if counts[provider.accessorName] != 1 {
+			if counts[provider.accessorIdentifier] != 1 {
 				context.diagnose(Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.duplicateAccessor))
 				hasError = true
 			}
@@ -116,7 +131,28 @@ struct DependencyGraphMacro: MemberMacro {
 		return hasError
 	}
 
-	// G1의 정상 provider 문법을 접근자 생성 정보로 변환
+	// provider 생성 접근자 집합에 없는 매개변수 연결 진단
+	private static func diagnoseProviderParameterErrors(
+		in providers: [ProviderDescriptor],
+		accessorNames: [String: String],
+		context: some MacroExpansionContext
+	) -> Bool {
+		// provider 매개변수 연결 오류 포함 여부
+		var hasError = false
+
+		for provider in providers {
+			for parameter in provider.parameters where accessorNames[parameter.localName] == nil {
+				context.diagnose(
+					Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.invalidProviderParameter)
+				)
+				hasError = true
+			}
+		}
+
+		return hasError
+	}
+
+	// 정상 provider 문법을 접근자 생성 정보로 변환
 	private static func providerDescriptor(
 		from function: FunctionDeclSyntax,
 		attribute: AttributeSyntax,
@@ -127,11 +163,16 @@ struct DependencyGraphMacro: MemberMacro {
 			return nil
 		}
 		guard !isTypeMember(function),
-			function.signature.parameterClause.parameters.isEmpty,
 			function.genericParameterClause == nil,
 			function.genericWhereClause == nil,
 			function.signature.effectSpecifiers == nil else {
 			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderSignature))
+			return nil
+		}
+		guard let parameters = providerParameterDescriptors(
+			from: function.signature.parameterClause.parameters
+		) else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderParameter))
 			return nil
 		}
 		guard let returnClause = function.signature.returnClause,
@@ -152,7 +193,8 @@ struct DependencyGraphMacro: MemberMacro {
 			attribute: attribute,
 			factoryName: function.name.text,
 			returnType: returnClause.type,
-			accessorName: accessorName
+			accessorName: accessorName,
+			parameters: parameters
 		)
 	}
 
