@@ -80,6 +80,14 @@ struct ProviderDescriptor {
 	let accessorName: String
 	// provider factory 호출에 사용할 매개변수
 	let parameters: [ProviderParameterDescriptor]
+
+	// 백틱 표기를 제외한 생성 접근자 비교용 식별자
+	var accessorIdentifier: String {
+		guard accessorName.hasPrefix("`"), accessorName.hasSuffix("`") else {
+			return accessorName
+		}
+		return String(accessorName.dropFirst().dropLast())
+	}
 }
 
 // provider factory 인자 생성용 매개변수 정보 보관
@@ -90,9 +98,9 @@ struct ProviderParameterDescriptor {
 	let localName: String
 
 	// 외부 인자 레이블을 보존한 생성 접근자 호출
-	var factoryArgument: String {
-		// 지역 이름에서 만든 생성 접근자 호출문
-		let dependency = "\(localName)()"
+	func factoryArgument(accessorName: String) -> String {
+		// 등록된 생성 접근자의 백틱 표기를 보존한 호출문
+		let dependency = "\(accessorName)()"
 		guard let externalLabel else {
 			return dependency
 		}
