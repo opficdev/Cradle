@@ -174,6 +174,47 @@ Factory 반환 타입에 Optional, 배열, 딕셔너리, 함수, 튜플과 메�
 
 누락 등록 오류가 발생하면 유효한 등록을 포함해 그래프의 생성 접근자를 하나도 생성하지 않습니다. 연결은 계속 이름을 기준으로 하며 누락된 등록까지의 전체 의존성 경로를 추적하는 진단은 아직 지원하지 않습니다.
 
+## 순환 의존성 경로 진단
+
+`@DependencyGraph`와 `@Provide`의 사용법은 그대로입니다. 매크로는 컴파일 시 확장 단계에서 생성 접근자 사이의 순환을 검사합니다. 문법·중복 등록·기존 멤버 충돌·누락 등록 오류가 있으면 해당 오류를 먼저 표시하고 순환 검사는 생략합니다.
+
+같은 그래프의 모든 등록을 선언 순서와 매개변수 순서에 따라 탐색합니다. 아래 구성에서는 `firstService()`가 `secondService()`를, `secondService()`가 `thirdService()`를, `thirdService()`가 다시 `firstService()`를 요구합니다.
+
+```swift
+import Cradle
+
+struct FirstService {}
+struct SecondService {}
+struct ThirdService {}
+
+@DependencyGraph
+final class AppGraph {
+	@Provide
+	private func makeFirstService(secondService: SecondService) -> FirstService { FirstService() }
+
+	@Provide
+	private func makeSecondService(thirdService: ThirdService) -> SecondService { SecondService() }
+
+	@Provide
+	private func makeThirdService(firstService: FirstService) -> ThirdService { ThirdService() }
+}
+```
+
+매크로는 순환을 닫는 `makeThirdService`의 매개변수 `firstService`에 오류를 표시합니다. 순환 경로에 포함된 각 Factory의 `@Provide`에는 경로 순서대로 보조 설명을 하나씩 표시합니다.
+
+```text
+error: `firstService → secondService → thirdService → firstService` 순환 의존성이 있습니다.
+note: `makeFirstService` Factory의 등록입니다. 생성 접근자는 `firstService`입니다.
+note: `makeSecondService` Factory의 등록입니다. 생성 접근자는 `secondService`입니다.
+note: `makeThirdService` Factory의 등록입니다. 생성 접근자는 `thirdService`입니다.
+```
+
+오류 경로는 시작한 접근자로 돌아오는 연결까지 포함합니다. 자기 순환은 `a → a`로 표시합니다. `entry → a → b → a`처럼 순환에 진입하는 경로가 따로 있으면 실제 순환인 `a → b → a`만 표시합니다. 끝에서 반복되는 등록에는 보조 설명을 다시 붙이지 않습니다.
+
+그래프마다 처음 발견한 순환 하나만 오류로 진단합니다. 순환이 있으면 관련 없는 정상 등록을 포함해 해당 그래프의 생성 접근자를 하나도 만들지 않습니다. 표시된 순환을 수정하고 다시 빌드하면 남아 있는 다른 순환을 확인할 수 있습니다.
+
+Optional 타입의 매개변수도 생성 접근자를 즉시 호출하므로 순환 검사에 포함됩니다. Factory 본문에서 직접 작성한 호출, `typealias`의 실제 타입 의미와 실행 중 발생하는 순환은 분석하지 않습니다.
+
 ## 생성 접근자 이름
 
 Factory 이름은 생성 접근자 이름에 영향을 주지 않습니다. 매크로는 반환 타입의 마지막 식별자를 lowerCamelCase로 변환해 매개변수가 없는 생성 접근자를 만듭니다.
@@ -249,4 +290,4 @@ note: `makeSecond` Factory의 등록입니다. 반환 타입은 `any Repository`
 - 등록 재정의
 - 그래프 간 연결
 - `async`, `throws` Factory
-- 누락 등록까지의 전체 의존성 경로와 순환 의존성 경로 진단
+- 누락 등록까지의 전체 의존성 경로 진단

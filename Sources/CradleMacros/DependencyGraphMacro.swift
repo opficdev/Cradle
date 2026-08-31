@@ -54,6 +54,9 @@ struct DependencyGraphMacro: MemberMacro {
 		) else {
 			return []
 		}
+		guard !diagnoseCircularDependency(in: providerResult.descriptors, context: context) else {
+			return []
+		}
 
 		return providerResult.descriptors.map { provider in
 			// graph 접근 수준을 포함한 생성 접근자 선언부
@@ -71,6 +74,36 @@ struct DependencyGraphMacro: MemberMacro {
 				"""
 			)
 		}
+	}
+
+	// 첫 순환의 닫는 매개변수와 경로에 포함된 원본 등록 위치 진단
+	private static func diagnoseCircularDependency(
+		in providers: [ProviderDescriptor],
+		context: some MacroExpansionContext
+	) -> Bool {
+		guard let cycle = firstCircularDependency(in: providers) else {
+			return false
+		}
+		// 순환 진입 전 등록과 끝의 반복 등록을 제외한 경로
+		let path = cycle.providerIndices.map { providers[$0].accessorIdentifier }
+		// 각 순환 등록의 원본 위치를 경로 순서대로 연결
+		let notes = cycle.providerIndices.map { index in
+			Note(
+				node: Syntax(providers[index].attribute),
+				message: CircularDependencyProviderNote(
+					factoryName: providers[index].factoryName,
+					accessorIdentifier: providers[index].accessorIdentifier
+				)
+			)
+		}
+		context.diagnose(
+			Diagnostic(
+				node: cycle.closingParameter.localNameToken,
+				message: CircularDependencyDiagnostic(accessorIdentifiers: path + [path[0]]),
+				notes: notes
+			)
+		)
+		return true
 	}
 
 	// graph 본체의 `@Provide` factory 검증과 수집
