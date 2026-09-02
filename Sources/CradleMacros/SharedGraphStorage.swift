@@ -82,9 +82,9 @@ struct SharedGraphStorage {
 		"\(storagePropertyName.trimmedDescription).\(provider.propertyName)"
 	}
 
-	// source graph를 받아야 하는 shared builder 여부
+	// source 저장 프로퍼티 대입 뒤 shared 저장소를 초기화할지 여부
 	var requiresSourceInitialization: Bool {
-		!builderSources.isEmpty
+		!sources.isEmpty
 	}
 
 	// source 저장 프로퍼티 대입 뒤 실행할 shared 저장소 초기화문

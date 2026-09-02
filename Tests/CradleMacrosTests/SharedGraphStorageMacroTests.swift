@@ -42,6 +42,37 @@ func sharedGraphStorageBuildsTypedLetDeclarations() throws {
 	#expect(!source.contains("?"))
 }
 
+// source를 직접 읽지 않는 shared Factory도 source 대입 뒤 저장소를 초기화하는지 확인
+@Test
+func sharedGraphStorageDefersSourceIndependentInitialization() throws {
+	let providers = try sharedStorageProviders()
+	let propertyNames = Dictionary(uniqueKeysWithValues: providers.map { provider in
+		(provider.registrationIdentity, provider.propertyName)
+	})
+	let source = sharedStorageSource()
+	let context = BasicMacroExpansionContext()
+	let storage = SharedGraphStorage(
+		graphName: .identifier("Graph"),
+		providers: providers,
+		sources: [source],
+		propertyNames: propertyNames,
+		in: context
+	)
+	let declarations = sourceGraphDeclarations(
+		for: [source],
+		accessLevel: .internal,
+		storage: storage
+	)
+	let initializer = try #require(declarations.last?.trimmedDescription)
+	let sourceAssignment = try #require(initializer.range(of: "self.appGraph = appGraph"))
+	let storageAssignment = try #require(initializer.range(of: " = Graph."))
+	let storageProperty = try #require(storage.declarations().last?.trimmedDescription)
+
+	#expect(sourceAssignment.lowerBound < storageAssignment.lowerBound)
+	#expect(storage.requiresSourceInitialization)
+	#expect(!storageProperty.contains(" = "))
+}
+
 // shared Factory가 transient 등록을 요구하면 원본 타입 위치에서 거부하는지 확인
 @Test
 func sharedGraphStorageRejectsTransientDependency() {
@@ -115,4 +146,15 @@ private func sharedStorageProviders() throws -> [ProviderDescriptor] {
 		lifetime: .shared
 	)
 	return [repository, client]
+}
+
+// source 저장 프로퍼티와 생성 initializer 검증용 source descriptor 구성
+private func sharedStorageSource() -> SourceGraphDescriptor {
+	let type = TypeSyntax("AppGraph")
+	return SourceGraphDescriptor(
+		expression: ExprSyntax("AppGraph.self"),
+		type: type,
+		identity: registeredTypeIdentity(for: type),
+		propertyName: "appGraph"
+	)
 }
