@@ -1,66 +1,35 @@
 //
-//  SourceGraphSharedReferenceDiagnosticTests.swift
+//  SourceGraphReferenceTests.swift
 //  CradleMacrosTests
 //
 //  Created by opfic on 9/2/26.
 //
 
+import SwiftParser
 import SwiftSyntax
 import SwiftSyntaxBuilder
-import SwiftSyntaxMacrosTestSupport
-import SwiftParser
 import Testing
 @testable import CradleMacros
 
-// shared Factory가 source graph 저장 프로퍼티를 참조하면 거부하는지 확인
+// shared Factory의 모든 source 저장 프로퍼티 참조를 수집하는지 확인
 @Test
-func sourceGraphMacroRejectsSharedFactorySourceReference() {
-	assertMacroExpansion(
-		"""
-		@DependencyGraph(sources: [AppGraph.self])
-		final class FeatureGraph {
-			@Provide(.shared)
-			private func makeFeature() -> Feature {
-				Feature(repository: appGraph.repository)
-			}
-		}
-		""",
-		expandedSource: """
-		final class FeatureGraph {
-			private func makeFeature() -> Feature {
-				Feature(repository: appGraph.repository)
-			}
-		}
-		""",
-		diagnostics: [
-			DiagnosticSpec(
-				id: .init(domain: "Cradle", id: "sharedSourceReference"),
-				message: "shared 수명의 `@Provide` Factory는 `appGraph` source graph를 참조할 수 없습니다.",
-				line: 5,
-				column: 23,
-				highlights: ["appGraph"]
-			)
-		],
-		macros: testMacros
-	)
-}
-
-// source 저장 프로퍼티의 직접 참조 위치 탐색
-@Test
-func sourceGraphReferenceFindsUnshadowedSourceStorage() throws {
+func sourceGraphReferencesCollectAllUnshadowedSourceStorage() throws {
 	let factory = try FunctionDeclSyntax(
-		"private func makeFeature() -> Feature { Feature(repository: appGraph.repository) }"
+		"private func makeFeature() -> Feature { Feature(repository: appGraph.repository, session: sessionGraph.session) }"
 	)
 
-	let reference = try #require(
-		sourceGraphReference(in: factory, sourceNames: ["appGraph"])
+	let references = sourceGraphReferences(
+		in: factory,
+		sourceNames: ["appGraph", "sessionGraph"]
 	)
-	#expect(reference.text == "appGraph")
+
+	#expect(references.sourceNames == ["appGraph", "sessionGraph"])
+	#expect(references.bare.count == 2)
 }
 
-// 명시적 self의 source 저장 프로퍼티 참조 위치 탐색
+// 명시적 self의 source 저장 프로퍼티 참조를 수집하는지 확인
 @Test
-func sourceGraphReferenceFindsExplicitSelfSourceStorage() throws {
+func sourceGraphReferencesCollectExplicitSelfSourceStorage() throws {
 	let factory = try FunctionDeclSyntax(
 		"""
 		private func makeFeature() -> Feature {
@@ -70,48 +39,76 @@ func sourceGraphReferenceFindsExplicitSelfSourceStorage() throws {
 		"""
 	)
 
-	let reference = try #require(
-		sourceGraphReference(in: factory, sourceNames: ["appGraph"])
-	)
-	#expect(reference.text == "appGraph")
+	let references = sourceGraphReferences(in: factory, sourceNames: ["appGraph"])
+
+	#expect(references.sourceNames == ["appGraph"])
+	#expect(references.explicitSelf.count == 1)
 }
 
-// closure가 bare capture한 source 저장 프로퍼티 참조 위치 탐색
+// bare closure capture source 저장 프로퍼티 참조를 수집하는지 확인
 @Test
-func sourceGraphReferenceFindsBareSourceCapture() throws {
+func sourceGraphReferencesCollectBareSourceCapture() throws {
 	let factory = try FunctionDeclSyntax(
 		"private func makeFeature() -> Feature { let transform = { [appGraph] in appGraph.feature }; return transform() }"
 	)
 
-	let reference = try #require(
-		sourceGraphReference(in: factory, sourceNames: ["appGraph"])
+	let references = sourceGraphReferences(in: factory, sourceNames: ["appGraph"])
+
+	#expect(references.sourceNames == ["appGraph"])
+	#expect(references.bareCapture.count == 1)
+}
+
+// source 참조를 shared helper 매개변수와 capture initializer로 바꾸는지 확인
+@Test
+func sourceGraphReferencesRewriteSharedFactoryBody() throws {
+	let factory = try FunctionDeclSyntax(
+		"""
+		private func makeFeature() -> Feature {
+			let value = appGraph.feature
+			let transform = { [sessionGraph] in self.appGraph.feature + sessionGraph.feature }
+			return Feature(value: value + transform())
+		}
+		"""
 	)
-	#expect(reference.text == "appGraph")
+	let references = sourceGraphReferences(
+		in: factory,
+		sourceNames: ["appGraph", "sessionGraph"]
+	)
+	let body = try #require(factory.body)
+	let rewritten = rewrittenSourceGraphFactoryBody(
+		body,
+		references: references,
+		parameterNames: ["appGraph": "sourceAppGraph", "sessionGraph": "sourceSessionGraph"]
+	)
+
+	#expect(rewritten.trimmedDescription.contains("sourceAppGraph.feature"))
+	#expect(rewritten.trimmedDescription.contains("[sessionGraph=sourceSessionGraph]"))
+	#expect(rewritten.trimmedDescription.contains("sessionGraph.feature"))
 }
 
 // Factory 매개변수와 같은 source 이름은 source 저장 프로퍼티로 보지 않는지 확인
 @Test
-func sourceGraphReferenceIgnoresFactoryParameterShadowing() throws {
+func sourceGraphReferencesIgnoreFactoryParameterShadowing() throws {
 	let factory = try FunctionDeclSyntax(
 		"private func makeFeature(appGraph: AppGraph) -> Feature { appGraph.feature }"
 	)
 
-	#expect(sourceGraphReference(in: factory, sourceNames: ["appGraph"]) == nil)
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 }
 
 // 지역 변수와 같은 source 이름은 source 저장 프로퍼티로 보지 않는지 확인
 @Test
-func sourceGraphReferenceIgnoresLocalVariableShadowing() throws {
+func sourceGraphReferencesIgnoreLocalVariableShadowing() throws {
 	let factory = try FunctionDeclSyntax(
 		"private func makeFeature() -> Feature { let appGraph = LocalGraph(); return appGraph.feature }"
 	)
 
-	#expect(sourceGraphReference(in: factory, sourceNames: ["appGraph"]) == nil)
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 }
 
 // closure 매개변수와 capture 별칭의 동명 source 이름을 저장 프로퍼티로 보지 않는지 확인
 @Test
-func sourceGraphReferenceIgnoresClosureBindingShadowing() throws {
+func sourceGraphReferencesIgnoreClosureBindingShadowing() throws {
 	let factories = [
 		"""
 		private func makeFeature() -> Feature {
@@ -127,12 +124,12 @@ func sourceGraphReferenceIgnoresClosureBindingShadowing() throws {
 		"""
 	]
 
-	try assertSourceGraphReferenceIsAbsent(in: factories)
+	try assertSourceGraphReferencesAreAbsent(in: factories)
 }
 
 // 제어 흐름 binding의 동명 source 이름을 저장 프로퍼티로 보지 않는지 확인
 @Test
-func sourceGraphReferenceIgnoresControlFlowBindingShadowing() throws {
+func sourceGraphReferencesIgnoreControlFlowBindingShadowing() throws {
 	let factories = [
 		"""
 		private func makeFeature() -> Feature {
@@ -171,12 +168,12 @@ func sourceGraphReferenceIgnoresControlFlowBindingShadowing() throws {
 		"""
 	]
 
-	try assertSourceGraphReferenceIsAbsent(in: factories)
+	try assertSourceGraphReferencesAreAbsent(in: factories)
 }
 
 // 중첩 함수 매개변수와 동명인 source 이름을 저장 프로퍼티로 보지 않는지 확인
 @Test
-func sourceGraphReferenceIgnoresNestedFunctionParameterShadowing() throws {
+func sourceGraphReferencesIgnoreNestedFunctionParameterShadowing() throws {
 	let factory = try sourceGraphReferenceFactory(
 		"""
 		private func makeFeature() -> Feature {
@@ -186,12 +183,12 @@ func sourceGraphReferenceIgnoresNestedFunctionParameterShadowing() throws {
 		"""
 	)
 
-	#expect(sourceGraphReference(in: factory, sourceNames: ["appGraph"]) == nil)
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 }
 
 // 중첩 함수가 source 저장 이름과 같아도 자기 참조를 저장 프로퍼티로 보지 않는지 확인
 @Test
-func sourceGraphReferenceIgnoresNestedFunctionNameShadowing() throws {
+func sourceGraphReferencesIgnoreNestedFunctionNameShadowing() throws {
 	let factory = try sourceGraphReferenceFactory(
 		"""
 		private func makeFeature() -> Feature {
@@ -201,12 +198,12 @@ func sourceGraphReferenceIgnoresNestedFunctionNameShadowing() throws {
 		"""
 	)
 
-	#expect(sourceGraphReference(in: factory, sourceNames: ["appGraph"]) == nil)
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 }
 
 // 선언보다 앞선 지역 함수 호출을 source 저장 프로퍼티로 보지 않는지 확인
 @Test
-func sourceGraphReferenceIgnoresForwardNestedFunctionShadowing() throws {
+func sourceGraphReferencesIgnoreForwardNestedFunctionShadowing() throws {
 	let factory = try sourceGraphReferenceFactory(
 		"""
 		private func makeFeature() -> Feature {
@@ -217,7 +214,7 @@ func sourceGraphReferenceIgnoresForwardNestedFunctionShadowing() throws {
 		"""
 	)
 
-	#expect(sourceGraphReference(in: factory, sourceNames: ["appGraph"]) == nil)
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 }
 
 // 문자열 Factory 선언의 source 참조 탐색용 구문 분석
@@ -227,9 +224,9 @@ private func sourceGraphReferenceFactory(_ source: String) throws -> FunctionDec
 }
 
 // source 저장 프로퍼티와 동명인 지역 binding의 오진 여부 확인
-private func assertSourceGraphReferenceIsAbsent(in sources: [String]) throws {
+private func assertSourceGraphReferencesAreAbsent(in sources: [String]) throws {
 	for source in sources {
 		let factory = try sourceGraphReferenceFactory(source)
-		#expect(sourceGraphReference(in: factory, sourceNames: ["appGraph"]) == nil)
+		#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 	}
 }

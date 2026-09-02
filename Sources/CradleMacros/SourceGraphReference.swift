@@ -7,15 +7,33 @@
 
 import SwiftDiagnostics
 import SwiftSyntax
-import SwiftSyntaxMacros
 
-// shared Factory 본문에서 source 저장 프로퍼티 참조 위치 탐색
-func sourceGraphReference(
+// shared Factory 본문에 나타난 source 저장 프로퍼티 참조 위치 집합
+struct SourceGraphReferences {
+	// bare source 저장 프로퍼티 참조 위치와 이름
+	let bare: [Int: String]
+	// `self.source` 저장 프로퍼티 참조 위치와 이름
+	let explicitSelf: [Int: String]
+	// bare closure capture source 저장 프로퍼티 참조 위치와 이름
+	let bareCapture: [Int: String]
+	// 첫 source 저장 프로퍼티 참조 위치
+	let firstReference: TokenSyntax?
+
+	// Factory가 실제로 읽는 source 저장 프로퍼티 이름 집합
+	var sourceNames: Set<String> {
+		Set(bare.values)
+			.union(explicitSelf.values)
+			.union(bareCapture.values)
+	}
+}
+
+// lexical scope를 반영해 shared Factory의 source 저장 프로퍼티 참조 수집
+func sourceGraphReferences(
 	in factory: FunctionDeclSyntax,
 	sourceNames: Set<String>
-) -> TokenSyntax? {
+) -> SourceGraphReferences {
 	guard let body = factory.body else {
-		return nil
+		return SourceGraphReferences(bare: [:], explicitSelf: [:], bareCapture: [:], firstReference: nil)
 	}
 	let finder = SourceGraphReferenceFinder(
 		sourceNames: sourceNames,
@@ -25,7 +43,64 @@ func sourceGraphReference(
 		})
 	)
 	finder.walk(body)
-	return finder.reference
+	return finder.references
+}
+
+// source 참조를 shared helper 매개변수로 치환하는 rewriter
+private final class SourceGraphReferenceRewriter: SyntaxRewriter {
+	// 탐색으로 수집한 source 참조
+	private let references: SourceGraphReferences
+	// source 저장 프로퍼티 이름과 helper 매개변수 이름 연결
+	private let parameterNames: [String: String]
+
+	init(references: SourceGraphReferences, parameterNames: [String: String]) {
+		self.references = references
+		self.parameterNames = parameterNames
+	}
+
+	// bare source 저장 프로퍼티를 helper 매개변수로 치환
+	override func visit(_ node: DeclReferenceExprSyntax) -> ExprSyntax {
+		guard let parameterName = parameterNames[references.bare[sourceGraphOffset(of: node.baseName)] ?? ""] else {
+			return super.visit(node)
+		}
+		return ExprSyntax(stringLiteral: parameterName)
+	}
+
+	// 명시적 self의 source 저장 프로퍼티를 helper 매개변수로 치환
+	override func visit(_ node: MemberAccessExprSyntax) -> ExprSyntax {
+		guard let parameterName = parameterNames[references.explicitSelf[sourceGraphOffset(of: node.declName.baseName)] ?? ""] else {
+			return super.visit(node)
+		}
+		return ExprSyntax(stringLiteral: parameterName)
+	}
+
+	// bare source closure capture에 helper 매개변수 initializer 추가
+	override func visit(_ node: ClosureCaptureSyntax) -> ClosureCaptureSyntax {
+		var rewritten = super.visit(node)
+		guard node.initializer == nil,
+			let sourceName = references.bareCapture[sourceGraphOffset(of: node.name)],
+			let parameterName = parameterNames[sourceName] else {
+			return rewritten
+		}
+		rewritten.initializer = InitializerClauseSyntax(value: ExprSyntax(stringLiteral: parameterName))
+		return rewritten
+	}
+}
+
+// source 참조를 helper 매개변수로 바꾼 Factory 본문 생성
+func rewrittenSourceGraphFactoryBody(
+	_ body: CodeBlockSyntax,
+	references: SourceGraphReferences,
+	parameterNames: [String: String]
+) -> CodeBlockSyntax {
+	guard !references.sourceNames.isEmpty else {
+		return body
+	}
+	let rewriter = SourceGraphReferenceRewriter(
+		references: references,
+		parameterNames: parameterNames
+	)
+	return rewriter.rewrite(body, detach: true).as(CodeBlockSyntax.self)!
 }
 
 // lexical scope를 반영한 source 저장 프로퍼티 참조 탐색기
@@ -34,8 +109,21 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 	private let sourceNames: Set<String>
 	// 현재 lexical scope의 shadowing 이름 집합
 	private var scopes: [Set<String>]
-	// 처음 찾은 source 저장 프로퍼티 참조
-	private(set) var reference: TokenSyntax?
+	// 수집한 source 저장 프로퍼티 참조 위치
+	private var bare = [Int: String]()
+	private var explicitSelf = [Int: String]()
+	private var bareCapture = [Int: String]()
+	private var reference: TokenSyntax?
+
+	// 수집한 source 저장 프로퍼티 참조
+	var references: SourceGraphReferences {
+		SourceGraphReferences(
+			bare: bare,
+			explicitSelf: explicitSelf,
+			bareCapture: bareCapture,
+			firstReference: reference
+		)
+	}
 
 	// source 이름과 Factory 매개변수 이름으로 탐색기 생성
 	init(sourceNames: Set<String>, parameterNames: Set<String>) {
@@ -157,9 +245,9 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		return .skipChildren
 	}
 
-	// shadowing되지 않은 source 저장 프로퍼티의 첫 참조 기록
+	// shadowing되지 않은 bare source 저장 프로퍼티 참조 기록
 	override func visit(_ node: DeclReferenceExprSyntax) -> SyntaxVisitorContinueKind {
-		recordSourceGraphReference(node.baseName)
+		recordSourceGraphReference(node.baseName, kind: .bare)
 		return .skipChildren
 	}
 
@@ -169,8 +257,15 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 			base.baseName.tokenKind == .keyword(.self) else {
 			return .visitChildren
 		}
-		recordSourceGraphReference(node.declName.baseName, ignoresShadowing: true)
+		recordSourceGraphReference(node.declName.baseName, kind: .explicitSelf, ignoresShadowing: true)
 		return .skipChildren
+	}
+
+	// source 참조 기록 방식
+	private enum ReferenceKind {
+		case bare
+		case explicitSelf
+		case bareCapture
 	}
 
 	// 현재 가장 안쪽 scope에 새 binding 이름 추가
@@ -202,7 +297,7 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 			if let initializer = item.initializer {
 				walk(initializer)
 			} else {
-				recordSourceGraphReference(item.name)
+				recordSourceGraphReference(item.name, kind: .bareCapture)
 			}
 		}
 	}
@@ -210,11 +305,9 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 	// shadowing되지 않은 source 저장 프로퍼티 참조 기록
 	private func recordSourceGraphReference(
 		_ token: TokenSyntax,
+		kind: ReferenceKind,
 		ignoresShadowing: Bool = false
 	) {
-		guard reference == nil else {
-			return
-		}
 		let name = sourceGraphIdentifierName(token)
 		guard sourceNames.contains(name) else {
 			return
@@ -222,8 +315,23 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		guard ignoresShadowing || !scopes.contains(where: { $0.contains(name) }) else {
 			return
 		}
-		reference = token
+		if reference == nil {
+			reference = token
+		}
+		switch kind {
+		case .bare:
+			bare[sourceGraphOffset(of: token)] = name
+		case .explicitSelf:
+			explicitSelf[sourceGraphOffset(of: token)] = name
+		case .bareCapture:
+			bareCapture[sourceGraphOffset(of: token)] = name
+		}
 	}
+}
+
+// SwiftSyntax token의 source file UTF-8 위치
+private func sourceGraphOffset(of token: TokenSyntax) -> Int {
+	token.positionAfterSkippingLeadingTrivia.utf8Offset
 }
 
 // pattern에서 선언하는 이름 수집기
@@ -335,7 +443,8 @@ func diagnoseSourceGraphSharedReferenceErrors(
 	}
 	var hasError = false
 	for provider in providers where provider.lifetime == .shared {
-		guard let reference = sourceGraphReference(in: provider.factory, sourceNames: sourceNames) else {
+		let references = sourceGraphReferences(in: provider.factory, sourceNames: sourceNames)
+		guard let reference = references.firstReference else {
 			continue
 		}
 		let name = reference.identifier?.name ?? reference.text
