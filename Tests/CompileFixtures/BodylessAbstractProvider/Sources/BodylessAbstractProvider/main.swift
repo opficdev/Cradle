@@ -16,3 +16,15 @@ final class BodylessAbstractGraph {
 	@Provide
 	private func makeRepository() -> any Repository
 }
+
+// 본문 없는 Factory가 접근할 수 없는 initializer를 가진 상위 클래스
+class RepositorySuperclass {
+	private init() {}
+}
+
+// 접근할 수 없는 상위 클래스 initializer의 오류를 확인할 graph
+@DependencyGraph
+final class BodylessSuperclassGraph {
+	@Provide
+	private func makeRepositorySuperclass() -> RepositorySuperclass
+}

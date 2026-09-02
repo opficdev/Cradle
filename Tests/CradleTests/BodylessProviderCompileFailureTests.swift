@@ -32,8 +32,11 @@ func bodylessAbstractProviderFailsAtBuildTime() throws {
 	#expect(result.output.contains("error:"))
 	#expect(result.output.contains("any Repository"))
 	#expect(result.output.contains("cannot be constructed because it has no accessible initializers"))
+	#expect(result.output.contains("RepositorySuperclass"))
+	#expect(result.output.contains("inaccessible due to 'private' protection level"))
 	#expect(result.output.contains("macro expansion @Provide"))
 	#expect(!result.output.contains("`@Provide`의 반환 타입과 매개변수 타입에는 Optional을 사용할 수 없습니다."))
+	#expect(!result.output.contains("`@Provide` 반환 타입은"))
 }
 
 // fixture 실행 없이 별도 scratch 경로에서 Swift build와 진단 수집
