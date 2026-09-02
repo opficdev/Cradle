@@ -249,7 +249,10 @@ private func diagnoseSourceGraphMemberErrors(
 			!sourceGraphHasTypeMemberModifier(variable.modifiers) else {
 			continue
 		}
-		for binding in variable.bindings where sourceGraphHasUninitializedStoredProperty(binding) {
+		for binding in variable.bindings where sourceGraphHasUninitializedStoredProperty(
+			binding,
+			in: variable
+		) {
 			context.diagnose(
 				Diagnostic(node: binding.pattern, message: SourceGraphDiagnostic.uninitializedStoredProperty)
 			)
@@ -259,9 +262,15 @@ private func diagnoseSourceGraphMemberErrors(
 	return hasError
 }
 
-// initializer 또는 observer가 없는 저장 프로퍼티 초기화 필요 여부 판별
-private func sourceGraphHasUninitializedStoredProperty(_ binding: PatternBindingSyntax) -> Bool {
+// 자동 초기화 여부를 반영한 저장 프로퍼티 초기화 필요 여부 판별
+private func sourceGraphHasUninitializedStoredProperty(
+	_ binding: PatternBindingSyntax,
+	in variable: VariableDeclSyntax
+) -> Bool {
 	guard binding.initializer == nil else {
+		return false
+	}
+	guard !sourceGraphHasAutomaticInitialization(binding, in: variable) else {
 		return false
 	}
 	guard let accessorBlock = binding.accessorBlock else {
@@ -274,6 +283,21 @@ private func sourceGraphHasUninitializedStoredProperty(_ binding: PatternBinding
 		let name = accessor.accessorSpecifier.text
 		return name == "willSet" || name == "didSet"
 	}
+}
+
+// Optional var와 property wrapper 선언의 Swift 자동 초기화 판별
+private func sourceGraphHasAutomaticInitialization(
+	_ binding: PatternBindingSyntax,
+	in variable: VariableDeclSyntax
+) -> Bool {
+	guard variable.attributes.isEmpty else {
+		return true
+	}
+	guard variable.bindingSpecifier.tokenKind == .keyword(.var),
+		let type = binding.typeAnnotation?.type else {
+		return false
+	}
+	return isDirectOptionalType(type)
 }
 
 // source graph 저장 프로퍼티 검사에서 제외할 type member 판별
