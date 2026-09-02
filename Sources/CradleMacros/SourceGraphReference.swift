@@ -132,11 +132,19 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		return .skipChildren
 	}
 
-	// guard 조건 binding을 뒤따르는 같은 code block에 추가
-	override func visitPost(_ node: GuardStmtSyntax) {
+	// guard 조건 binding을 후속 조건과 성공 경로에만 적용
+	override func visit(_ node: GuardStmtSyntax) -> SyntaxVisitorContinueKind {
+		scopes.append([])
+		for element in node.conditions {
+			walkSourceGraphCondition(element.condition)
+			insert(sourceGraphBoundNames(in: element.condition))
+		}
+		scopes.removeLast()
+		walk(node.body)
 		for element in node.conditions {
 			insert(sourceGraphBoundNames(in: element.condition))
 		}
+		return .skipChildren
 	}
 
 	// for pattern binding을 sequence 다음 body와 where clause에만 적용

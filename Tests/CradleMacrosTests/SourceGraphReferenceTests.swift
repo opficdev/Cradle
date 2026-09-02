@@ -248,6 +248,30 @@ func sourceGraphReferencesIgnoreControlFlowBindingShadowing() throws {
 	try assertSourceGraphReferencesAreAbsent(in: factories)
 }
 
+// guard 조건 binding의 후속 조건·else·성공 경로 scope를 구분하는지 확인
+@Test
+func sourceGraphReferencesRespectGuardConditionBindingScopes() throws {
+	let chainedBinding = try sourceGraphReferenceFactory(
+		"""
+		private func makeFeature() -> Feature {
+			guard let appGraph = Optional(LocalGraph()), appGraph.isReady else { return Feature() }
+			return appGraph.feature
+		}
+		"""
+	)
+	let elseSourceReference = try sourceGraphReferenceFactory(
+		"""
+		private func makeFeature() -> Feature {
+			guard let localGraph = Optional(LocalGraph()), localGraph.isReady else { return appGraph.feature }
+			return localGraph.feature
+		}
+		"""
+	)
+
+	#expect(sourceGraphReferences(in: chainedBinding, sourceNames: ["appGraph"]).sourceNames.isEmpty)
+	#expect(sourceGraphReferences(in: elseSourceReference, sourceNames: ["appGraph"]).sourceNames == ["appGraph"])
+}
+
 // 중첩 함수 매개변수와 동명인 source 이름을 저장 프로퍼티로 보지 않는지 확인
 @Test
 func sourceGraphReferencesIgnoreNestedFunctionParameterShadowing() throws {
