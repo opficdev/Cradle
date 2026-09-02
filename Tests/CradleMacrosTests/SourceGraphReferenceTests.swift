@@ -8,6 +8,7 @@
 import SwiftParser
 import SwiftSyntax
 import SwiftSyntaxBuilder
+import SwiftSyntaxMacroExpansion
 import Testing
 @testable import CradleMacros
 
@@ -84,6 +85,40 @@ func sourceGraphReferencesRewriteSharedFactoryBody() throws {
 	#expect(rewritten.trimmedDescription.contains("sourceAppGraph.feature"))
 	#expect(rewritten.trimmedDescription.contains("[sessionGraph=sourceSessionGraph]"))
 	#expect(rewritten.trimmedDescription.contains("sessionGraph.feature"))
+}
+
+// source graph를 직접 읽는 shared Factory를 진단 없이 확장하는지 확인
+@Test
+func sourceGraphMacroAllowsSharedFactorySourceReference() throws {
+	let file = Parser.parse(
+		source: """
+		@DependencyGraph(sources: [AppGraph.self])
+		final class FeatureGraph {
+			@Provide(.shared)
+			private func makeFeature() -> Feature {
+				Feature(repository: appGraph.repository)
+			}
+		}
+		"""
+	)
+	let graph = try #require(file.statements.first?.item.as(ClassDeclSyntax.self))
+	let attribute = try #require(graph.attributes.first?.as(AttributeSyntax.self))
+	let context = BasicMacroExpansionContext(sourceFiles: [
+		file: .init(moduleName: "Fixture", fullFilePath: "/Fixture.swift")
+	])
+
+	let declarations = try DependencyGraphMacro.expansion(
+		of: attribute,
+		providingMembersOf: graph,
+		conformingTo: [],
+		in: context
+	)
+	let source = declarations.map(\.trimmedDescription).joined(separator: "\n")
+
+	#expect(context.diagnostics.isEmpty)
+	#expect(source.contains("AppGraph"))
+	#expect(source.contains("private let"))
+	#expect(source.contains("repository"))
 }
 
 // Factory 매개변수와 같은 source 이름은 source 저장 프로퍼티로 보지 않는지 확인
