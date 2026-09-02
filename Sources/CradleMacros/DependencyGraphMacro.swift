@@ -234,15 +234,23 @@ struct DependencyGraphMacro: MemberMacro {
 			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderSignature))
 			return nil
 		}
+		for parameter in function.signature.parameterClause.parameters
+		where isDirectOptionalType(parameter.type) {
+			context.diagnose(Diagnostic(node: parameter.type, message: InvalidProviderTypeDiagnostic()))
+			return nil
+		}
 		guard let parameters = providerParameterDescriptors(
 			from: function.signature.parameterClause.parameters
 		) else {
 			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderParameter))
 			return nil
 		}
-		guard let returnClause = function.signature.returnClause,
-			function.body != nil else {
-			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.missingProviderResultOrBody))
+		guard let returnClause = function.signature.returnClause else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.missingProviderResult))
+			return nil
+		}
+		guard !isDirectOptionalType(returnClause.type) else {
+			context.diagnose(Diagnostic(node: returnClause.type, message: InvalidProviderTypeDiagnostic()))
 			return nil
 		}
 		guard let accessorName = accessorName(for: returnClause.type) else {

@@ -19,6 +19,7 @@ public macro DependencyGraph() = #externalMacro(
 
 // `@DependencyGraph` 본체에서 생성 접근자가 호출할 private factory 표시
 @attached(peer, names: arbitrary)
+@attached(body)
 public macro Provide() = #externalMacro(
 	module: "CradleMacros",
 	type: "ProvideMacro"

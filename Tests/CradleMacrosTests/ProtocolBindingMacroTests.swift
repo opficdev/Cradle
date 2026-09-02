@@ -84,37 +84,6 @@ func protocolBindingPreservesParameterLabels() {
 	}
 }
 
-// 반환 문법 제한을 기존 Optional 매개변수에 적용하지 않는지 확인
-@Test
-func protocolBindingPreservesOptionalParameterConversion() {
-	assertMacroExpansion(
-		"""
-		@DependencyGraph
-		final class Graph {
-			@Provide
-			private func makeConsumer(repository: (any Repository)?) -> Consumer { Consumer() }
-			@Provide
-			private func makeRepository() -> any Repository { LiveRepository() }
-		}
-		""",
-		expandedSource: """
-		final class Graph {
-			private func makeConsumer(repository: (any Repository)?) -> Consumer { Consumer() }
-			private func makeRepository() -> any Repository { LiveRepository() }
-
-		    internal func consumer() -> Consumer {
-		        makeConsumer(repository: repository())
-		    }
-
-		    internal func repository() -> any Repository {
-		        makeRepository()
-		    }
-		}
-		""",
-		macros: testMacros
-	)
-}
-
 // 선언 순서와 다른 매개변수 순서로 프로토콜 의존성을 획득하는지 확인
 @Test
 func protocolBindingPreservesLabelsAndOrder() {

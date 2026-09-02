@@ -53,15 +53,15 @@ func circularDependencyRegressionPreservesDiamondExpansion() {
 	)
 }
 
-// 외부 레이블·백틱 이름·Optional 프로토콜 매개변수의 정상 연결 보존 확인
+// 외부 레이블·백틱 이름·프로토콜 매개변수의 정상 연결 보존 확인
 @Test
-func circularDependencyRegressionPreservesLabelsAndOptionalParameters() {
+func circularDependencyRegressionPreservesLabelsAndProtocolParameters() {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
 		final class Graph {
 			@Provide
-			private func makeConsumer(primary repository: (any Repository)?, _ `default`: `default`) -> Consumer {
+			private func makeConsumer(primary repository: any Repository, _ `default`: `default`) -> Consumer {
 				fatalError()
 			}
 			@Provide
@@ -72,7 +72,7 @@ func circularDependencyRegressionPreservesLabelsAndOptionalParameters() {
 		""",
 		expandedSource: """
 		final class Graph {
-			private func makeConsumer(primary repository: (any Repository)?, _ `default`: `default`) -> Consumer {
+			private func makeConsumer(primary repository: any Repository, _ `default`: `default`) -> Consumer {
 				fatalError()
 			}
 			private func makeRepository() -> any Repository { fatalError() }

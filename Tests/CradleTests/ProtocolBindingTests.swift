@@ -44,12 +44,6 @@ struct BindingRoot {
 	let bindingConsumer: BindingConsumer
 }
 
-// 기존 G2의 Optional 매개변수 변환 확인용 소비자
-struct OptionalBindingConsumer {
-	// 비Optional 등록에서 전달될 프로토콜 값
-	let bindingService: (any BindingService)?
-}
-
 // 사용자 Factory 호출과 프로토콜 연결을 확인할 그래프
 @DependencyGraph
 final class ProtocolBindingGraph {
@@ -87,11 +81,6 @@ final class ProtocolBindingGraph {
 		return BindingRoot(bindingConsumer: bindingConsumer)
 	}
 
-	// 등록 타입의 Optional 매개변수 변환을 컴파일러에 위임
-	@Provide
-	private func makeOptionalBindingConsumer(bindingService: (any BindingService)?) -> OptionalBindingConsumer {
-		OptionalBindingConsumer(bindingService: bindingService)
-	}
 }
 
 // 선언 순서를 뒤집은 동일한 프로토콜 연결 그래프
@@ -168,15 +157,6 @@ func protocolBindingBuildsMultipleSteps() {
 	#expect(graph.bindingRoot().bindingConsumer.bindingService.token == 11)
 	#expect(graph.calls == 1)
 	#expect(graph.invocations == ["service", "consumer", "root"])
-}
-
-// 기존 G2의 Optional 매개변수 변환을 실제 컴파일과 결과로 확인
-@Test
-func protocolBindingPreservesOptionalParameters() {
-	// 비Optional 프로토콜을 반환할 그래프
-	let graph = ProtocolBindingGraph(create: { BindingValue() })
-	#expect(graph.optionalBindingConsumer().bindingService?.token == 11)
-	#expect(graph.calls == 1)
 }
 
 // Factory 선언 순서를 바꿔도 전달 결과와 호출 순서가 같은지 확인

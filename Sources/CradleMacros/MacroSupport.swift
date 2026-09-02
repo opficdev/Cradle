@@ -25,7 +25,7 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 	case invalidProviderDeclaration
 	case invalidProviderSignature
 	case invalidProviderParameter
-	case missingProviderResultOrBody
+	case missingProviderResult
 	case unsupportedProviderResult
 	case invalidAccessorName
 	case existingMemberCollision
@@ -50,10 +50,10 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 		case .invalidProviderParameter:
 			"`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
 				+ "등록 생성 접근자와 일치해야 합니다."
-		case .missingProviderResultOrBody:
-			"`@Provide` factory는 명시적 반환 타입과 본문이 필요합니다."
+		case .missingProviderResult:
+			"`@Provide` factory는 명시적 반환 타입이 필요합니다."
 		case .unsupportedProviderResult:
-			"`@Provide` 반환 타입은 제네릭 인자가 없는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다."
+			"`@Provide` 반환 타입은 프로퍼티 이름을 만들 수 있는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다."
 		case .invalidAccessorName:
 			"`@Provide` 반환 타입에서 유효한 생성 접근자 이름을 만들 수 없습니다."
 		case .existingMemberCollision:
@@ -105,6 +105,14 @@ struct ProviderParameterDescriptor {
 		}
 		return "\(externalLabel): \(dependency)"
 	}
+
+	// initializer에 전달할 원본 지역 이름
+	func initializerArgument() -> String {
+		guard let externalLabel else {
+			return localNameToken.trimmedDescription
+		}
+		return "\(externalLabel): \(localNameToken.trimmedDescription)"
+	}
 }
 
 // 지원하는 provider 매개변수를 호출문 생성 정보로 변환
@@ -137,6 +145,7 @@ func providerParameterDescriptors(
 			parameter.ellipsis == nil,
 			!hasUnsupportedSpecifier,
 			!hasAutoclosure,
+			!isDirectOptionalType(parameter.type),
 			localName != "_" else {
 			return nil
 		}
@@ -216,12 +225,13 @@ private func hasTypeMemberModifier(in modifiers: DeclModifierListSyntax) -> Bool
 
 // 명목 타입과 단일 프로토콜 반환 타입의 접근자 이름 생성
 func accessorName(for returnType: TypeSyntax) -> String? {
-	// 최상위 any 표기만 제거한 이름 분석용 타입
-	let type = if let existential = returnType.as(SomeOrAnyTypeSyntax.self),
+	// 바깥 괄호와 최상위 any 표기만 제거한 이름 분석용 타입
+	let parenthesizedType = unwrappedAccessorType(returnType)
+	let type = if let existential = parenthesizedType.as(SomeOrAnyTypeSyntax.self),
 		existential.someOrAnySpecifier.tokenKind == .keyword(.any) {
-		existential.constraint
+		unwrappedAccessorType(existential.constraint)
 	} else {
-		returnType
+		parenthesizedType
 	}
 	guard let identifier = terminalIdentifier(in: type) else {
 		return nil
@@ -239,18 +249,48 @@ func isValidAccessorName(_ name: String) -> Bool {
 
 // module-qualified 타입을 포함한 마지막 명목 타입 identifier 읽기
 private func terminalIdentifier(in returnType: TypeSyntax) -> String? {
-	if let identifierType = returnType.as(IdentifierTypeSyntax.self),
-		identifierType.genericArgumentClause == nil {
+	if let identifierType = returnType.as(IdentifierTypeSyntax.self) {
 		return identifierType.name.text
 	}
 
 	if let memberType = returnType.as(MemberTypeSyntax.self),
-		memberType.genericArgumentClause == nil,
 		terminalIdentifier(in: memberType.baseType) != nil {
 		return memberType.name.text
 	}
 
 	return nil
+}
+
+// 프로퍼티 이름 분석에서 단일 바깥 괄호 제거
+private func unwrappedAccessorType(_ type: TypeSyntax) -> TypeSyntax {
+	guard let tuple = type.as(TupleTypeSyntax.self),
+		tuple.elements.count == 1,
+		let element = tuple.elements.first,
+		element.firstName == nil,
+		element.secondName == nil,
+		element.ellipsis == nil else {
+		return type
+	}
+	return unwrappedAccessorType(element.type)
+}
+
+// 직접 작성한 Optional 타입 문법 확인
+func isDirectOptionalType(_ type: TypeSyntax) -> Bool {
+	let type = unwrappedAccessorType(type)
+	if type.is(OptionalTypeSyntax.self) || type.is(ImplicitlyUnwrappedOptionalTypeSyntax.self) {
+		return true
+	}
+	if let identifier = type.as(IdentifierTypeSyntax.self) {
+		return identifier.name.identifier?.name == "Optional"
+			&& identifier.genericArgumentClause?.arguments.count == 1
+	}
+	if let member = type.as(MemberTypeSyntax.self),
+		member.name.identifier?.name == "Optional",
+		member.genericArgumentClause?.arguments.count == 1,
+		let base = member.baseType.as(IdentifierTypeSyntax.self) {
+		return base.name.identifier?.name == "Swift"
+	}
+	return false
 }
 
 // 앞 대문자 묶음을 보존하는 lowerCamelCase 접근자 이름 생성

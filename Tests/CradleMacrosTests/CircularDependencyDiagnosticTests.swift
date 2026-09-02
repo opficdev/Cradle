@@ -34,42 +34,6 @@ func circularDependencyDiagnosticFindsFirstClosedPath() {
 	)
 }
 
-// Optional 프로토콜 매개변수도 즉시 생성하는 연결로 검사하는지 확인
-@Test
-func circularDependencyDiagnosticIncludesOptionalProtocolParameters() {
-	assertMacroExpansion(
-		"""
-		@DependencyGraph
-		final class Graph {
-			@Provide
-			private func makeA(b: (any B)?) -> any A { fatalError() }
-			@Provide
-			private func makeB(a: any A) -> any B { fatalError() }
-		}
-		""",
-		expandedSource: """
-		final class Graph {
-			private func makeA(b: (any B)?) -> any A { fatalError() }
-			private func makeB(a: any A) -> any B { fatalError() }
-		}
-		""",
-		diagnostics: [
-			DiagnosticSpec(
-				id: .init(domain: "Cradle", id: "circularDependency"),
-				message: "`a → b → a` 순환 의존성이 있습니다.",
-				line: 6,
-				column: 21,
-				highlights: ["a"],
-				notes: [
-					NoteSpec(message: "`makeA` Factory의 등록입니다. 생성 접근자는 `a`입니다.", line: 3, column: 2),
-					NoteSpec(message: "`makeB` Factory의 등록입니다. 생성 접근자는 `b`입니다.", line: 5, column: 2)
-				]
-			)
-		],
-		macros: testMacros
-	)
-}
-
 // 여러 줄 선언·주석·백틱 이름에서 원본 매개변수와 등록 위치 보존 확인
 @Test
 func circularDependencyDiagnosticPreservesOriginalLocations() {

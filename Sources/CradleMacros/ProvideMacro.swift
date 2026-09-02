@@ -9,8 +9,8 @@ import SwiftSyntax
 import SwiftDiagnostics
 import SwiftSyntaxMacros
 
-// 자체 선언을 추가하지 않는 `@Provide` factory 표시
-struct ProvideMacro: PeerMacro {
+// marker와 본문 없는 Factory의 initializer 본문 생성
+struct ProvideMacro: PeerMacro, BodyMacro {
 	// `DependencyGraphMacro`가 읽을 marker만 유지
 	static func expansion(
 		of node: AttributeSyntax,
@@ -25,4 +25,33 @@ struct ProvideMacro: PeerMacro {
 
 		return []
 	}
+
+	// 본문 없는 Factory의 반환 타입 initializer 호출 생성
+	static func expansion(
+		of node: AttributeSyntax,
+		providingBodyFor declaration: some DeclSyntaxProtocol & WithOptionalCodeBlockSyntax,
+		in context: some MacroExpansionContext
+	) throws -> [CodeBlockItemSyntax] {
+		guard declaration.body == nil,
+			let function = declaration.as(FunctionDeclSyntax.self),
+			let body = generatedProviderBody(for: function) else {
+			return []
+		}
+		return body
+	}
+}
+
+// Factory 반환 타입과 매개변수로 initializer 표현식 생성
+func generatedProviderBody(for function: FunctionDeclSyntax) -> [CodeBlockItemSyntax]? {
+	guard let returnType = function.signature.returnClause?.type,
+		!isDirectOptionalType(returnType),
+		let parameters = providerParameterDescriptors(
+			from: function.signature.parameterClause.parameters
+		) else {
+		return nil
+	}
+	let arguments = parameters.map { parameter in
+		parameter.initializerArgument()
+	}.joined(separator: ", ")
+	return ["(\(raw: returnType.trimmedDescription)).init(\(raw: arguments))"]
 }
