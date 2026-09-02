@@ -66,7 +66,7 @@ enum SourceGraphDiagnostic: DiagnosticMessage {
 		case .uninitializedStoredProperty:
 			"`sources` graph는 초기값 없는 인스턴스 저장 프로퍼티를 선언할 수 없습니다."
 		case let .sharedSourceReference(name):
-			"`@Provide(.shared)` Factory는 `\(name)` source graph를 참조할 수 없습니다."
+			"shared 수명의 `@Provide` Factory는 `\(name)` source graph를 참조할 수 없습니다."
 		}
 	}
 

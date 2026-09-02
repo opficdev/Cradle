@@ -50,7 +50,7 @@ func sharedGraphStorageRejectsTransientDependency() {
 		final class Graph {
 			@Provide(.shared)
 			private func makeRoot(value: Value) -> Root { Root() }
-			@Provide
+			@Provide(.transient)
 			private func makeValue() -> Value { Value() }
 		}
 		""",
@@ -63,7 +63,7 @@ func sharedGraphStorageRejectsTransientDependency() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "invalidSharedProviderReference"),
-				message: "`@Provide(.shared)` Factory는 transient 등록을 매개변수로 받을 수 없습니다.",
+				message: "shared 수명의 `@Provide` Factory는 `.transient` 등록을 매개변수로 받을 수 없습니다.",
 				line: 4,
 				column: 31,
 				highlights: ["Value"]

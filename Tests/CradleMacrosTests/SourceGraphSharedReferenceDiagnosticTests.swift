@@ -35,7 +35,7 @@ func sourceGraphMacroRejectsSharedFactorySourceReference() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "sharedSourceReference"),
-				message: "`@Provide(.shared)` Factory는 `appGraph` source graph를 참조할 수 없습니다.",
+				message: "shared 수명의 `@Provide` Factory는 `appGraph` source graph를 참조할 수 없습니다.",
 				line: 5,
 				column: 23,
 				highlights: ["appGraph"]
