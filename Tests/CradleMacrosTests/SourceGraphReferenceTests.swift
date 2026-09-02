@@ -141,6 +141,16 @@ func sourceGraphReferencesIgnoreLocalVariableShadowing() throws {
 	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 }
 
+// 같은 선언의 앞 binding이 뒤 initializer에서 source 이름을 가리는지 확인
+@Test
+func sourceGraphReferencesIgnoreEarlierLocalBindingInSameDeclaration() throws {
+	let factory = try FunctionDeclSyntax(
+		"private func makeFeature() -> Feature { let appGraph = LocalGraph(), feature = appGraph.feature; return feature }"
+	)
+
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
+}
+
 // closure 매개변수와 capture 별칭의 동명 source 이름을 저장 프로퍼티로 보지 않는지 확인
 @Test
 func sourceGraphReferencesIgnoreClosureBindingShadowing() throws {
