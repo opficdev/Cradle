@@ -22,6 +22,23 @@ func sharedProviderConstructionPreservesOriginalFunctionIdentifier() throws {
 	#expect(sharedHelperBody(for: factory) == "{ \"makeService()\"}")
 }
 
+// 중첩 함수 내부의 #function은 원래 지역 함수 의미를 보존하는지 확인
+@Test
+func sharedProviderConstructionPreservesNestedFunctionIdentifier() throws {
+	let factory = try sharedProviderFactory(
+		"""
+		@Provide(.shared)
+		private func makeService() -> String {
+			func nested() -> String { #function }
+			return #function + nested()
+		}
+		"""
+	)
+	let body = try #require(sharedHelperBody(for: factory))
+	#expect(body.contains("func nested() -> String { #function }"))
+	#expect(body.contains("return \"makeService()\"+ nested()"))
+}
+
 // static helper가 bodyless Factory의 initializer 본문을 만드는지 확인
 @Test
 func sharedProviderConstructionBuildsBodylessInitializer() throws {

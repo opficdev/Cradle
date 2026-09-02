@@ -6,13 +6,8 @@
 //
 
 import Cradle
+import Foundation
 import Testing
-
-// shared 생성 순서와 호출 횟수를 기록할 probe
-enum SharedDependencyGraphProbe {
-	// 테스트가 순차 실행할 기록
-	nonisolated(unsafe) static var events: [String] = []
-}
 
 // graph가 소유할 shared 참조 값
 final class SharedLeaf {}
@@ -57,25 +52,18 @@ struct TransientSharedConsumer {
 final class SharedDependencyGraph {
 	private var transientSequence = 0
 
-	init() {
-		SharedDependencyGraphProbe.events.append("init")
-	}
-
 	@Provide(.shared)
 	private func makeSharedLeaf() -> SharedLeaf {
-		SharedDependencyGraphProbe.events.append("leaf")
 		return SharedLeaf()
 	}
 
 	@Provide(.shared)
 	private func makeSharedFirstBranch(leaf: SharedLeaf) -> SharedFirstBranch {
-		SharedDependencyGraphProbe.events.append("first")
 		return SharedFirstBranch(leaf: leaf)
 	}
 
 	@Provide(.shared)
 	private func makeSharedSecondBranch(leaf: SharedLeaf) -> SharedSecondBranch {
-		SharedDependencyGraphProbe.events.append("second")
 		return SharedSecondBranch(leaf: leaf)
 	}
 
@@ -84,7 +72,6 @@ final class SharedDependencyGraph {
 		first: SharedFirstBranch,
 		second: SharedSecondBranch
 	) -> SharedRoot {
-		SharedDependencyGraphProbe.events.append("root")
 		return SharedRoot(first: first, second: second)
 	}
 
@@ -92,6 +79,67 @@ final class SharedDependencyGraph {
 	private func makeTransientSharedConsumer(root: SharedRoot) -> TransientSharedConsumer {
 		transientSequence += 1
 		return TransientSharedConsumer(root: root, sequence: transientSequence)
+	}
+}
+
+// 생성 순서를 안전하게 보관할 probe
+final class SharedCreationOrderProbe: @unchecked Sendable {
+	static let shared = SharedCreationOrderProbe()
+
+	private let lock = NSLock()
+	private var values: [String] = []
+
+	func reset() {
+		lock.withLock {
+			values = []
+		}
+	}
+
+	func record(_ value: String) {
+		lock.withLock {
+			values.append(value)
+		}
+	}
+
+	func snapshot() -> [String] {
+		lock.withLock {
+			values
+		}
+	}
+}
+
+// shared 생성 순서만 독립적으로 확인할 graph
+@DependencyGraph
+final class SharedCreationOrderGraph {
+	init() {
+		SharedCreationOrderProbe.shared.record("init")
+	}
+
+	@Provide(.shared)
+	private func makeSharedLeaf() -> SharedLeaf {
+		SharedCreationOrderProbe.shared.record("leaf")
+		return SharedLeaf()
+	}
+
+	@Provide(.shared)
+	private func makeSharedFirstBranch(leaf: SharedLeaf) -> SharedFirstBranch {
+		SharedCreationOrderProbe.shared.record("first")
+		return SharedFirstBranch(leaf: leaf)
+	}
+
+	@Provide(.shared)
+	private func makeSharedSecondBranch(leaf: SharedLeaf) -> SharedSecondBranch {
+		SharedCreationOrderProbe.shared.record("second")
+		return SharedSecondBranch(leaf: leaf)
+	}
+
+	@Provide(.shared)
+	private func makeSharedRoot(
+		first: SharedFirstBranch,
+		second: SharedSecondBranch
+	) -> SharedRoot {
+		SharedCreationOrderProbe.shared.record("root")
+		return SharedRoot(first: first, second: second)
 	}
 }
 
@@ -147,10 +195,10 @@ final class BodylessSharedGraph {
 // shared가 사용자 initializer보다 먼저 생성되고 chain·diamond를 한 번만 만드는지 확인
 @Test
 func sharedDependencyGraphBuildsBeforeInitializerInTopologicalOrder() {
-	SharedDependencyGraphProbe.events = []
-	let graph = SharedDependencyGraph()
+	SharedCreationOrderProbe.shared.reset()
+	let graph = SharedCreationOrderGraph()
 
-	#expect(SharedDependencyGraphProbe.events == ["leaf", "first", "second", "root", "init"])
+	#expect(SharedCreationOrderProbe.shared.snapshot() == ["leaf", "first", "second", "root", "init"])
 	#expect(graph.sharedFirstBranch.leaf === graph.sharedSecondBranch.leaf)
 	#expect(graph.sharedRoot.first === graph.sharedFirstBranch)
 	#expect(graph.sharedRoot.second === graph.sharedSecondBranch)

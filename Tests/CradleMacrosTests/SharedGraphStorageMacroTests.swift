@@ -37,6 +37,8 @@ func sharedGraphStorageBuildsTypedLetDeclarations() throws {
 	#expect(!source.contains("Dictionary"))
 	#expect(!source.contains("Any"))
 	#expect(!source.contains("nil"))
+	#expect(!source.contains("Optional"))
+	#expect(!source.contains("?"))
 }
 
 // shared Factory가 transient 등록을 요구하면 원본 타입 위치에서 거부하는지 확인

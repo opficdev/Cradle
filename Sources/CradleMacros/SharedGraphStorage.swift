@@ -136,6 +136,10 @@ private final class SharedFunctionNameRewriter: SyntaxRewriter {
 		}
 		return ExprSyntax(StringLiteralExprSyntax(content: functionIdentifier))
 	}
+
+	override func visit(_ node: FunctionDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
 }
 
 // static helper가 사용할 Factory 본문 문자열 생성
