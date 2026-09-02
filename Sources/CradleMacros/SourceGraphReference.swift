@@ -99,6 +99,7 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		}
 		let names = sourceGraphClosureCaptureNames(in: node)
 			.union(sourceGraphClosureParameterNames(in: node))
+			.union(sourceGraphLocalFunctionNames(in: node.statements))
 		scopes.append(names)
 		walk(node.statements)
 		scopes.removeLast()

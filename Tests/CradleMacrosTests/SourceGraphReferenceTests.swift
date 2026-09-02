@@ -347,6 +347,25 @@ func sourceGraphReferencesIgnoreForwardNestedFunctionShadowing() throws {
 	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 }
 
+// closure 안의 선언보다 앞선 지역 함수 호출을 source 저장 프로퍼티로 보지 않는지 확인
+@Test
+func sourceGraphReferencesIgnoreClosureForwardLocalFunctionShadowing() throws {
+	let factory = try sourceGraphReferenceFactory(
+		"""
+		private func makeFeature() -> Feature {
+			let transform = {
+				let feature = appGraph()
+				func appGraph() -> Feature { Feature() }
+				return feature
+			}
+			return transform()
+		}
+		"""
+	)
+
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
+}
+
 // 문자열 Factory 선언의 source 참조 탐색용 구문 분석
 private func sourceGraphReferenceFactory(_ source: String) throws -> FunctionDeclSyntax {
 	let file = Parser.parse(source: source)
