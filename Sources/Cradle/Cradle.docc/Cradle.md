@@ -4,13 +4,13 @@ Cradle은 Swift 매크로로 의존성의 생성과 연결에 필요한 코드�
 
 ## Overview
 
-현재는 `@DependencyGraph`를 `final class`에 적용해 그래프를 선언합니다. 그래프 클래스 안에 동기 `private` Factory를 선언하고 `@Provide`를 붙이면 의존성을 등록할 수 있습니다. 매크로는 Factory의 반환 타입을 바탕으로 생성 접근자를 그래프에 추가합니다.
+`@DependencyGraph`는 `final class`에 적용합니다. 그래프 안의 동기 `private` Factory에 `@Provide`를 붙이면 의존성을 등록할 수 있습니다. Factory의 반환 타입이 등록 타입과 graph가 노출하는 읽기 전용 프로퍼티 타입이 됩니다.
 
-Factory의 매개변수명에 맞는 생성 접근자를 호출해 의존성을 전달합니다. 연결에는 함수 본문에서 사용하는 이름을 쓰며, 호출문에는 원래의 외부 인자 레이블과 매개변수 순서를 유지합니다. 같은 이름의 일반 메서드는 의존성 연결 대상으로 사용할 수 없습니다.
+Factory 매개변수는 이름이 아니라 타입으로 다른 등록과 연결합니다. 외부 인자 레이블과 매개변수 순서는 Factory 호출에 그대로 유지합니다.
 
-Factory가 `any UserRepository`를 반환하면 생성 접근자도 같은 프로토콜 타입을 반환합니다. 구현 타입의 프로토콜 적합성은 Swift 컴파일러가 검사합니다.
+Factory가 `any UserRepository`를 반환하면 graph의 `userRepository`도 같은 프로토콜 타입을 노출합니다. 구현 타입의 프로토콜 적합성은 Swift 컴파일러가 검사합니다.
 
-생성 접근자는 필요한 의존성을 얻은 뒤 자신의 Factory를 호출하며 결과를 별도로 저장하거나 재사용하지 않습니다. Factory가 새 값을 반환하도록 구현하면 접근자를 호출할 때마다 새 값을 얻습니다.
+기본 `@Provide`는 프로퍼티 접근마다 Factory를 호출합니다. `@Provide(.shared)`는 graph 생성 중 한 번 만든 값을 해당 graph가 보유하고 이후 같은 값을 반환합니다.
 
 매크로는 그래프에 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. 그래프를 외부 모듈에서 생성해야 한다면 필요한 생성자를 직접 선언합니다.
 
@@ -24,3 +24,5 @@ Factory가 `any UserRepository`를 반환하면 생성 접근자도 같은 프�
 
 - ``DependencyGraph()``
 - ``Provide()``
+- ``Provide(_:)``
+- ``DependencyLifetime``
