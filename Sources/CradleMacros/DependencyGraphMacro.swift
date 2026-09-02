@@ -66,6 +66,13 @@ struct DependencyGraphMacro: MemberMacro {
 		) else {
 			return []
 		}
+		guard !diagnoseSourceGraphSharedReferenceErrors(
+			in: providerResult.descriptors,
+			sources: sourceResult.descriptors,
+			context: context
+		) else {
+			return []
+		}
 		guard !diagnoseCircularDependency(in: providerResult.descriptors, context: context) else {
 			return []
 		}
