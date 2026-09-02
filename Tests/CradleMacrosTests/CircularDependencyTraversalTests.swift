@@ -62,7 +62,8 @@ private func circularDependencyProviders(_ connections: [[Int]]) -> [ProviderDes
 					type: type,
 					typeIdentity: registeredTypeIdentity(for: type)
 				)
-			}
+			},
+			lifetime: .transient
 		)
 	}
 }

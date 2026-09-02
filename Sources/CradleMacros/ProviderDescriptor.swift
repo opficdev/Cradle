@@ -19,6 +19,8 @@ struct ProviderDescriptor {
 	let registeredType: RegisteredType
 	// provider Factory 호출에 사용할 매개변수
 	let parameters: [ProviderParameterDescriptor]
+	// Factory 결과를 graph에 보관할지 결정하는 수명
+	let lifetime: ProviderLifetime
 
 	// 진단과 호출에 사용할 Factory 이름
 	var factoryName: String { factory.name.text }
@@ -49,14 +51,16 @@ func providerDescriptor(
 ) -> ProviderDescriptor? {
 	guard validateProviderDeclaration(function, attribute: attribute, context: context),
 		let parameters = validatedProviderParameters(function, attribute: attribute, context: context),
-		let registeredType = validatedProviderReturnType(function, attribute: attribute, context: context) else {
+		let registeredType = validatedProviderReturnType(function, attribute: attribute, context: context),
+		let lifetime = providerLifetime(from: attribute, in: context) else {
 		return nil
 	}
 	return ProviderDescriptor(
 		attribute: attribute,
 		factory: function,
 		registeredType: registeredType,
-		parameters: parameters
+		parameters: parameters,
+		lifetime: lifetime
 	)
 }
 

@@ -49,24 +49,28 @@ struct DependencyGraphMacro: MemberMacro {
 		) else {
 			return []
 		}
+		guard !diagnoseSharedProviderReferenceErrors(
+			in: providerResult.descriptors,
+			context: context
+		) else {
+			return []
+		}
 		guard !diagnoseCircularDependency(in: providerResult.descriptors, context: context) else {
 			return []
 		}
+		let storage = sharedStorage(
+			for: providerResult.descriptors,
+			graphName: graph.name,
+			propertyNames: propertyNames,
+			in: context
+		)
 
-		return providerResult.descriptors.map { provider in
-			let propertySignature = "\(graphAccess.rawValue) var \(provider.propertyName)"
-			let arguments = provider.parameters.map { parameter in
-				parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity]!)
-			}.joined(separator: ", ")
-
-			return DeclSyntax(
-				"""
-				\(raw: propertySignature): \(raw: provider.returnType.trimmedDescription) {
-				    \(raw: provider.factoryName)(\(raw: arguments))
-				}
-				"""
-			)
-		}
+		return propertyDeclarations(
+			for: providerResult.descriptors,
+			accessLevel: graphAccess,
+			propertyNames: propertyNames,
+			storage: storage
+		)
 	}
 
 	// 첫 순환의 닫는 매개변수와 경로에 포함된 원본 등록 위치 진단
@@ -212,10 +216,91 @@ struct DependencyGraphMacro: MemberMacro {
 		return hasError
 	}
 
+	// shared Factory가 graph 초기화 뒤에 만들어지는 transient 등록을 요구하는지 확인
+	private static func diagnoseSharedProviderReferenceErrors(
+		in providers: [ProviderDescriptor],
+		context: some MacroExpansionContext
+	) -> Bool {
+		let registrations = Dictionary(uniqueKeysWithValues: providers.map { provider in
+			(provider.registrationIdentity, provider)
+		})
+		var hasError = false
+
+		for provider in providers where provider.lifetime == .shared {
+			for parameter in provider.parameters {
+				guard let dependency = registrations[parameter.typeIdentity],
+					dependency.lifetime == .transient else {
+					continue
+				}
+				context.diagnose(
+					Diagnostic(
+						node: parameter.type,
+						message: InvalidSharedProviderReferenceDiagnostic()
+					)
+				)
+				hasError = true
+			}
+		}
+
+		return hasError
+	}
+
 	// final class graph 판별
 	private static func isFinal(_ graph: ClassDeclSyntax) -> Bool {
 		graph.modifiers.contains { modifier in
 			modifier.name.tokenKind == .keyword(.final)
 		}
 	}
+}
+
+// shared 등록이 있을 때만 graph 전용 저장소 생성
+private func sharedStorage(
+	for providers: [ProviderDescriptor],
+	graphName: TokenSyntax,
+	propertyNames: [RegisteredTypeIdentity: String],
+	in context: some MacroExpansionContext
+) -> SharedGraphStorage? {
+	let sharedProviders = providers.filter { $0.lifetime == .shared }
+	guard !sharedProviders.isEmpty else {
+		return nil
+	}
+	return SharedGraphStorage(
+		graphName: graphName,
+		providers: sharedProviders,
+		propertyNames: propertyNames,
+		in: context
+	)
+}
+
+// shared 저장소와 transient Factory 호출을 구분한 생성 프로퍼티 선언 생성
+private func propertyDeclarations(
+	for providers: [ProviderDescriptor],
+	accessLevel: AccessLevel,
+	propertyNames: [RegisteredTypeIdentity: String],
+	storage: SharedGraphStorage?
+) -> [DeclSyntax] {
+	let properties = providers.map { provider in
+		let propertySignature = "\(accessLevel.rawValue) var \(provider.propertyName)"
+		if provider.lifetime == .shared, let storage {
+			return DeclSyntax(
+				"""
+				\(raw: propertySignature): \(raw: provider.returnType.trimmedDescription) {
+				    \(raw: storage.valueReference(for: provider))
+				}
+				"""
+			)
+		}
+		let arguments = provider.parameters.map { parameter in
+			parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity]!)
+		}.joined(separator: ", ")
+
+		return DeclSyntax(
+			"""
+			\(raw: propertySignature): \(raw: provider.returnType.trimmedDescription) {
+			    \(raw: provider.factoryName)(\(raw: arguments))
+			}
+			"""
+		)
+	}
+	return (storage?.declarations() ?? []) + properties
 }
