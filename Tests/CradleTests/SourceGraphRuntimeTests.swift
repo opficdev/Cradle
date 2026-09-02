@@ -191,6 +191,36 @@ func sourceGraphSharedCompositionSeparatesStoragePerGraph() {
 	#expect(second.requestIdentifier == 2)
 }
 
+// 조합 graph 해제 뒤 shared 저장소와 source graph를 함께 해제하는지 확인
+@Test
+func sourceGraphSharedCompositionReleasesStorageAndSources() {
+	weak var observedAppGraph: SourceGraphAppGraph?
+	weak var observedSessionGraph: SourceGraphSessionGraph?
+	weak var observedFeature: SourceGraphSharedFeature?
+
+	do {
+		let appGraph = SourceGraphAppGraph()
+		let sessionGraph = SourceGraphSessionGraph()
+		observedAppGraph = appGraph
+		observedSessionGraph = sessionGraph
+		let graph = SourceGraphSharedFeatureGraph(
+			sourceGraphAppGraph: appGraph,
+			sourceGraphSessionGraph: sessionGraph
+		)
+		observedFeature = graph.sourceGraphSharedFeature
+
+		withExtendedLifetime(graph) {
+			#expect(observedAppGraph != nil)
+			#expect(observedSessionGraph != nil)
+			#expect(observedFeature != nil)
+		}
+	}
+
+	#expect(observedAppGraph == nil)
+	#expect(observedSessionGraph == nil)
+	#expect(observedFeature == nil)
+}
+
 // 조합 graph가 source graph를 강하게 보관하는지 확인
 @Test
 func sourceGraphCompositionRetainsSources() {
