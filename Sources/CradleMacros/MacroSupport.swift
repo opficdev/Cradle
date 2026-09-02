@@ -39,7 +39,7 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 	var message: String {
 		switch self {
 		case .invalidGraph:
-			"`@DependencyGraph`는 비 generic `final class`에만 적용할 수 있습니다."
+			"`@DependencyGraph`는 비 generic `final class` 또는 비 generic `actor`에만 적용할 수 있습니다."
 		case .invalidProvidePlacement:
 			"`@Provide`는 `@DependencyGraph` 본체에 직접 선언해야 합니다."
 		case .invalidProviderDeclaration:
@@ -167,8 +167,8 @@ func provideAttribute(in declaration: some DeclSyntaxProtocol) -> AttributeSynta
 }
 
 // graph 선언의 생성 접근자 적용 수준 반환
-func accessLevel(of graph: ClassDeclSyntax) -> AccessLevel {
-	for modifier in graph.modifiers {
+func accessLevel(of modifiers: DeclModifierListSyntax) -> AccessLevel {
+	for modifier in modifiers {
 		if let level = AccessLevel(rawValue: modifier.name.text) {
 			return level
 		}
@@ -177,8 +177,8 @@ func accessLevel(of graph: ClassDeclSyntax) -> AccessLevel {
 }
 
 // graph 직접 instance member 이름 수집
-func instanceMemberNames(in graph: ClassDeclSyntax) -> Set<String> {
-	graph.memberBlock.members.reduce(into: Set<String>()) { names, member in
+func instanceMemberNames(in members: MemberBlockItemListSyntax) -> Set<String> {
+	members.reduce(into: Set<String>()) { names, member in
 		if let function = member.decl.as(FunctionDeclSyntax.self),
 			!hasTypeMemberModifier(in: function.modifiers),
 			function.signature.parameterClause.parameters.isEmpty {

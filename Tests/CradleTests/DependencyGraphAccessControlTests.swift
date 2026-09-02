@@ -18,6 +18,16 @@ func anotherModuleCanUsePublicGraphAccessor() {
 	_ = graph.publicService
 }
 
+// 별도 module의 public actor graph 접근자 await 호출 확인
+@Test
+func anotherModuleCanAwaitPublicActorGraphAccessor() async {
+	let graph = PublicActorGraph()
+	let service = await graph.publicActorService
+	let token = await service.token()
+
+	#expect(token == 21)
+}
+
 // public 접근자가 internal 반환 타입을 노출하는지 확인
 @Test
 func publicAccessorCannotExposeInternalReturnType() throws {

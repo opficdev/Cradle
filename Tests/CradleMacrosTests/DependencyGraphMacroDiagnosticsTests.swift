@@ -21,7 +21,7 @@ func dependencyGraphRejectsStruct() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@DependencyGraph`는 비 generic `final class`에만 적용할 수 있습니다.",
+				message: "`@DependencyGraph`는 비 generic `final class` 또는 비 generic `actor`에만 적용할 수 있습니다.",
 				line: 1,
 				column: 1
 			)
@@ -43,7 +43,7 @@ func dependencyGraphRejectsNonFinalClass() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@DependencyGraph`는 비 generic `final class`에만 적용할 수 있습니다.",
+				message: "`@DependencyGraph`는 비 generic `final class` 또는 비 generic `actor`에만 적용할 수 있습니다.",
 				line: 1,
 				column: 1
 			)
@@ -65,7 +65,29 @@ func dependencyGraphRejectsGenericClass() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@DependencyGraph`는 비 generic `final class`에만 적용할 수 있습니다.",
+				message: "`@DependencyGraph`는 비 generic `final class` 또는 비 generic `actor`에만 적용할 수 있습니다.",
+				line: 1,
+				column: 1
+			)
+		],
+		macros: testMacros
+	)
+}
+
+// generic actor graph 거부 확인
+@Test
+func dependencyGraphRejectsGenericActor() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		actor Graph<Value> {}
+		""",
+		expandedSource: """
+		actor Graph<Value> {}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				message: "`@DependencyGraph`는 비 generic `final class` 또는 비 generic `actor`에만 적용할 수 있습니다.",
 				line: 1,
 				column: 1
 			)
@@ -87,7 +109,7 @@ func dependencyGraphRejectsExtension() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@DependencyGraph`는 비 generic `final class`에만 적용할 수 있습니다.",
+				message: "`@DependencyGraph`는 비 generic `final class` 또는 비 generic `actor`에만 적용할 수 있습니다.",
 				line: 1,
 				column: 1
 			)

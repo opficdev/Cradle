@@ -39,9 +39,42 @@ let client = graph.httpClient
 | `SHA256` | `sha256` |
 | `HTTP2Client` | `http2Client` |
 
+## actor graph
+
+`@DependencyGraph`는 비 generic actor에도 적용할 수 있습니다. actor graph에서 만든 생성 프로퍼티는 actor-isolated 상태로 남으므로 actor 밖에서는 `await`로 읽습니다. shared 등록은 class graph와 마찬가지로 graph 인스턴스별 타입 지정 `let` 저장소에 한 번 만들고, transient 등록은 접근할 때마다 Factory를 다시 호출합니다.
+
+```swift
+import Cradle
+
+struct UserSession: Sendable {
+	let token: String
+}
+
+@DependencyGraph
+actor SessionGraph {
+	@Provide(.shared)
+	private func makeUserSession() -> UserSession {
+		UserSession(token: "token")
+	}
+}
+
+func loadSession() async -> UserSession {
+	let graph = SessionGraph()
+	return await graph.userSession
+}
+```
+
+actor 내부에서는 non-`Sendable` 등록을 사용할 수 있습니다. 반면 actor 밖에서 non-`Sendable` 생성 프로퍼티를 `await`로 읽으면 Swift 컴파일러가 그 소비 위치에서 오류를 표시합니다. Macro는 `Sendable` 준수나 actor 경계 통과 여부를 판단하지 않습니다.
+
+actor graph에는 `sources`를 지정할 수 없습니다. actor source graph 조합, `async`·`throws`·`rethrows` Factory, `nonisolated`, `nonisolated(unsafe)`, `@unchecked Sendable`, lock은 지원하지 않습니다.
+
+## class graph 동시성
+
+`final class` graph는 동시 접근을 조정하지 않습니다. 여러 Task에서 graph를 공유해야 하면 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다. Macro는 class graph를 동시 접근에 안전하게 만들 lock이나 `@unchecked Sendable`을 생성하지 않습니다.
+
 ## source graph 조합
 
-`sources`에는 조합 graph가 직접 읽을 source graph type을 `GraphType.self` 배열로 지정합니다. Macro는 source type의 마지막 식별자를 lowerCamelCase로 바꾼 `private let` 저장 프로퍼티와 graph 접근 수준의 initializer를 만듭니다. 조합 Factory 본문에서는 이 저장 프로퍼티로 source graph의 생성 프로퍼티를 직접 읽습니다.
+`sources`는 `final class` 조합 graph에서만 사용할 수 있습니다. 조합 graph가 직접 읽을 source graph type을 `GraphType.self` 배열로 지정합니다. Macro는 source type의 마지막 식별자를 lowerCamelCase로 바꾼 `private let` 저장 프로퍼티와 graph 접근 수준의 initializer를 만듭니다. 조합 Factory 본문에서는 이 저장 프로퍼티로 source graph의 생성 프로퍼티를 직접 읽습니다.
 
 ```swift
 import Cradle
@@ -207,7 +240,7 @@ let second = graph.userRepository
 
 shared 수명의 Factory는 다른 shared 등록만 매개변수로 받을 수 있습니다. shared 수명의 Factory가 transient 등록을 받으면 그 transient 값이 graph 생성 때 한 번 만들어져 shared 값에 고정되므로, Macro는 해당 매개변수 타입 위치에 오류를 표시합니다.
 
-shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 실행됩니다. 따라서 `self`, `super`, graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다.
+shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 실행됩니다. 따라서 `self`, `super`, class·actor graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다. actor graph의 shared Factory가 actor 상태를 읽으면 static helper에서 Swift 컴파일러가 오류를 표시합니다.
 
 source graph 저장 프로퍼티는 shared Factory에서 직접 읽을 수 있습니다. Macro는 이 참조를 생성한 static helper의 매개변수로 바꾸고, source 저장 프로퍼티를 대입한 뒤 helper를 실행합니다. source graph의 transient 값을 읽으면 그 표현식은 조합 graph를 초기화할 때 한 번 평가되어 shared 결과에 보관됩니다.
 
@@ -238,7 +271,7 @@ final class AppGraph {
 
 ## 선언 조건과 진단
 
-`@DependencyGraph`는 제네릭 매개변수와 제네릭 `where` 절이 없는 `final class`에만 적용합니다. `@Provide` Factory는 graph 본체에 직접 선언한 동기 `private` 인스턴스 메서드여야 하며, 명시적 반환 타입이 필요합니다.
+`@DependencyGraph`는 제네릭 매개변수와 제네릭 `where` 절이 없는 `final class` 또는 actor에 적용합니다. `sources`는 `final class`에만 지정할 수 있습니다. `@Provide` Factory는 graph 본체에 직접 선언한 동기 `private` 인스턴스 메서드여야 하며, 명시적 반환 타입이 필요합니다.
 
 `@Provide` 매개변수에는 기본값, 가변 인자, `inout`, `@autoclosure`, `some`, `_` 지역 이름을 사용할 수 없습니다. `async`, `throws`, `rethrows`, 함수 제네릭, 타입 메서드도 사용할 수 없습니다.
 
@@ -264,6 +297,7 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 - source graph 생성 프로퍼티의 자동 주입
 - qualifier와 multibinding
 - graph 입력과 assisted factory
-- actor graph와 superclass initializer가 필요한 source 조합
+- actor graph의 `sources`와 actor source graph 조합
 - `async`, `throws`, `rethrows` Factory
+- `nonisolated`, `nonisolated(unsafe)`, `@unchecked Sendable`, lock
 - 구체 구현 타입 자동 탐색

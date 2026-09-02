@@ -82,6 +82,17 @@ func sourceGraphResult(
 	return SourceGraphResult(descriptors: ordered, hasError: hasError)
 }
 
+// actor graph source 조합 진단에 사용할 원본 `sources` 배열 표현식 반환
+func sourceGraphArgumentExpression(in attribute: AttributeSyntax) -> ExprSyntax? {
+	guard case let .argumentList(arguments)? = attribute.arguments,
+		arguments.count == 1,
+		let argument = arguments.first,
+		argument.label?.identifier?.name == "sources" else {
+		return nil
+	}
+	return argument.expression
+}
+
 // `GraphType.self` source 원소를 descriptor로 변환
 private func sourceGraphDescriptor(from expression: ExprSyntax) -> SourceGraphDescriptor? {
 	guard let member = expression.as(MemberAccessExprSyntax.self),
@@ -107,7 +118,7 @@ private func sourceGraphDescriptor(from expression: ExprSyntax) -> SourceGraphDe
 
 // source 선언과 graph member의 충돌 진단
 func diagnoseSourceGraphErrors(
-	in graph: ClassDeclSyntax,
+	in members: MemberBlockItemListSyntax,
 	sources: [SourceGraphDescriptor],
 	providerNames: Set<String>,
 	memberNames: Set<String>,
@@ -122,7 +133,7 @@ func diagnoseSourceGraphErrors(
 		memberNames: memberNames,
 		context: context
 	)
-	let declarationError = diagnoseSourceGraphMemberErrors(in: graph, context: context)
+	let declarationError = diagnoseSourceGraphMemberErrors(in: members, context: context)
 	return collisionError || declarationError
 }
 
@@ -236,11 +247,11 @@ private func diagnoseSourceGraphMemberCollisions(
 
 // source graph의 사용자 initializer와 초기값 없는 저장 프로퍼티 진단
 private func diagnoseSourceGraphMemberErrors(
-	in graph: ClassDeclSyntax,
+	in members: MemberBlockItemListSyntax,
 	context: some MacroExpansionContext
 ) -> Bool {
 	var hasError = false
-	for member in graph.memberBlock.members {
+	for member in members {
 		if let initializer = member.decl.as(InitializerDeclSyntax.self) {
 			context.diagnose(Diagnostic(node: initializer.initKeyword, message: SourceGraphDiagnostic.userInitializer))
 			hasError = true

@@ -17,8 +17,8 @@ struct ProvideMacro: PeerMacro, BodyMacro {
 		providingPeersOf declaration: some DeclSyntaxProtocol,
 		in context: some MacroExpansionContext
 	) throws -> [DeclSyntax] {
-		guard let graph = context.lexicalContext.first?.as(ClassDeclSyntax.self),
-			containsAttribute(named: "DependencyGraph", in: graph.attributes) else {
+		guard let graph = context.lexicalContext.first,
+			isDependencyGraphContainer(graph) else {
 			context.diagnose(Diagnostic(node: node, message: CradleMacroDiagnostic.invalidProvidePlacement))
 			return []
 		}
