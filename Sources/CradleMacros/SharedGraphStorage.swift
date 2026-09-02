@@ -140,6 +140,56 @@ private final class SharedFunctionNameRewriter: SyntaxRewriter {
 	override func visit(_ node: FunctionDeclSyntax) -> DeclSyntax {
 		DeclSyntax(node)
 	}
+
+	// 지역 initializer의 #function 문맥 보존
+	override func visit(_ node: InitializerDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 지역 deinitializer의 #function 문맥 보존
+	override func visit(_ node: DeinitializerDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 지역 accessor의 #function 문맥 보존
+	override func visit(_ node: AccessorDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 지역 subscript의 #function 문맥 보존
+	override func visit(_ node: SubscriptDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 지역 struct와 내부 선언의 #function 문맥 보존
+	override func visit(_ node: StructDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 지역 class와 내부 선언의 #function 문맥 보존
+	override func visit(_ node: ClassDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 지역 enum과 내부 선언의 #function 문맥 보존
+	override func visit(_ node: EnumDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 지역 actor와 내부 선언의 #function 문맥 보존
+	override func visit(_ node: ActorDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 지역 protocol과 내부 선언의 #function 문맥 보존
+	override func visit(_ node: ProtocolDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
+
+	// 중첩 extension과 내부 선언의 #function 문맥 보존
+	override func visit(_ node: ExtensionDeclSyntax) -> DeclSyntax {
+		DeclSyntax(node)
+	}
 }
 
 // static helper가 사용할 Factory 본문 문자열 생성

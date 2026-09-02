@@ -185,6 +185,105 @@ final class SharedReturnTypeGraph {
 // bodyless concrete Factory를 shared로 보관할 참조 값
 final class BodylessSharedConfiguration {}
 
+// 독립 #function 문맥 값을 함께 보관할 값
+struct FunctionContextValues: Equatable {
+	let initializer: String
+	let getter: String
+	let setter: String
+	let subscriptValue: String
+	let method: String
+}
+
+// shared Factory의 독립 #function 문맥 결과
+struct SharedFunctionContext {
+	let values: FunctionContextValues
+}
+
+// transient Factory의 독립 #function 문맥 결과
+struct TransientFunctionContext {
+	let values: FunctionContextValues
+}
+
+// shared와 transient Factory의 독립 #function 문맥을 비교할 graph
+@DependencyGraph
+final class NestedFunctionContextGraph {
+	@Provide(.shared)
+	private func makeSharedFunctionContext() -> SharedFunctionContext {
+		struct Context {
+			let initializer: String
+			var storedSetter = ""
+
+			init() {
+				initializer = #function
+			}
+
+			var getter: String { #function }
+
+			var setter: String {
+				get { storedSetter }
+				set {
+					_ = newValue
+					storedSetter = #function
+				}
+			}
+
+			subscript(_ index: Int) -> String { #function }
+
+			func method() -> String { #function }
+		}
+
+		var context = Context()
+		context.setter = "shared"
+		return SharedFunctionContext(
+			values: FunctionContextValues(
+				initializer: context.initializer,
+				getter: context.getter,
+				setter: context.setter,
+				subscriptValue: context[0],
+				method: context.method()
+			)
+		)
+	}
+
+	@Provide
+	private func makeTransientFunctionContext() -> TransientFunctionContext {
+		struct Context {
+			let initializer: String
+			var storedSetter = ""
+
+			init() {
+				initializer = #function
+			}
+
+			var getter: String { #function }
+
+			var setter: String {
+				get { storedSetter }
+				set {
+					_ = newValue
+					storedSetter = #function
+				}
+			}
+
+			subscript(_ index: Int) -> String { #function }
+
+			func method() -> String { #function }
+		}
+
+		var context = Context()
+		context.setter = "transient"
+		return TransientFunctionContext(
+			values: FunctionContextValues(
+				initializer: context.initializer,
+				getter: context.getter,
+				setter: context.setter,
+				subscriptValue: context[0],
+				method: context.method()
+			)
+		)
+	}
+}
+
 // bodyless shared initializer 확장을 확인할 graph
 @DependencyGraph
 final class BodylessSharedGraph {
@@ -231,6 +330,22 @@ func sharedDependencyGraphSeparatesGraphInstances() {
 @Test
 func sharedDependencyGraphPreservesOriginalFunctionIdentifier() {
 	#expect(SharedFunctionGraph().string == "makeFunctionIdentifier()")
+}
+
+// shared와 transient Factory가 독립 #function 문맥을 같게 보존하는지 확인
+@Test
+func sharedDependencyGraphPreservesNestedFunctionContexts() {
+	let graph = NestedFunctionContextGraph()
+	let expected = FunctionContextValues(
+		initializer: "init()",
+		getter: "getter",
+		setter: "setter",
+		subscriptValue: "subscript(_:)",
+		method: "method()"
+	)
+
+	#expect(graph.sharedFunctionContext.values == expected)
+	#expect(graph.transientFunctionContext.values == expected)
 }
 
 // shared 저장소가 protocol·superclass 반환 타입을 보존하는지 확인

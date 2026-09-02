@@ -39,6 +39,38 @@ func sharedProviderConstructionPreservesNestedFunctionIdentifier() throws {
 	#expect(body.contains("return \"makeService()\"+ nested()"))
 }
 
+// 지역 선언의 #function 문맥을 바깥 Factory 이름으로 바꾸지 않는지 확인
+@Test
+func sharedProviderConstructionPreservesNestedDeclarationFunctionIdentifiers() throws {
+	let factory = try sharedProviderFactory(
+		"""
+		@Provide(.shared)
+		private func makeService() -> String {
+			struct Local {
+				init() { let initializer = #function }
+				var value: String {
+					get { #function }
+					set { let setter = #function }
+				}
+				subscript(_ index: Int) -> String { #function }
+				func method() -> String { #function }
+			}
+			let closure = { #function }
+			return #function
+		}
+		"""
+	)
+	let body = try #require(sharedHelperBody(for: factory))
+
+	#expect(body.contains("init() { let initializer = #function }"))
+	#expect(body.contains("get { #function }"))
+	#expect(body.contains("let setter = #function"))
+	#expect(body.contains("subscript(_ index: Int) -> String { #function }"))
+	#expect(body.contains("func method() -> String { #function }"))
+	#expect(body.contains("let closure = { \"makeService()\"}"))
+	#expect(body.contains("return \"makeService()\""))
+}
+
 // static helper가 bodyless Factory의 initializer 본문을 만드는지 확인
 @Test
 func sharedProviderConstructionBuildsBodylessInitializer() throws {
