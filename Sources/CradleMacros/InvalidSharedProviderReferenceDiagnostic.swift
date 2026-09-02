@@ -16,7 +16,7 @@ struct InvalidSharedProviderReferenceDiagnostic: DiagnosticMessage {
 
 	// graph 초기화 전에 생성할 수 없는 참조 안내
 	var message: String {
-		"`@Provide(.shared)` Factory는 transient 등록을 매개변수로 받을 수 없습니다."
+		"shared 수명의 `@Provide` Factory는 `.transient` 등록을 매개변수로 받을 수 없습니다."
 	}
 
 	// shared 저장소를 만들 수 없는 graph의 컴파일 중단

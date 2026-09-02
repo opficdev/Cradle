@@ -41,9 +41,9 @@ func circularDependencyDiagnosticIncludesProtocolParameters() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeA(b: any B) -> any A { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func makeB(a: any A) -> any B { fatalError() }
 		}
 		""",
@@ -77,11 +77,11 @@ func circularDependencyDiagnosticPreservesOriginalLocations() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func `makeA`(
 				other b: any Domain.`b`
 			) -> any A { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func `makeB`(
 				_ /* label */ `a`: any A
 			) -> any Domain.`b` { fatalError() }

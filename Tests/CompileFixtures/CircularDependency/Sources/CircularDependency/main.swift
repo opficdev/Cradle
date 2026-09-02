@@ -20,7 +20,7 @@ struct ThirdService {}
 @DependencyGraph
 final class SelfCycleGraph {
 	// 자기 순환을 닫는 원본 매개변수
-	@Provide
+	@Provide(.transient)
 	private func makeFirstService(firstService: FirstService) -> FirstService { FirstService() }
 }
 
@@ -28,15 +28,15 @@ final class SelfCycleGraph {
 @DependencyGraph
 final class MultiCycleGraph {
 	// 두 번째 등록을 요구하는 첫 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeFirstService(secondService: SecondService) -> FirstService { FirstService() }
 
 	// 세 번째 등록을 요구하는 두 번째 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeSecondService(thirdService: ThirdService) -> SecondService { SecondService() }
 
 	// 주석 뒤의 지역 이름에서 순환을 닫는 Factory
-	@Provide
+	@Provide(.transient)
 	private func `makeThirdService`(
 		_ /* closing */ `firstService`: FirstService
 	) -> ThirdService { ThirdService() }

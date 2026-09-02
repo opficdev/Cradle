@@ -24,7 +24,7 @@ func providerParameterDiagnosticsRejectUnsupportedSyntax(parameter: String) {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeService(\(parameter)) -> Service { Service() }
 		}
 		""",
@@ -56,9 +56,9 @@ func providerParameterDiagnosticsRejectEscapedAutoclosure(attributes: String) {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFeature(service: \(attributes) () -> Service) -> Feature { Feature() }
-			@Provide
+			@Provide(.transient)
 			private func makeService() -> Service { Service() }
 		}
 		""",
@@ -91,9 +91,9 @@ func providerParameterDiagnosticsRejectNonProviderConnection(member: String) {
 		@DependencyGraph
 		final class Graph {
 			\(member)
-			@Provide
+			@Provide(.transient)
 			private func makeService(dependency: Dependency) -> Service { Service() }
-			@Provide
+			@Provide(.transient)
 			private func makeOther() -> Other { Other() }
 		}
 		""",
@@ -125,9 +125,9 @@ func providerParameterDiagnosticsConnectByType() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeClient(urlsession: URLSession) -> Client { Client() }
-			@Provide
+			@Provide(.transient)
 			private func makeURLSession() -> URLSession { URLSession() }
 		}
 		""",
@@ -156,9 +156,9 @@ func providerParameterDiagnosticsDistinguishesGenericArguments() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeConsumer(box: Box<Int>) -> Consumer { Consumer() }
-			@Provide
+			@Provide(.transient)
 			private func makeBox() -> Box<String> { Box() }
 		}
 		""",

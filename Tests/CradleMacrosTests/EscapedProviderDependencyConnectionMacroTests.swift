@@ -27,9 +27,9 @@ func providerDependencyConnectionPreservesEscapedAccessorNames() {
 			"""
 			@DependencyGraph
 			final class Graph {
-				@Provide
+				@Provide(.transient)
 				private func makeService(\(parameter)) -> Service { .init() }
-				@Provide
+				@Provide(.transient)
 				private func makeDependency() -> \(returnType) { .init() }
 			}
 			""",
@@ -59,11 +59,11 @@ func providerDependencyConnectionRejectsEscapedDuplicateAccessors() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst() -> dependency { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> `dependency` { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeService(dependency: dependency) -> Service { .init() }
 		}
 		""",

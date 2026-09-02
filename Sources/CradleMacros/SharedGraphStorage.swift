@@ -21,15 +21,24 @@ struct SharedGraphStorage {
 	let builderName: TokenSyntax
 	// 등록 순서로 보관한 shared Factory
 	let providers: [ProviderDescriptor]
+	// 조합 graph가 보관하는 source graph
+	let sources: [SourceGraphDescriptor]
 	// 의존성 타입 identity와 생성 프로퍼티 이름 연결
 	let propertyNames: [RegisteredTypeIdentity: String]
 	// 등록별 복제 static Factory helper 이름
 	let helperNames: [RegisteredTypeIdentity: TokenSyntax]
+	// 등록별 source 저장 프로퍼티 참조
+	let sourceReferences: [RegisteredTypeIdentity: SourceGraphReferences]
+	// 등록별 실제 참조 source graph
+	let providerSources: [RegisteredTypeIdentity: [SourceGraphDescriptor]]
+	// 등록별 source graph helper 매개변수 이름
+	let helperSourceNames: [RegisteredTypeIdentity: [RegisteredTypeIdentity: TokenSyntax]]
 
 	// 한 graph의 shared Factory와 충돌하지 않는 저장소 식별자 생성
 	init(
 		graphName: TokenSyntax,
 		providers: [ProviderDescriptor],
+		sources: [SourceGraphDescriptor],
 		propertyNames: [RegisteredTypeIdentity: String],
 		in context: some MacroExpansionContext
 	) {
@@ -38,9 +47,26 @@ struct SharedGraphStorage {
 		self.graphName = graphName
 		builderName = context.makeUniqueName("makeSharedStorage")
 		self.providers = providers
+		self.sources = sources
 		self.propertyNames = propertyNames
 		helperNames = Dictionary(uniqueKeysWithValues: providers.map { provider in
 			(provider.registrationIdentity, context.makeUniqueName("makeShared\(provider.propertyIdentifier)"))
+		})
+		let sourceNames = Set(sources.map(\.propertyIdentifier))
+		let references = Dictionary(uniqueKeysWithValues: providers.map { provider in
+			(provider.registrationIdentity, sourceGraphReferences(in: provider.factory, sourceNames: sourceNames))
+		})
+		sourceReferences = references
+		let providerSources = Dictionary(uniqueKeysWithValues: providers.map { provider in
+			let names = references[provider.registrationIdentity]?.sourceNames ?? []
+			return (provider.registrationIdentity, sources.filter { names.contains($0.propertyIdentifier) })
+		})
+		self.providerSources = providerSources
+		helperSourceNames = Dictionary(uniqueKeysWithValues: providers.map { provider in
+			let names = Dictionary(uniqueKeysWithValues: (providerSources[provider.registrationIdentity] ?? []).map { source in
+				(source.identity, sourceHelperParameterName(for: source, in: context))
+			})
+			return (provider.registrationIdentity, names)
 		})
 	}
 
@@ -54,6 +80,22 @@ struct SharedGraphStorage {
 	// shared 생성 프로퍼티가 읽을 저장소 값 참조
 	func valueReference(for provider: ProviderDescriptor) -> String {
 		"\(storagePropertyName.trimmedDescription).\(provider.propertyName)"
+	}
+
+	// source 저장 프로퍼티 대입 뒤 shared 저장소를 초기화할지 여부
+	var requiresSourceInitialization: Bool {
+		!sources.isEmpty
+	}
+
+	// source 저장 프로퍼티 대입 뒤 실행할 shared 저장소 초기화문
+	func initializationAssignment() -> String? {
+		guard requiresSourceInitialization else {
+			return nil
+		}
+		let arguments = builderSources.map { source in
+			"\(source.propertyName): \(source.propertyName)"
+		}.joined(separator: ", ")
+		return "self.\(storagePropertyName.trimmedDescription) = \(graphName.trimmedDescription).\(builderName.trimmedDescription)(\(arguments))"
 	}
 
 	// shared 결과를 담는 모든 타입 지정 let 선언
@@ -73,12 +115,25 @@ struct SharedGraphStorage {
 	// 명시 본문 또는 bodyless initializer를 static helper로 복제
 	private func helperDeclaration(for provider: ProviderDescriptor) -> DeclSyntax? {
 		guard let helperName = helperNames[provider.registrationIdentity],
-			let body = sharedHelperBody(for: provider.factory) else {
+			let body = sharedHelperBody(
+				for: provider.factory,
+				references: sourceReferences[provider.registrationIdentity],
+				sourceParameterNames: sourceParameterNames(for: provider)
+			) else {
 			return nil
 		}
+		let parameters = provider.factory.signature.parameterClause.parameters.map { parameter in
+			parameter.with(\.trailingComma, nil).trimmedDescription
+		}
+			+ helperSources(for: provider).compactMap { source in
+				guard let name = helperSourceNames[provider.registrationIdentity]?[source.identity] else {
+					return nil
+				}
+				return "\(name.trimmedDescription): \(source.type.trimmedDescription)"
+			}
 		return DeclSyntax(
 			"""
-			private static func \(helperName)\(raw: provider.factory.signature.parameterClause.trimmedDescription) -> \(raw: provider.returnType.trimmedDescription) \(raw: body)
+			private static func \(helperName)(\(raw: parameters.joined(separator: ", "))) -> \(raw: provider.returnType.trimmedDescription) \(raw: body)
 			"""
 		)
 	}
@@ -88,17 +143,27 @@ struct SharedGraphStorage {
 		let orderedProviders = sharedDependencyOrder(in: providers)
 		let constructions = orderedProviders.map { provider in
 			let helper = helperNames[provider.registrationIdentity]!.trimmedDescription
-			let arguments = provider.parameters.map { parameter in
+			let providerArguments = provider.parameters.map { parameter in
 				parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity]!)
-			}.joined(separator: ", ")
+			}
+			let sourceArguments = helperSources(for: provider).compactMap { source -> String? in
+				guard let name = helperSourceNames[provider.registrationIdentity]?[source.identity] else {
+					return nil
+				}
+				return "\(name.trimmedDescription): \(source.propertyName)"
+			}
+			let arguments = (providerArguments + sourceArguments).joined(separator: ", ")
 			return "let \(provider.propertyName): \(provider.returnType.trimmedDescription) = \(helper)(\(arguments))"
 		}.joined(separator: "\n")
 		let arguments = providers.map { provider in
 			"\(provider.propertyName): \(provider.propertyName)"
 		}.joined(separator: ", ")
+		let parameters = builderSources.map { source in
+			"\(source.propertyName): \(source.type.trimmedDescription)"
+		}.joined(separator: ", ")
 		return DeclSyntax(
 			"""
-			private static func \(builderName)() -> \(storageTypeName) {
+			private static func \(builderName)(\(raw: parameters)) -> \(storageTypeName) {
 			    \(raw: constructions)
 			    return \(storageTypeName)(\(raw: arguments))
 			}
@@ -108,10 +173,57 @@ struct SharedGraphStorage {
 
 	// graph 초기화 전에 builder를 실행하는 기본값 저장 프로퍼티
 	private func storagePropertyDeclaration() -> DeclSyntax {
-		"""
+		if requiresSourceInitialization {
+			return DeclSyntax(
+				"""
+				private let \(storagePropertyName): \(storageTypeName)
+				"""
+			)
+		}
+		return """
 		private let \(storagePropertyName) = \(graphName).\(builderName)()
 		"""
 	}
+
+	// 모든 shared Factory가 실제로 참조한 source graph
+	private var builderSources: [SourceGraphDescriptor] {
+		sources.filter { source in
+			helperSourceNames.values.contains { names in
+				names[source.identity] != nil
+			}
+		}
+	}
+
+	// 한 shared Factory가 실제로 참조한 source graph
+	private func helperSources(for provider: ProviderDescriptor) -> [SourceGraphDescriptor] {
+		providerSources[provider.registrationIdentity] ?? []
+	}
+
+	// Factory source 이름과 helper 매개변수 이름 연결
+	private func sourceParameterNames(for provider: ProviderDescriptor) -> [String: String] {
+		Dictionary(uniqueKeysWithValues: helperSources(for: provider).compactMap { source in
+			guard let name = helperSourceNames[provider.registrationIdentity]?[source.identity] else {
+				return nil
+			}
+			return (source.propertyIdentifier, name.trimmedDescription)
+		})
+	}
+}
+
+// helper 매개변수로 사용할 유효한 고유 identifier 생성
+private func sourceHelperParameterName(
+	for source: SourceGraphDescriptor,
+	in context: some MacroExpansionContext
+) -> TokenSyntax {
+	let uniqueName = context.makeUniqueName("source\(source.propertyIdentifier)").trimmedDescription
+	let identifier = uniqueName.unicodeScalars.map { scalar in
+		if scalar == "_" || scalar.properties.isAlphabetic || scalar.properties.numericType != nil {
+			String(scalar)
+		} else {
+			"_"
+		}
+	}.joined()
+	return .identifier(identifier)
 }
 
 // 명시 본문에서 #function을 원래 Factory 식별자로 보존하는 rewriter
@@ -193,12 +305,26 @@ private final class SharedFunctionNameRewriter: SyntaxRewriter {
 }
 
 // static helper가 사용할 Factory 본문 문자열 생성
-func sharedHelperBody(for factory: FunctionDeclSyntax) -> String? {
+func sharedHelperBody(
+	for factory: FunctionDeclSyntax,
+	references: SourceGraphReferences? = nil,
+	sourceParameterNames: [String: String] = [:]
+) -> String? {
 	if let body = factory.body {
+		let sourceRewrittenBody: CodeBlockSyntax
+		if let references {
+			sourceRewrittenBody = rewrittenSourceGraphFactoryBody(
+				body,
+				references: references,
+				parameterNames: sourceParameterNames
+			)
+		} else {
+			sourceRewrittenBody = body
+		}
 		let rewriter = SharedFunctionNameRewriter(
 			functionIdentifier: originalFunctionIdentifier(for: factory)
 		)
-		return rewriter.rewrite(body, detach: true).trimmedDescription
+		return rewriter.rewrite(sourceRewrittenBody, detach: true).trimmedDescription
 	}
 	guard let generated = generatedProviderBody(for: factory) else {
 		return nil

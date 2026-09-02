@@ -75,7 +75,7 @@ final class SharedDependencyGraph {
 		return SharedRoot(first: first, second: second)
 	}
 
-	@Provide
+	@Provide(.transient)
 	private func makeTransientSharedConsumer(root: SharedRoot) -> TransientSharedConsumer {
 		transientSequence += 1
 		return TransientSharedConsumer(root: root, sequence: transientSequence)
@@ -245,7 +245,7 @@ final class NestedFunctionContextGraph {
 		)
 	}
 
-	@Provide
+	@Provide(.transient)
 	private func makeTransientFunctionContext() -> TransientFunctionContext {
 		struct Context {
 			let initializer: String

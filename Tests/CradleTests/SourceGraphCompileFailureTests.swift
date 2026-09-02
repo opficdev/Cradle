@@ -54,6 +54,11 @@ func sourceGraphInvalidUsageFailsAtBuildTime() throws {
 				+ "expression of type 'SourceGraphActualFeature' to return type 'SourceGraphExpectedFeature'"
 		)
 	)
+	#expect(
+		invalidUsageResult.output.contains(
+			"'SourceGraphGetterSource' has no member 'sharedMissingFeature'"
+		)
+	)
 	#expect(superclassResult.terminationReason == .exit)
 	#expect(superclassResult.status != 0)
 	#expect(superclassResult.output.contains("\(superclassSource.path)"))

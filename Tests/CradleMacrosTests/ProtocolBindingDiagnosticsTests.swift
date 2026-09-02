@@ -15,9 +15,9 @@ func protocolBindingConnectsMatchingRegistrationType() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeConsumer(missing: any Repository) -> Consumer { Consumer() }
-			@Provide
+			@Provide(.transient)
 			private func makeRepository() -> any Repository { LiveRepository() }
 		}
 		""",
@@ -46,9 +46,9 @@ func protocolBindingRejectsDuplicateAccessors() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst() -> any Repository { LiveRepository() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> any Domain.Repository { OtherRepository() }
 		}
 		""",
@@ -86,9 +86,9 @@ func protocolBindingRejectsEquivalentBareAndExistentialRegistrations() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst() -> Repository { LiveRepository() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> any Repository { OtherRepository() }
 		}
 		""",
@@ -123,7 +123,7 @@ func protocolBindingRejectsMemberCollision() {
 		@DependencyGraph
 		final class Graph {
 			func repository() {}
-			@Provide
+			@Provide(.transient)
 			private func makeRepository() -> any Repository { LiveRepository() }
 		}
 		""",

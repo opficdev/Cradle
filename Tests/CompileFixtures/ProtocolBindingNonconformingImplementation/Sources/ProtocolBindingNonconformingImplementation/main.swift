@@ -17,7 +17,7 @@ struct NonconformingRepository {}
 @DependencyGraph
 final class NonconformingGraph {
 	// 프로토콜에 맞지 않는 값을 반환하는 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeRequiredRepository() -> any RequiredRepository {
 		NonconformingRepository()
 	}

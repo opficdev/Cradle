@@ -15,13 +15,13 @@ func circularDependencyRegressionPreservesDiamondExpansion() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeA(b: B, c: C) -> A { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func makeB(d: D) -> B { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func makeC(d: D) -> C { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func makeD() -> D { D() }
 		}
 		""",
@@ -60,13 +60,13 @@ func circularDependencyRegressionPreservesLabelsAndProtocolParameters() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeConsumer(primary repository: any Repository, _ `default`: `default`) -> Consumer {
 				fatalError()
 			}
-			@Provide
+			@Provide(.transient)
 			private func makeRepository() -> any Repository { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func makeDefault() -> `default` { fatalError() }
 		}
 		""",
@@ -169,17 +169,17 @@ func circularDependencyRegressionIsolatesGraphs() {
 		"""
 		@DependencyGraph
 		final class FirstGraph {
-			@Provide
+			@Provide(.transient)
 			private func makeA(a: A) -> A { A() }
 		}
 		@DependencyGraph
 		final class SecondGraph {
-			@Provide
+			@Provide(.transient)
 			private func makeA(a: A) -> A { A() }
 		}
 		@DependencyGraph
 		final class ValidGraph {
-			@Provide
+			@Provide(.transient)
 			private func makeA() -> A { A() }
 		}
 		""",
@@ -223,9 +223,9 @@ func circularDependencyRegressionDoesNotInferBodyOrAliasEdges() {
 		typealias Second = Service
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst(second: Second) -> First { first() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> Second { Service() }
 		}
 		""",

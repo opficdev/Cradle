@@ -35,7 +35,7 @@ func missingRegistrationHighlightsLocalName() {
 			"""
 			@DependencyGraph
 			final class Graph {
-				@Provide
+				@Provide(.transient)
 				private func makeService(
 					\(parameter)
 				) -> Service { Service() }
@@ -88,16 +88,16 @@ func missingRegistrationReportsEachUseInSourceOrder() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst(
 				zDependency: Dependency,
 				aDependency: Dependency
 			) -> First { First() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond(
 				zDependency: Dependency
 			) -> Second { Second() }
-			@Provide
+			@Provide(.transient)
 			private func makeOther() -> Other { Other() }
 		}
 		""",
@@ -125,9 +125,9 @@ func missingRegistrationPreservesParameterValidationPrecedence() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeService(dependency: Dependency) -> Service { Service() }
-			@Provide
+			@Provide(.transient)
 			private func makeOther(value: Value = Value()) -> Other { Other() }
 		}
 		""",
@@ -157,7 +157,7 @@ func missingRegistrationPreservesAccessorValidationPrecedence() {
 		@DependencyGraph
 		final class Graph {
 			func service() {}
-			@Provide
+			@Provide(.transient)
 			private func makeService(dependency: Dependency) -> Service { Service() }
 		}
 		""",
@@ -186,7 +186,7 @@ func missingRegistrationPreservesEscapedFactoryName() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func `makeService`(
 				dependency: Dependency
 			) -> Service { Service() }

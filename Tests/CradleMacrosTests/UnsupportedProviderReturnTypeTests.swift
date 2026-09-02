@@ -18,7 +18,7 @@ func dependencyGraphRejectsRemainingUnsupportedProviderReturnTypes(returnType: S
 	let source = """
 	@DependencyGraph
 	final class Graph {
-		@Provide
+		@Provide(.transient)
 		private func makeService() -> \(returnType) { Service() }
 	}
 	"""
@@ -51,7 +51,7 @@ func dependencyGraphRejectsProtocolCompositionReturnType() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeService() -> any Service & OtherService { Service() }
 		}
 		""",

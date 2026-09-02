@@ -20,7 +20,7 @@ public final class PublicGraph {
 	public init() {}
 
 	// public 생성 접근자가 호출할 private factory
-	@Provide
+	@Provide(.transient)
 	private func makePublicService() -> PublicService {
 		PublicService()
 	}

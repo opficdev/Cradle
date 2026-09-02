@@ -310,7 +310,8 @@ private func sourceGraphHasTypeMemberModifier(_ modifiers: DeclModifierListSynta
 // source 저장 프로퍼티와 생성 initializer 선언 생성
 func sourceGraphDeclarations(
 	for sources: [SourceGraphDescriptor],
-	accessLevel: AccessLevel
+	accessLevel: AccessLevel,
+	storage: SharedGraphStorage?
 ) -> [DeclSyntax] {
 	guard !sources.isEmpty else {
 		return []
@@ -325,9 +326,12 @@ func sourceGraphDeclarations(
 	let parameters = sources.map { source in
 		"\(source.propertyName): \(source.type.trimmedDescription)"
 	}.joined(separator: ", ")
-	let assignments = sources.map { source in
+	let sourceAssignments = sources.map { source in
 		"self.\(source.propertyName) = \(source.propertyName)"
-	}.joined(separator: "\n")
+	}
+	let assignments = (sourceAssignments + [storage?.initializationAssignment()])
+		.compactMap { $0 }
+		.joined(separator: "\n")
 	let initializer = DeclSyntax(
 		"""
 		\(raw: accessLevel.rawValue) init(\(raw: parameters)) {

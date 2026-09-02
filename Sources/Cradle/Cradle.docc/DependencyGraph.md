@@ -27,7 +27,7 @@ let graph = AppGraph()
 let client = graph.httpClient
 ```
 
-기본 `@Provide`는 transient 등록입니다. `graph.httpClient`에 접근할 때마다 Factory를 호출하므로, Factory가 새 값을 반환하면 매번 새 값을 얻습니다.
+기본 `@Provide`는 graph 생성 중 한 번 만드는 shared 등록입니다. `graph.httpClient`를 여러 번 읽어도 같은 값을 반환하며, 이 값은 전역 싱글턴이 아니라 해당 graph 인스턴스에만 보관됩니다. 접근할 때마다 새 값을 만들어야 하면 `@Provide(.transient)`를 사용합니다.
 
 | 반환 타입 | 생성 프로퍼티 |
 | --- | --- |
@@ -92,7 +92,9 @@ let feature = graph.feature
 
 `sources` 배열의 순서는 의미가 없습니다. Macro는 source type의 정규화한 이름순으로 저장 프로퍼티와 initializer 매개변수를 생성하므로, 위 예시의 initializer 매개변수도 `appGraph`, `sessionGraph` 순서입니다. 같은 source type을 중복하거나 서로 같은 저장 프로퍼티 이름을 만들면 오류를 냅니다.
 
-조합 graph는 source graph를 강하게 보관합니다. source graph의 shared 생성 프로퍼티는 source graph마다 같은 값을 반환하고, transient 생성 프로퍼티는 조합 graph가 읽을 때마다 source Factory를 다시 호출합니다. source 생성 프로퍼티가 없거나 접근 수준이 맞지 않거나 반환 타입이 맞지 않으면 Macro가 대신 연결하지 않으며 Swift 컴파일러가 원본 Factory 본문에서 오류를 표시합니다.
+조합 graph는 source graph를 강하게 보관합니다. source graph의 shared 생성 프로퍼티는 source graph마다 같은 값을 반환합니다. 조합 graph의 transient Factory는 source graph의 transient 생성 프로퍼티를 읽을 때마다 source Factory를 다시 호출합니다.
+
+조합 graph의 shared Factory도 source graph 생성 프로퍼티를 본문에서 직접 읽을 수 있습니다. Macro는 source 저장 프로퍼티를 먼저 대입한 뒤 실제로 참조한 source graph만 shared 저장소 생성기에 전달합니다. source graph의 transient 생성 프로퍼티는 이 생성기가 graph 초기화 중 실행될 때 평가되고, 결과는 조합 graph의 shared 값에 보관됩니다. source 생성 프로퍼티가 없거나 접근 수준이 맞지 않거나 반환 타입이 맞지 않으면 Macro가 대신 연결하지 않으며 Swift 컴파일러가 원본 Factory 본문에서 오류를 표시합니다.
 
 ## 타입으로 의존성 연결
 
@@ -183,9 +185,9 @@ let profile = graph.profile
 
 `P`와 `any P`는 연결과 중복 검사에서 같은 등록 타입으로 취급합니다. Macro는 `typealias`가 가리키는 실제 타입, import로 생략한 모듈 경로, protocol·superclass 선언의 의미를 해석하지 않습니다.
 
-## shared 수명
+## shared 수명과 transient 수명
 
-`@Provide(.shared)`는 graph를 만들 때 Factory 결과를 한 번 생성하고, graph 전용의 타입 지정 `let` 저장소가 이를 보유하게 합니다. 같은 graph에서 해당 생성 프로퍼티를 여러 번 읽으면 같은 값을 반환합니다. graph가 해제되면 저장소가 보유한 참조도 함께 놓습니다.
+`@Provide`와 `@Provide(.shared)`는 graph를 만들 때 Factory 결과를 한 번 생성하고, graph 전용의 타입 지정 `let` 저장소가 이를 보유하게 합니다. 같은 graph에서 해당 생성 프로퍼티를 여러 번 읽으면 같은 값을 반환합니다. graph가 해제되면 저장소가 보유한 참조도 함께 놓습니다. 이 수명은 전역 싱글턴이 아니라 graph 인스턴스별 수명입니다.
 
 ```swift
 @DependencyGraph
@@ -201,11 +203,13 @@ let first = graph.userRepository
 let second = graph.userRepository
 ```
 
-shared Factory는 다른 shared 등록만 매개변수로 받을 수 있습니다. shared Factory가 transient 등록을 받으면 그 transient 값이 graph 생성 때 한 번 만들어져 shared 값에 고정되므로, Macro는 해당 매개변수 타입 위치에 오류를 표시합니다. 반대로 transient Factory는 shared 등록을 매개변수로 받을 수 있습니다.
+프로퍼티를 읽을 때마다 Factory를 호출해야 하면 `@Provide(.transient)`를 사용합니다. transient Factory는 shared와 transient 등록을 매개변수로 받을 수 있습니다.
+
+shared 수명의 Factory는 다른 shared 등록만 매개변수로 받을 수 있습니다. shared 수명의 Factory가 transient 등록을 받으면 그 transient 값이 graph 생성 때 한 번 만들어져 shared 값에 고정되므로, Macro는 해당 매개변수 타입 위치에 오류를 표시합니다.
 
 shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 실행됩니다. 따라서 `self`, `super`, graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다.
 
-source graph 저장 프로퍼티도 graph 인스턴스 멤버이므로 shared Factory에서 읽을 수 없습니다. source 값이 필요한 Factory는 기본 `@Provide`로 선언합니다.
+source graph 저장 프로퍼티는 shared Factory에서 직접 읽을 수 있습니다. Macro는 이 참조를 생성한 static helper의 매개변수로 바꾸고, source 저장 프로퍼티를 대입한 뒤 helper를 실행합니다. source graph의 transient 값을 읽으면 그 표현식은 조합 graph를 초기화할 때 한 번 평가되어 shared 결과에 보관됩니다.
 
 ## 본문 없는 Factory
 

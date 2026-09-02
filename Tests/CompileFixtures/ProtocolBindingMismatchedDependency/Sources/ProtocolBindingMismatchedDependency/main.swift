@@ -23,13 +23,13 @@ struct MismatchedConsumer {}
 @DependencyGraph
 final class MismatchedGraph {
 	// 접근자 이름을 제공할 프로토콜 반환 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeProvidedRepository() -> any ProvidedRepository {
 		LiveRepository()
 	}
 
 	// 이름은 일치하지만 다른 프로토콜을 요구하는 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeMismatchedConsumer(providedRepository: any ExpectedRepository) -> MismatchedConsumer {
 		MismatchedConsumer()
 	}

@@ -5,17 +5,32 @@
 //  Created by opfic on 9/2/26.
 //
 
-import SwiftDiagnostics
 import SwiftSyntax
-import SwiftSyntaxMacros
 
-// shared Factory 본문에서 source 저장 프로퍼티 참조 위치 탐색
-func sourceGraphReference(
+// shared Factory 본문에 나타난 source 저장 프로퍼티 참조 위치 집합
+struct SourceGraphReferences {
+	// bare source 저장 프로퍼티 참조 위치와 이름
+	let bare: [Int: String]
+	// `self.source` 저장 프로퍼티 참조 위치와 이름
+	let explicitSelf: [Int: String]
+	// bare closure capture source 저장 프로퍼티 참조 위치와 이름
+	let bareCapture: [Int: String]
+
+	// Factory가 실제로 읽는 source 저장 프로퍼티 이름 집합
+	var sourceNames: Set<String> {
+		Set(bare.values)
+			.union(explicitSelf.values)
+			.union(bareCapture.values)
+	}
+}
+
+// lexical scope를 반영해 shared Factory의 source 저장 프로퍼티 참조 수집
+func sourceGraphReferences(
 	in factory: FunctionDeclSyntax,
 	sourceNames: Set<String>
-) -> TokenSyntax? {
+) -> SourceGraphReferences {
 	guard let body = factory.body else {
-		return nil
+		return SourceGraphReferences(bare: [:], explicitSelf: [:], bareCapture: [:])
 	}
 	let finder = SourceGraphReferenceFinder(
 		sourceNames: sourceNames,
@@ -25,7 +40,7 @@ func sourceGraphReference(
 		})
 	)
 	finder.walk(body)
-	return finder.reference
+	return finder.references
 }
 
 // lexical scope를 반영한 source 저장 프로퍼티 참조 탐색기
@@ -34,8 +49,15 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 	private let sourceNames: Set<String>
 	// 현재 lexical scope의 shadowing 이름 집합
 	private var scopes: [Set<String>]
-	// 처음 찾은 source 저장 프로퍼티 참조
-	private(set) var reference: TokenSyntax?
+	// 수집한 source 저장 프로퍼티 참조 위치
+	private var bare = [Int: String]()
+	private var explicitSelf = [Int: String]()
+	private var bareCapture = [Int: String]()
+
+	// 수집한 source 저장 프로퍼티 참조
+	var references: SourceGraphReferences {
+		SourceGraphReferences(bare: bare, explicitSelf: explicitSelf, bareCapture: bareCapture)
+	}
 
 	// source 이름과 Factory 매개변수 이름으로 탐색기 생성
 	init(sourceNames: Set<String>, parameterNames: Set<String>) {
@@ -55,11 +77,19 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		scopes.removeLast()
 	}
 
-	// initializer를 읽은 뒤 선언한 지역 변수 이름을 현재 scope에 추가
-	override func visitPost(_ node: VariableDeclSyntax) {
+	// 선언 순서대로 initializer를 읽고 지역 변수 이름을 현재 scope에 추가
+	override func visit(_ node: VariableDeclSyntax) -> SyntaxVisitorContinueKind {
+		walk(node.attributes)
 		for binding in node.bindings {
+			if let initializer = binding.initializer {
+				walk(initializer.value)
+			}
 			insert(sourceGraphBoundNames(in: binding.pattern))
+			if let accessorBlock = binding.accessorBlock {
+				walk(accessorBlock)
+			}
 		}
+		return .skipChildren
 	}
 
 	// closure capture·매개변수 shadowing scope 추가
@@ -69,6 +99,7 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		}
 		let names = sourceGraphClosureCaptureNames(in: node)
 			.union(sourceGraphClosureParameterNames(in: node))
+			.union(sourceGraphLocalFunctionNames(in: node.statements))
 		scopes.append(names)
 		walk(node.statements)
 		scopes.removeLast()
@@ -102,11 +133,19 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		return .skipChildren
 	}
 
-	// guard 조건 binding을 뒤따르는 같은 code block에 추가
-	override func visitPost(_ node: GuardStmtSyntax) {
+	// guard 조건 binding을 후속 조건과 성공 경로에만 적용
+	override func visit(_ node: GuardStmtSyntax) -> SyntaxVisitorContinueKind {
+		scopes.append([])
+		for element in node.conditions {
+			walkSourceGraphCondition(element.condition)
+			insert(sourceGraphBoundNames(in: element.condition))
+		}
+		scopes.removeLast()
+		walk(node.body)
 		for element in node.conditions {
 			insert(sourceGraphBoundNames(in: element.condition))
 		}
+		return .skipChildren
 	}
 
 	// for pattern binding을 sequence 다음 body와 where clause에만 적용
@@ -148,6 +187,14 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		return .skipChildren
 	}
 
+	// 중첩 타입 선언은 바깥 graph source 탐색에서 제외
+	override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+
 	// switch case pattern binding을 where clause와 case 본문에만 적용
 	override func visit(_ node: SwitchCaseSyntax) -> SyntaxVisitorContinueKind {
 		scopes.append(sourceGraphSwitchCaseNames(in: node))
@@ -157,9 +204,9 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		return .skipChildren
 	}
 
-	// shadowing되지 않은 source 저장 프로퍼티의 첫 참조 기록
+	// shadowing되지 않은 bare source 저장 프로퍼티 참조 기록
 	override func visit(_ node: DeclReferenceExprSyntax) -> SyntaxVisitorContinueKind {
-		recordSourceGraphReference(node.baseName)
+		recordSourceGraphReference(node.baseName, kind: .bare)
 		return .skipChildren
 	}
 
@@ -169,8 +216,15 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 			base.baseName.tokenKind == .keyword(.self) else {
 			return .visitChildren
 		}
-		recordSourceGraphReference(node.declName.baseName, ignoresShadowing: true)
+		recordSourceGraphReference(node.declName.baseName, kind: .explicitSelf, ignoresShadowing: true)
 		return .skipChildren
+	}
+
+	// source 참조 기록 방식
+	private enum ReferenceKind {
+		case bare
+		case explicitSelf
+		case bareCapture
 	}
 
 	// 현재 가장 안쪽 scope에 새 binding 이름 추가
@@ -202,7 +256,7 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 			if let initializer = item.initializer {
 				walk(initializer)
 			} else {
-				recordSourceGraphReference(item.name)
+				recordSourceGraphReference(item.name, kind: .bareCapture)
 			}
 		}
 	}
@@ -210,11 +264,9 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 	// shadowing되지 않은 source 저장 프로퍼티 참조 기록
 	private func recordSourceGraphReference(
 		_ token: TokenSyntax,
+		kind: ReferenceKind,
 		ignoresShadowing: Bool = false
 	) {
-		guard reference == nil else {
-			return
-		}
 		let name = sourceGraphIdentifierName(token)
 		guard sourceNames.contains(name) else {
 			return
@@ -222,8 +274,20 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		guard ignoresShadowing || !scopes.contains(where: { $0.contains(name) }) else {
 			return
 		}
-		reference = token
+		switch kind {
+		case .bare:
+			bare[sourceGraphOffset(of: token)] = name
+		case .explicitSelf:
+			explicitSelf[sourceGraphOffset(of: token)] = name
+		case .bareCapture:
+			bareCapture[sourceGraphOffset(of: token)] = name
+		}
 	}
+}
+
+// SwiftSyntax token의 source file UTF-8 위치
+func sourceGraphOffset(of token: TokenSyntax) -> Int {
+	token.positionAfterSkippingLeadingTrivia.utf8Offset
 }
 
 // pattern에서 선언하는 이름 수집기
@@ -321,31 +385,4 @@ private func sourceGraphLocalFunctionNames(in statements: CodeBlockItemListSynta
 // backtick 표기를 제외한 identifier 이름 읽기
 private func sourceGraphIdentifierName(_ token: TokenSyntax) -> String {
 	token.identifier?.name ?? token.text
-}
-
-// shared Factory의 source 저장 프로퍼티 참조 진단
-func diagnoseSourceGraphSharedReferenceErrors(
-	in providers: [ProviderDescriptor],
-	sources: [SourceGraphDescriptor],
-	context: some MacroExpansionContext
-) -> Bool {
-	let sourceNames = Set(sources.map(\.propertyIdentifier))
-	guard !sourceNames.isEmpty else {
-		return false
-	}
-	var hasError = false
-	for provider in providers where provider.lifetime == .shared {
-		guard let reference = sourceGraphReference(in: provider.factory, sourceNames: sourceNames) else {
-			continue
-		}
-		let name = reference.identifier?.name ?? reference.text
-		context.diagnose(
-			Diagnostic(
-				node: reference,
-				message: SourceGraphDiagnostic.sharedSourceReference(name: name)
-			)
-		)
-		hasError = true
-	}
-	return hasError
 }

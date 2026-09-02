@@ -10,7 +10,7 @@ public final class PublicGraph {
 	public init() {}
 
 	// internal 반환 타입 factory
-	@Provide
+	@Provide(.transient)
 	private func makeInternalService() -> InternalService {
 		InternalService()
 	}

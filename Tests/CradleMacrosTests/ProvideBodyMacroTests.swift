@@ -16,7 +16,7 @@ import Testing
 func bodylessProviderBodyMacroBuildsInitializer() throws {
 	let fixture = try providerFunction(
 		"""
-		@Provide
+		@Provide(.transient)
 		private func todoSnapshot(
 			repository: TodoRepository
 		) -> TodoSnapshot
@@ -37,7 +37,7 @@ func bodylessProviderBodyMacroBuildsInitializer() throws {
 func bodylessProviderBodyMacroPreservesLabelsAndOrder() throws {
 	let fixture = try providerFunction(
 		"""
-		@Provide
+		@Provide(.transient)
 		private func feature(
 			client repository: Repository,
 			_ logger: Logger
@@ -59,7 +59,7 @@ func bodylessProviderBodyMacroPreservesLabelsAndOrder() throws {
 func bodylessProviderBodyMacroPreservesExplicitBody() throws {
 	let fixture = try providerFunction(
 		"""
-		@Provide
+		@Provide(.transient)
 		private func service() -> Service { customService() }
 		"""
 	)

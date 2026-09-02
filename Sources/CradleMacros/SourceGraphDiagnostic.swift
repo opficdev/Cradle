@@ -23,8 +23,6 @@ enum SourceGraphDiagnostic: DiagnosticMessage {
 	case userInitializer
 	// 초기값 없는 저장 프로퍼티 충돌 오류
 	case uninitializedStoredProperty
-	// shared Factory의 source 참조 오류
-	case sharedSourceReference(name: String)
 
 	// source graph 진단 식별자
 	var diagnosticID: MessageID {
@@ -43,8 +41,6 @@ enum SourceGraphDiagnostic: DiagnosticMessage {
 			MessageID(domain: "Cradle", id: "sourceUserInitializer")
 		case .uninitializedStoredProperty:
 			MessageID(domain: "Cradle", id: "sourceUninitializedStoredProperty")
-		case .sharedSourceReference:
-			MessageID(domain: "Cradle", id: "sharedSourceReference")
 		}
 	}
 
@@ -65,8 +61,6 @@ enum SourceGraphDiagnostic: DiagnosticMessage {
 			"`sources` graph는 initializer를 직접 선언할 수 없습니다."
 		case .uninitializedStoredProperty:
 			"`sources` graph는 초기값 없는 인스턴스 저장 프로퍼티를 선언할 수 없습니다."
-		case let .sharedSourceReference(name):
-			"`@Provide(.shared)` Factory는 `\(name)` source graph를 참조할 수 없습니다."
 		}
 	}
 

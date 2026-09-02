@@ -13,7 +13,7 @@ protocol Repository {}
 // 추상 반환 타입의 본문 없는 Factory를 포함한 graph
 @DependencyGraph
 final class BodylessAbstractGraph {
-	@Provide
+	@Provide(.transient)
 	private func makeRepository() -> any Repository
 }
 
@@ -25,6 +25,6 @@ class RepositorySuperclass {
 // 접근할 수 없는 상위 클래스 initializer의 오류를 확인할 graph
 @DependencyGraph
 final class BodylessSuperclassGraph {
-	@Provide
+	@Provide(.transient)
 	private func makeRepositorySuperclass() -> RepositorySuperclass
 }

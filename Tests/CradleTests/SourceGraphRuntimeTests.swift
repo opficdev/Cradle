@@ -50,17 +50,35 @@ struct SourceGraphFeature {
 	let requestIdentifier: Int
 }
 
+// 조합 graph가 source 값으로 shared 생성할 결과
+final class SourceGraphSharedFeature {
+	let repository: SourceGraphRepository
+	let session: SourceGraphSession
+	let requestIdentifier: Int
+
+	init(
+		repository: SourceGraphRepository,
+		session: SourceGraphSession,
+		requestIdentifier: Int
+	) {
+		self.repository = repository
+		self.session = session
+		self.requestIdentifier = requestIdentifier
+	}
+}
+
 // repository와 요청 식별자를 제공할 source graph
 @DependencyGraph
 final class SourceGraphAppGraph {
-	private var requestCount = 0
+	// source graph transient 생성 횟수
+	var requestCount = 0
 
 	@Provide(.shared)
 	private func makeRepository() -> SourceGraphRepository {
 		SourceGraphRepository()
 	}
 
-	@Provide
+	@Provide(.transient)
 	private func makeRequestIdentifier() -> SourceGraphRequestIdentifier {
 		requestCount += 1
 		return SourceGraphRequestIdentifier(value: requestCount)
@@ -79,9 +97,22 @@ final class SourceGraphSessionGraph {
 // 두 source graph의 접근자를 직접 조합할 graph
 @DependencyGraph(sources: [SourceGraphSessionGraph.self, SourceGraphAppGraph.self])
 final class SourceGraphFeatureGraph {
-	@Provide
+	@Provide(.transient)
 	private func makeFeature() -> SourceGraphFeature {
 		SourceGraphFeature(
+			repository: sourceGraphAppGraph.sourceGraphRepository,
+			session: sourceGraphSessionGraph.sourceGraphSession,
+			requestIdentifier: sourceGraphAppGraph.sourceGraphRequestIdentifier.value
+		)
+	}
+}
+
+// 두 source graph의 접근자를 직접 조합해 shared 결과를 만들 graph
+@DependencyGraph(sources: [SourceGraphSessionGraph.self, SourceGraphAppGraph.self])
+final class SourceGraphSharedFeatureGraph {
+	@Provide
+	private func makeSourceGraphSharedFeature() -> SourceGraphSharedFeature {
+		SourceGraphSharedFeature(
 			repository: sourceGraphAppGraph.sourceGraphRepository,
 			session: sourceGraphSessionGraph.sourceGraphSession,
 			requestIdentifier: sourceGraphAppGraph.sourceGraphRequestIdentifier.value
@@ -115,6 +146,79 @@ func sourceGraphCompositionRecreatesSourceTransientValues() {
 
 	#expect(graph.sourceGraphFeature.requestIdentifier == 1)
 	#expect(graph.sourceGraphFeature.requestIdentifier == 2)
+}
+
+// source graph를 직접 읽는 shared Factory가 결과를 한 번만 만드는지 확인
+@Test
+func sourceGraphSharedCompositionCachesSourceValues() {
+	let appGraph = SourceGraphAppGraph()
+	let sessionGraph = SourceGraphSessionGraph()
+	let graph = SourceGraphSharedFeatureGraph(
+		sourceGraphAppGraph: appGraph,
+		sourceGraphSessionGraph: sessionGraph
+	)
+	#expect(appGraph.requestCount == 1)
+	let first = graph.sourceGraphSharedFeature
+	let second = graph.sourceGraphSharedFeature
+
+	#expect(first === second)
+	#expect(first.repository === appGraph.sourceGraphRepository)
+	#expect(first.session === sessionGraph.sourceGraphSession)
+	#expect(first.requestIdentifier == 1)
+}
+
+// 같은 source graph를 서로 다른 조합 graph가 공유해도 shared 결과는 분리되는지 확인
+@Test
+func sourceGraphSharedCompositionSeparatesStoragePerGraph() {
+	let appGraph = SourceGraphAppGraph()
+	let sessionGraph = SourceGraphSessionGraph()
+	let firstGraph = SourceGraphSharedFeatureGraph(
+		sourceGraphAppGraph: appGraph,
+		sourceGraphSessionGraph: sessionGraph
+	)
+	let secondGraph = SourceGraphSharedFeatureGraph(
+		sourceGraphAppGraph: appGraph,
+		sourceGraphSessionGraph: sessionGraph
+	)
+
+	let first = firstGraph.sourceGraphSharedFeature
+	let second = secondGraph.sourceGraphSharedFeature
+
+	#expect(first !== second)
+	#expect(first.repository === second.repository)
+	#expect(first.session === second.session)
+	#expect(first.requestIdentifier == 1)
+	#expect(second.requestIdentifier == 2)
+}
+
+// 조합 graph 해제 뒤 shared 저장소와 source graph를 함께 해제하는지 확인
+@Test
+func sourceGraphSharedCompositionReleasesStorageAndSources() {
+	weak var observedAppGraph: SourceGraphAppGraph?
+	weak var observedSessionGraph: SourceGraphSessionGraph?
+	weak var observedFeature: SourceGraphSharedFeature?
+
+	do {
+		let appGraph = SourceGraphAppGraph()
+		let sessionGraph = SourceGraphSessionGraph()
+		observedAppGraph = appGraph
+		observedSessionGraph = sessionGraph
+		let graph = SourceGraphSharedFeatureGraph(
+			sourceGraphAppGraph: appGraph,
+			sourceGraphSessionGraph: sessionGraph
+		)
+		observedFeature = graph.sourceGraphSharedFeature
+
+		withExtendedLifetime(graph) {
+			#expect(observedAppGraph != nil)
+			#expect(observedSessionGraph != nil)
+			#expect(observedFeature != nil)
+		}
+	}
+
+	#expect(observedAppGraph == nil)
+	#expect(observedSessionGraph == nil)
+	#expect(observedFeature == nil)
 }
 
 // 조합 graph가 source graph를 강하게 보관하는지 확인

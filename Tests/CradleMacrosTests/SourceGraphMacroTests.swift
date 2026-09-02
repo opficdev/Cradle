@@ -15,7 +15,7 @@ private let unorderedSourceGraph = """
 	AppGraph.self,
 ])
 final class FeatureGraph {
-	@Provide
+	@Provide(.transient)
 	private func makeFeature() -> Feature {
 		Feature(
 			repository: appGraph.repository,

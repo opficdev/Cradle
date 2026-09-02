@@ -25,7 +25,7 @@ public final class PublicSourceGraph {
 	public init() {}
 
 	// 조합 graph가 읽을 공개 결과 생성
-	@Provide
+	@Provide(.transient)
 	private func makePublicSourceService() -> PublicSourceService {
 		PublicSourceService(token: 64)
 	}
@@ -39,8 +39,17 @@ public protocol PublicSourceFeatureProviding {
 // source graph 결과를 직접 조합해 외부에 공개할 graph
 @DependencyGraph(sources: [PublicSourceGraph.self])
 public final class PublicSourceFeatureGraph: PublicSourceFeatureProviding {
-	@Provide
+	@Provide(.transient)
 	private func makePublicSourceFeature() -> PublicSourceService {
+		publicSourceGraph.publicSourceService
+	}
+}
+
+// source graph 결과를 직접 조합해 shared로 외부에 공개할 graph
+@DependencyGraph(sources: [PublicSourceGraph.self])
+public final class PublicSharedSourceFeatureGraph: PublicSourceFeatureProviding {
+	@Provide
+	private func makePublicSharedSourceFeature() -> PublicSourceService {
 		publicSourceGraph.publicSourceService
 	}
 }

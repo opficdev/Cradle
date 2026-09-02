@@ -37,23 +37,23 @@ struct BodylessFeature {
 // BodyMacro와 `DependencyGraphMacro` 통합 검증용 graph
 @DependencyGraph
 final class BodylessProviderGraph {
-	@Provide
+	@Provide(.transient)
 	private func provideBodylessDependency() -> BodylessDependency
 }
 
 // 레이블이 있는 concrete initializer를 호출할 graph
 @DependencyGraph
 final class BodylessLabeledProviderGraph {
-	@Provide
+	@Provide(.transient)
 	private func provideBodylessFeature(
 		client repository: BodylessRepository,
 		_ logger: BodylessLogger
 	) -> BodylessFeature
 
-	@Provide
+	@Provide(.transient)
 	private func provideBodylessRepository() -> BodylessRepository
 
-	@Provide
+	@Provide(.transient)
 	private func provideBodylessLogger() -> BodylessLogger
 }
 

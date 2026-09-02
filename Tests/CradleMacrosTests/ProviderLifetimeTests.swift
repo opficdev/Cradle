@@ -11,11 +11,11 @@ import SwiftSyntaxMacroExpansion
 import Testing
 @testable import CradleMacros
 
-// 인자 생략과 빈 괄호의 기본 transient 수명 유지 확인
+// 인자 생략과 빈 괄호의 기본 shared 수명 확인
 @Test(arguments: ["@Provide", "@Provide()", "@Provide(/* 기본값 */)"])
 func providerLifetimePreservesDefault(source: String) throws {
 	let (attribute, context) = try lifetimeAttribute(source)
-	#expect(providerLifetime(from: attribute, in: context) == .transient)
+	#expect(providerLifetime(from: attribute, in: context) == .shared)
 	#expect(context.diagnostics.isEmpty)
 }
 
@@ -27,9 +27,17 @@ func providerLifetimeAcceptsShared(source: String) throws {
 	#expect(context.diagnostics.isEmpty)
 }
 
+// 주석과 백틱을 포함한 직접 transient case 표기 허용 확인
+@Test(arguments: ["@Provide(.transient)", "@Provide(/* 수명 */ .transient)", "@Provide(.`transient`)"])
+func providerLifetimeAcceptsTransient(source: String) throws {
+	let (attribute, context) = try lifetimeAttribute(source)
+	#expect(providerLifetime(from: attribute, in: context) == .transient)
+	#expect(context.diagnostics.isEmpty)
+}
+
 // 지원하지 않는 수명 인자를 원본 인자 위치의 오류로 분류 확인
 @Test(arguments: [
-	".transient", "DependencyLifetime.shared", "lifetime", "lifetime()",
+	"DependencyLifetime.shared", "DependencyLifetime.transient", "lifetime", "lifetime()",
 	".shared()", "lifetime: .shared", ".shared, .shared", "(.shared)", "42", ".shared(value:)"
 ])
 func providerLifetimeRejectsUnsupportedArguments(argument: String) throws {
@@ -40,7 +48,7 @@ func providerLifetimeRejectsUnsupportedArguments(argument: String) throws {
 	let diagnostic = try #require(context.diagnostics.first)
 	#expect(diagnostic.diagnosticID == .init(domain: "Cradle", id: "invalidProviderLifetime"))
 	#expect(diagnostic.diagMessage.severity == .error)
-	#expect(diagnostic.message == "`@Provide` 인자는 생략하거나 `.shared`로 직접 지정해야 합니다.")
+	#expect(diagnostic.message == "`@Provide` 인자는 생략하거나 `.shared` 또는 `.transient`로 직접 지정해야 합니다.")
 	#expect(diagnostic.node.trimmedDescription == argument)
 	#expect(diagnostic.notes.isEmpty)
 	#expect(diagnostic.fixIts.isEmpty)
