@@ -151,6 +151,38 @@ func sourceGraphReferencesIgnoreEarlierLocalBindingInSameDeclaration() throws {
 	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
 }
 
+// 지역 property wrapper 인자의 source 참조를 수집하는지 확인
+@Test
+func sourceGraphReferencesCollectLocalWrapperArgument() throws {
+	let factory = try FunctionDeclSyntax(
+		"""
+		private func makeFeature() -> Feature {
+			@Wrapper(extra: appGraph.feature) var feature = Feature()
+			return feature
+		}
+		"""
+	)
+
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames == ["appGraph"])
+}
+
+// 지역 observer 본문에서는 이미 선언한 binding이 source 이름을 가리는지 확인
+@Test
+func sourceGraphReferencesIgnoreLocalObserverBindingShadowing() throws {
+	let factory = try FunctionDeclSyntax(
+		"""
+		private func makeFeature() -> Feature {
+			var appGraph = LocalGraph() {
+				didSet { _ = appGraph.feature }
+			}
+			return Feature()
+		}
+		"""
+	)
+
+	#expect(sourceGraphReferences(in: factory, sourceNames: ["appGraph"]).sourceNames.isEmpty)
+}
+
 // closure 매개변수와 capture 별칭의 동명 source 이름을 저장 프로퍼티로 보지 않는지 확인
 @Test
 func sourceGraphReferencesIgnoreClosureBindingShadowing() throws {

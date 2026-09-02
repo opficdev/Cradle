@@ -79,14 +79,15 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 
 	// 선언 순서대로 initializer를 읽고 지역 변수 이름을 현재 scope에 추가
 	override func visit(_ node: VariableDeclSyntax) -> SyntaxVisitorContinueKind {
+		walk(node.attributes)
 		for binding in node.bindings {
 			if let initializer = binding.initializer {
 				walk(initializer.value)
 			}
+			insert(sourceGraphBoundNames(in: binding.pattern))
 			if let accessorBlock = binding.accessorBlock {
 				walk(accessorBlock)
 			}
-			insert(sourceGraphBoundNames(in: binding.pattern))
 		}
 		return .skipChildren
 	}
