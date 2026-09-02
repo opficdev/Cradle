@@ -77,7 +77,7 @@ final class SessionGraph {
 
 @DependencyGraph(sources: [SessionGraph.self, AppGraph.self])
 final class FeatureGraph {
-	@Provide(.transient)
+	@Provide
 	private func makeFeature() -> Feature {
 		Feature(
 			repository: appGraph.repository,
@@ -92,7 +92,9 @@ let feature = graph.feature
 
 `sources` 배열의 순서는 의미가 없습니다. Macro는 source type의 정규화한 이름순으로 저장 프로퍼티와 initializer 매개변수를 생성하므로, 위 예시의 initializer 매개변수도 `appGraph`, `sessionGraph` 순서입니다. 같은 source type을 중복하거나 서로 같은 저장 프로퍼티 이름을 만들면 오류를 냅니다.
 
-조합 graph는 source graph를 강하게 보관합니다. source graph의 shared 생성 프로퍼티는 source graph마다 같은 값을 반환하고, transient 생성 프로퍼티는 조합 graph가 읽을 때마다 source Factory를 다시 호출합니다. source 생성 프로퍼티가 없거나 접근 수준이 맞지 않거나 반환 타입이 맞지 않으면 Macro가 대신 연결하지 않으며 Swift 컴파일러가 원본 Factory 본문에서 오류를 표시합니다.
+조합 graph는 source graph를 강하게 보관합니다. source graph의 shared 생성 프로퍼티는 source graph마다 같은 값을 반환합니다. 조합 graph의 transient Factory는 source graph의 transient 생성 프로퍼티를 읽을 때마다 source Factory를 다시 호출합니다.
+
+조합 graph의 shared Factory도 source graph 생성 프로퍼티를 본문에서 직접 읽을 수 있습니다. Macro는 source 저장 프로퍼티를 먼저 대입한 뒤 실제로 참조한 source graph만 shared 저장소 생성기에 전달합니다. source graph의 transient 생성 프로퍼티는 이 생성기가 graph 초기화 중 실행될 때 평가되고, 결과는 조합 graph의 shared 값에 보관됩니다. source 생성 프로퍼티가 없거나 접근 수준이 맞지 않거나 반환 타입이 맞지 않으면 Macro가 대신 연결하지 않으며 Swift 컴파일러가 원본 Factory 본문에서 오류를 표시합니다.
 
 ## 타입으로 의존성 연결
 
@@ -207,7 +209,7 @@ shared 수명의 Factory는 다른 shared 등록만 매개변수로 받을 수 �
 
 shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 실행됩니다. 따라서 `self`, `super`, graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다.
 
-source graph 저장 프로퍼티도 graph 인스턴스 멤버이므로 shared 수명의 Factory에서 읽을 수 없습니다. source 값이 필요한 Factory는 `@Provide(.transient)`로 선언합니다.
+source graph 저장 프로퍼티는 shared Factory에서 직접 읽을 수 있습니다. Macro는 이 참조를 생성한 static helper의 매개변수로 바꾸고, source 저장 프로퍼티를 대입한 뒤 helper를 실행합니다. source graph의 transient 값을 읽으면 그 표현식은 조합 graph를 초기화할 때 한 번 평가되어 shared 결과에 보관됩니다.
 
 ## 본문 없는 Factory
 
