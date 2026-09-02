@@ -44,3 +44,12 @@ public final class PublicSourceFeatureGraph: PublicSourceFeatureProviding {
 		publicSourceGraph.publicSourceService
 	}
 }
+
+// source graph 결과를 직접 조합해 shared로 외부에 공개할 graph
+@DependencyGraph(sources: [PublicSourceGraph.self])
+public final class PublicSharedSourceFeatureGraph: PublicSourceFeatureProviding {
+	@Provide
+	private func makePublicSharedSourceFeature() -> PublicSourceService {
+		publicSourceGraph.publicSourceService
+	}
+}
