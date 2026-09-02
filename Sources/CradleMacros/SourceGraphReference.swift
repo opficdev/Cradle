@@ -186,6 +186,14 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		return .skipChildren
 	}
 
+	// 중첩 타입 선언은 바깥 graph source 탐색에서 제외
+	override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+
 	// switch case pattern binding을 where clause와 case 본문에만 적용
 	override func visit(_ node: SwitchCaseSyntax) -> SyntaxVisitorContinueKind {
 		scopes.append(sourceGraphSwitchCaseNames(in: node))

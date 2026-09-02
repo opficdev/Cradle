@@ -272,6 +272,35 @@ func sourceGraphReferencesRespectGuardConditionBindingScopes() throws {
 	#expect(sourceGraphReferences(in: elseSourceReference, sourceNames: ["appGraph"]).sourceNames == ["appGraph"])
 }
 
+// 중첩 타입 member와 self를 바깥 graph source로 수집하거나 변환하지 않는지 확인
+@Test
+func sourceGraphReferencesExcludeNestedTypeMembers() throws {
+	let factory = try sourceGraphReferenceFactory(
+		"""
+		private func makeFeature() -> Feature {
+			struct Local {
+				let appGraph: LocalGraph
+				var feature: Feature { self.appGraph.feature }
+			}
+			let local = Local(appGraph: LocalGraph())
+			return Feature(repository: appGraph.repository, nested: local.feature)
+		}
+		"""
+	)
+	let references = sourceGraphReferences(in: factory, sourceNames: ["appGraph"])
+	let body = try #require(factory.body)
+	let rewritten = rewrittenSourceGraphFactoryBody(
+		body,
+		references: references,
+		parameterNames: ["appGraph": "sourceAppGraph"]
+	)
+
+	#expect(references.bare.count == 1)
+	#expect(references.explicitSelf.isEmpty)
+	#expect(rewritten.trimmedDescription.contains("self.appGraph.feature"))
+	#expect(rewritten.trimmedDescription.contains("sourceAppGraph.repository"))
+}
+
 // 중첩 함수 매개변수와 동명인 source 이름을 저장 프로퍼티로 보지 않는지 확인
 @Test
 func sourceGraphReferencesIgnoreNestedFunctionParameterShadowing() throws {

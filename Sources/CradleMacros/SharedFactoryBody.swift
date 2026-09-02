@@ -50,6 +50,14 @@ private final class SourceGraphReferenceRewriter: SyntaxRewriter {
 		rewritten.initializer = InitializerClauseSyntax(value: ExprSyntax(stringLiteral: parameterName))
 		return rewritten
 	}
+
+	// 중첩 타입 선언은 바깥 graph source 변환에서 제외
+	override func visit(_ node: StructDeclSyntax) -> DeclSyntax { DeclSyntax(node) }
+	override func visit(_ node: ClassDeclSyntax) -> DeclSyntax { DeclSyntax(node) }
+	override func visit(_ node: EnumDeclSyntax) -> DeclSyntax { DeclSyntax(node) }
+	override func visit(_ node: ActorDeclSyntax) -> DeclSyntax { DeclSyntax(node) }
+	override func visit(_ node: ProtocolDeclSyntax) -> DeclSyntax { DeclSyntax(node) }
+	override func visit(_ node: ExtensionDeclSyntax) -> DeclSyntax { DeclSyntax(node) }
 }
 
 // source 참조를 helper 매개변수로 바꾼 Factory 본문 생성
