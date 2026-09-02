@@ -39,6 +39,61 @@ let client = graph.httpClient
 | `SHA256` | `sha256` |
 | `HTTP2Client` | `http2Client` |
 
+## source graph 조합
+
+`sources`에는 조합 graph가 직접 읽을 source graph type을 `GraphType.self` 배열로 지정합니다. Macro는 source type의 마지막 식별자를 lowerCamelCase로 바꾼 `private let` 저장 프로퍼티와 graph 접근 수준의 initializer를 만듭니다. 조합 Factory 본문에서는 이 저장 프로퍼티로 source graph의 생성 프로퍼티를 직접 읽습니다.
+
+```swift
+import Cradle
+
+final class Repository {}
+final class Session {}
+
+final class Feature {
+	let repository: Repository
+	let session: Session
+
+	init(repository: Repository, session: Session) {
+		self.repository = repository
+		self.session = session
+	}
+}
+
+@DependencyGraph
+final class AppGraph {
+	@Provide
+	private func makeRepository() -> Repository {
+		Repository()
+	}
+}
+
+@DependencyGraph
+final class SessionGraph {
+	@Provide
+	private func makeSession() -> Session {
+		Session()
+	}
+}
+
+@DependencyGraph(sources: [SessionGraph.self, AppGraph.self])
+final class FeatureGraph {
+	@Provide
+	private func makeFeature() -> Feature {
+		Feature(
+			repository: appGraph.repository,
+			session: sessionGraph.session
+		)
+	}
+}
+
+let graph = FeatureGraph(appGraph: AppGraph(), sessionGraph: SessionGraph())
+let feature = graph.feature
+```
+
+`sources` 배열의 순서는 의미가 없습니다. Macro는 source type의 정규화한 이름순으로 저장 프로퍼티와 initializer 매개변수를 생성하므로, 위 예시의 initializer 매개변수도 `appGraph`, `sessionGraph` 순서입니다. 같은 source type을 중복하거나 서로 같은 저장 프로퍼티 이름을 만들면 오류를 냅니다.
+
+조합 graph는 source graph를 강하게 보관합니다. source graph의 shared 생성 프로퍼티는 source graph마다 같은 값을 반환하고, transient 생성 프로퍼티는 조합 graph가 읽을 때마다 source Factory를 다시 호출합니다. source 생성 프로퍼티가 없거나 접근 수준이 맞지 않거나 반환 타입이 맞지 않으면 Macro가 대신 연결하지 않으며 Swift 컴파일러가 원본 Factory 본문에서 오류를 표시합니다.
+
 ## 타입으로 의존성 연결
 
 Factory 매개변수 타입이 다른 Factory의 반환 타입과 같으면 Macro가 두 등록을 연결합니다. Factory 이름과 매개변수의 지역 이름은 등록 선택에 영향을 주지 않습니다. 외부 인자 레이블과 매개변수 순서는 생성한 Factory 호출에 그대로 유지합니다.
@@ -150,6 +205,8 @@ shared Factory는 다른 shared 등록만 매개변수로 받을 수 있습니�
 
 shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 실행됩니다. 따라서 `self`, `super`, graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다.
 
+source graph 저장 프로퍼티도 graph 인스턴스 멤버이므로 shared Factory에서 읽을 수 없습니다. source 값이 필요한 Factory는 기본 `@Provide`로 선언합니다.
+
 ## 본문 없는 Factory
 
 본문이 없는 Factory에는 선언한 반환 타입의 initializer 호출을 자동으로 추가합니다. 매개변수의 외부 레이블과 순서는 initializer 호출에도 유지합니다.
@@ -189,18 +246,20 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 ## 접근 수준과 초기화
 
-생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `public` graph를 다른 모듈에서 만들려면 `public init()`을 직접 선언해야 합니다. `public` 생성 프로퍼티의 반환 타입도 외부 모듈에서 접근할 수 있어야 합니다.
+생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `sources`가 없는 `public` graph를 다른 모듈에서 만들려면 `public init()`을 직접 선언해야 합니다. `public` 생성 프로퍼티의 반환 타입도 외부 모듈에서 접근할 수 있어야 합니다.
 
-Macro는 graph에 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티를 바꾸지 않습니다.
+`sources`가 없는 graph에서는 Macro가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티를 바꾸지 않습니다. 반면 `sources` graph는 source 저장 프로퍼티를 초기화할 생성자를 Macro가 만듭니다. 이때 사용자가 initializer를 직접 선언하거나 초기값 없는 인스턴스 저장 프로퍼티를 선언하면 오류를 냅니다.
+
+`sources` graph가 protocol만 채택하면 생성 initializer가 그대로 protocol 채택을 유지합니다. superclass를 상속한 `sources` graph에는 Macro가 `super.init()`을 생성하지 않습니다. superclass initializer 호출이 필요하면 Swift 컴파일러가 생성 initializer에서 오류를 표시합니다.
 
 ## 현재 지원 범위
 
 현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결과 transient·shared 수명만 지원합니다. 다음 기능은 아직 지원하지 않습니다.
 
 - 등록 재정의
-- graph 간 연결
+- source graph 생성 프로퍼티의 자동 주입
 - qualifier와 multibinding
 - graph 입력과 assisted factory
-- actor graph와 부모·자식 graph
+- actor graph와 superclass initializer가 필요한 source 조합
 - `async`, `throws`, `rethrows` Factory
 - 구체 구현 타입 자동 탐색

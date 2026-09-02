@@ -57,6 +57,7 @@ git ls-files --others --exclude-standard -- AGENTS.md .agents .codex/agents |
 ## Commit Guidance
 
 - Start commit messages with a prefix used by recent local commits, such as `feat`, `fix`, `refactor`, `chore`, `test`, `docs`, `ui`, or `rollback`.
+- After `prefix:`, end the Korean title with a nominalization of the changed action, such as `생성`, `추가`, `차단`, `검증`, or `문서화`. Do not end a title with a static category such as `규칙` or `안내` when it does not describe the change itself.
 - Write commit-message prose in Korean and do not add a commit-message body.
 - Keep implementation names, file paths, commands, branch names, and commit hashes unchanged.
 - Inspect the actual diff and recent non-merge `git log` before proposing a commit message.
