@@ -5,7 +5,6 @@
 //  Created by opfic on 9/2/26.
 //
 
-import SwiftDiagnostics
 import SwiftSyntax
 
 // shared Factory 본문에 나타난 source 저장 프로퍼티 참조 위치 집합
@@ -16,8 +15,6 @@ struct SourceGraphReferences {
 	let explicitSelf: [Int: String]
 	// bare closure capture source 저장 프로퍼티 참조 위치와 이름
 	let bareCapture: [Int: String]
-	// 첫 source 저장 프로퍼티 참조 위치
-	let firstReference: TokenSyntax?
 
 	// Factory가 실제로 읽는 source 저장 프로퍼티 이름 집합
 	var sourceNames: Set<String> {
@@ -33,7 +30,7 @@ func sourceGraphReferences(
 	sourceNames: Set<String>
 ) -> SourceGraphReferences {
 	guard let body = factory.body else {
-		return SourceGraphReferences(bare: [:], explicitSelf: [:], bareCapture: [:], firstReference: nil)
+		return SourceGraphReferences(bare: [:], explicitSelf: [:], bareCapture: [:])
 	}
 	let finder = SourceGraphReferenceFinder(
 		sourceNames: sourceNames,
@@ -113,16 +110,10 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 	private var bare = [Int: String]()
 	private var explicitSelf = [Int: String]()
 	private var bareCapture = [Int: String]()
-	private var reference: TokenSyntax?
 
 	// 수집한 source 저장 프로퍼티 참조
 	var references: SourceGraphReferences {
-		SourceGraphReferences(
-			bare: bare,
-			explicitSelf: explicitSelf,
-			bareCapture: bareCapture,
-			firstReference: reference
-		)
+		SourceGraphReferences(bare: bare, explicitSelf: explicitSelf, bareCapture: bareCapture)
 	}
 
 	// source 이름과 Factory 매개변수 이름으로 탐색기 생성
@@ -315,9 +306,6 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 		guard ignoresShadowing || !scopes.contains(where: { $0.contains(name) }) else {
 			return
 		}
-		if reference == nil {
-			reference = token
-		}
 		switch kind {
 		case .bare:
 			bare[sourceGraphOffset(of: token)] = name
@@ -429,32 +417,4 @@ private func sourceGraphLocalFunctionNames(in statements: CodeBlockItemListSynta
 // backtick 표기를 제외한 identifier 이름 읽기
 private func sourceGraphIdentifierName(_ token: TokenSyntax) -> String {
 	token.identifier?.name ?? token.text
-}
-
-// shared Factory의 source 저장 프로퍼티 참조 진단
-func diagnoseSourceGraphSharedReferenceErrors(
-	in providers: [ProviderDescriptor],
-	sources: [SourceGraphDescriptor],
-	context: some MacroExpansionContext
-) -> Bool {
-	let sourceNames = Set(sources.map(\.propertyIdentifier))
-	guard !sourceNames.isEmpty else {
-		return false
-	}
-	var hasError = false
-	for provider in providers where provider.lifetime == .shared {
-		let references = sourceGraphReferences(in: provider.factory, sourceNames: sourceNames)
-		guard let reference = references.firstReference else {
-			continue
-		}
-		let name = reference.identifier?.name ?? reference.text
-		context.diagnose(
-			Diagnostic(
-				node: reference,
-				message: SourceGraphDiagnostic.sharedSourceReference(name: name)
-			)
-		)
-		hasError = true
-	}
-	return hasError
 }

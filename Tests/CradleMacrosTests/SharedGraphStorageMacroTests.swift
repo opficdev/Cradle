@@ -23,6 +23,7 @@ func sharedGraphStorageBuildsTypedLetDeclarations() throws {
 	let storage = SharedGraphStorage(
 		graphName: .identifier("Graph"),
 		providers: providers,
+		sources: [],
 		propertyNames: propertyNames,
 		in: context
 	)

@@ -47,7 +47,6 @@ struct DependencyGraphMacro: MemberMacro {
 		})
 		guard providerConnectionsAreValid(
 			in: providerResult.descriptors,
-			sources: sourceResult.descriptors,
 			propertyNames: propertyNames,
 			context: context
 		) else {
@@ -56,13 +55,15 @@ struct DependencyGraphMacro: MemberMacro {
 		let storage = sharedStorage(
 			for: providerResult.descriptors,
 			graphName: graph.name,
+			sources: sourceResult.descriptors,
 			propertyNames: propertyNames,
 			in: context
 		)
 
 		return sourceGraphDeclarations(
 			for: sourceResult.descriptors,
-			accessLevel: graphAccess
+			accessLevel: graphAccess,
+			storage: storage
 		) + propertyDeclarations(
 			for: providerResult.descriptors,
 			accessLevel: graphAccess,
@@ -97,7 +98,6 @@ struct DependencyGraphMacro: MemberMacro {
 	// Factory 매개변수·shared 참조·순환 연결 진단
 	private static func providerConnectionsAreValid(
 		in providers: [ProviderDescriptor],
-		sources: [SourceGraphDescriptor],
 		propertyNames: [RegisteredTypeIdentity: String],
 		context: some MacroExpansionContext
 	) -> Bool {
@@ -109,13 +109,6 @@ struct DependencyGraphMacro: MemberMacro {
 			return false
 		}
 		guard !diagnoseSharedProviderReferenceErrors(in: providers, context: context) else {
-			return false
-		}
-		guard !diagnoseSourceGraphSharedReferenceErrors(
-			in: providers,
-			sources: sources,
-			context: context
-		) else {
 			return false
 		}
 		return !diagnoseCircularDependency(in: providers, context: context)
@@ -305,6 +298,7 @@ private func providers(
 private func sharedStorage(
 	for providers: [ProviderDescriptor],
 	graphName: TokenSyntax,
+	sources: [SourceGraphDescriptor],
 	propertyNames: [RegisteredTypeIdentity: String],
 	in context: some MacroExpansionContext
 ) -> SharedGraphStorage? {
@@ -315,6 +309,7 @@ private func sharedStorage(
 	return SharedGraphStorage(
 		graphName: graphName,
 		providers: sharedProviders,
+		sources: sources,
 		propertyNames: propertyNames,
 		in: context
 	)
