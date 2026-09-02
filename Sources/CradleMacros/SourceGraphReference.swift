@@ -46,7 +46,7 @@ private final class SourceGraphReferenceFinder: SyntaxVisitor {
 
 	// code block마다 지역 변수 shadowing scope 추가
 	override func visit(_ node: CodeBlockSyntax) -> SyntaxVisitorContinueKind {
-		scopes.append([])
+		scopes.append(sourceGraphLocalFunctionNames(in: node.statements))
 		return .visitChildren
 	}
 
@@ -306,6 +306,16 @@ private func sourceGraphFunctionParameterNames(in function: FunctionDeclSyntax) 
 		let name = parameter.secondName ?? parameter.firstName
 		return sourceGraphIdentifierName(name)
 	})
+}
+
+// code block의 직접 자식 지역 함수 이름 수집
+private func sourceGraphLocalFunctionNames(in statements: CodeBlockItemListSyntax) -> Set<String> {
+	statements.reduce(into: Set<String>()) { names, statement in
+		guard let function = statement.item.as(FunctionDeclSyntax.self) else {
+			return
+		}
+		names.insert(sourceGraphIdentifierName(function.name))
+	}
 }
 
 // backtick 표기를 제외한 identifier 이름 읽기
