@@ -10,7 +10,7 @@ Factory 매개변수는 이름이 아니라 타입으로 다른 등록과 연결
 
 Factory가 `any UserRepository`를 반환하면 graph의 `userRepository`도 같은 프로토콜 타입을 노출합니다. 구현 타입의 프로토콜 적합성은 Swift 컴파일러가 검사합니다.
 
-기본 `@Provide`는 프로퍼티 접근마다 Factory를 호출합니다. `@Provide(.shared)`는 graph 생성 중 한 번 만든 값을 해당 graph가 보유하고 이후 같은 값을 반환합니다.
+기본 `@Provide`와 `@Provide(.shared)`는 graph 생성 중 한 번 만든 값을 해당 graph가 보유하고 이후 같은 값을 반환합니다. 이 값은 전역 싱글턴이 아니라 graph 인스턴스마다 분리됩니다. 프로퍼티를 읽을 때마다 Factory를 호출해야 하면 `@Provide(.transient)`를 사용합니다.
 
 매크로는 그래프에 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. 그래프를 외부 모듈에서 생성해야 한다면 필요한 생성자를 직접 선언합니다.
 
@@ -22,7 +22,7 @@ Factory가 `any UserRepository`를 반환하면 graph의 `userRepository`도 같
 
 ### 매크로
 
-- ``DependencyGraph()``
+- ``DependencyGraph(sources:)``
 - ``Provide()``
 - ``Provide(_:)``
 - ``DependencyLifetime``

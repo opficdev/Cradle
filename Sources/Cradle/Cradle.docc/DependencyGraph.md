@@ -27,7 +27,7 @@ let graph = AppGraph()
 let client = graph.httpClient
 ```
 
-기본 `@Provide`는 transient 등록입니다. `graph.httpClient`에 접근할 때마다 Factory를 호출하므로, Factory가 새 값을 반환하면 매번 새 값을 얻습니다.
+기본 `@Provide`는 graph 생성 중 한 번 만드는 shared 등록입니다. `graph.httpClient`를 여러 번 읽어도 같은 값을 반환하며, 이 값은 전역 싱글턴이 아니라 해당 graph 인스턴스에만 보관됩니다. 접근할 때마다 새 값을 만들어야 하면 `@Provide(.transient)`를 사용합니다.
 
 | 반환 타입 | 생성 프로퍼티 |
 | --- | --- |
@@ -77,7 +77,7 @@ final class SessionGraph {
 
 @DependencyGraph(sources: [SessionGraph.self, AppGraph.self])
 final class FeatureGraph {
-	@Provide
+	@Provide(.transient)
 	private func makeFeature() -> Feature {
 		Feature(
 			repository: appGraph.repository,
@@ -183,9 +183,9 @@ let profile = graph.profile
 
 `P`와 `any P`는 연결과 중복 검사에서 같은 등록 타입으로 취급합니다. Macro는 `typealias`가 가리키는 실제 타입, import로 생략한 모듈 경로, protocol·superclass 선언의 의미를 해석하지 않습니다.
 
-## shared 수명
+## shared 수명과 transient 수명
 
-`@Provide(.shared)`는 graph를 만들 때 Factory 결과를 한 번 생성하고, graph 전용의 타입 지정 `let` 저장소가 이를 보유하게 합니다. 같은 graph에서 해당 생성 프로퍼티를 여러 번 읽으면 같은 값을 반환합니다. graph가 해제되면 저장소가 보유한 참조도 함께 놓습니다.
+`@Provide`와 `@Provide(.shared)`는 graph를 만들 때 Factory 결과를 한 번 생성하고, graph 전용의 타입 지정 `let` 저장소가 이를 보유하게 합니다. 같은 graph에서 해당 생성 프로퍼티를 여러 번 읽으면 같은 값을 반환합니다. graph가 해제되면 저장소가 보유한 참조도 함께 놓습니다. 이 수명은 전역 싱글턴이 아니라 graph 인스턴스별 수명입니다.
 
 ```swift
 @DependencyGraph
@@ -201,11 +201,13 @@ let first = graph.userRepository
 let second = graph.userRepository
 ```
 
-shared Factory는 다른 shared 등록만 매개변수로 받을 수 있습니다. shared Factory가 transient 등록을 받으면 그 transient 값이 graph 생성 때 한 번 만들어져 shared 값에 고정되므로, Macro는 해당 매개변수 타입 위치에 오류를 표시합니다. 반대로 transient Factory는 shared 등록을 매개변수로 받을 수 있습니다.
+프로퍼티를 읽을 때마다 Factory를 호출해야 하면 `@Provide(.transient)`를 사용합니다. transient Factory는 shared와 transient 등록을 매개변수로 받을 수 있습니다.
+
+shared 수명의 Factory는 다른 shared 등록만 매개변수로 받을 수 있습니다. shared 수명의 Factory가 transient 등록을 받으면 그 transient 값이 graph 생성 때 한 번 만들어져 shared 값에 고정되므로, Macro는 해당 매개변수 타입 위치에 오류를 표시합니다.
 
 shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 실행됩니다. 따라서 `self`, `super`, graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다.
 
-source graph 저장 프로퍼티도 graph 인스턴스 멤버이므로 shared Factory에서 읽을 수 없습니다. source 값이 필요한 Factory는 기본 `@Provide`로 선언합니다.
+source graph 저장 프로퍼티도 graph 인스턴스 멤버이므로 shared 수명의 Factory에서 읽을 수 없습니다. source 값이 필요한 Factory는 `@Provide(.transient)`로 선언합니다.
 
 ## 본문 없는 Factory
 
