@@ -13,11 +13,11 @@ import Testing
 func providerDependencyConnectionPreservesParameterLabels() {
 	// 매개변수 선언과 기대 factory 인자
 	let fixtures = [
-		("urlSession: URLSession", "urlSession: urlSession()"),
-		("session urlSession: URLSession", "session: urlSession()"),
-		("_ urlSession: URLSession", "urlSession()"),
-		("session `urlSession`: URLSession", "session: urlSession()"),
-		("`default` urlSession: URLSession", "`default`: urlSession()")
+		("urlSession: URLSession", "urlSession: urlSession"),
+		("session urlSession: URLSession", "session: urlSession"),
+		("_ urlSession: URLSession", "urlSession"),
+		("session `urlSession`: URLSession", "session: urlSession"),
+		("`default` urlSession: URLSession", "`default`: urlSession")
 	]
 
 	for (parameter, argument) in fixtures {
@@ -36,11 +36,11 @@ func providerDependencyConnectionPreservesParameterLabels() {
 				private func makeHTTPClient(\(parameter)) -> HTTPClient { HTTPClient() }
 				private func makeURLSession() -> URLSession { URLSession() }
 
-			    internal func httpClient() -> HTTPClient {
+			    internal var httpClient: HTTPClient {
 			        makeHTTPClient(\(argument))
 			    }
 
-			    internal func urlSession() -> URLSession {
+			    internal var urlSession: URLSession {
 			        makeURLSession()
 			    }
 			}
@@ -75,15 +75,15 @@ func providerDependencyConnectionPreservesParameterOrder() {
 			private func makeLogger() -> Logger { Logger() }
 			private func makeURLSession() -> URLSession { URLSession() }
 
-		    internal func feature() -> Feature {
-		        makeFeature(session: urlSession(), logger())
+		    internal var feature: Feature {
+		        makeFeature(session: urlSession, logger)
 		    }
 
-		    internal func logger() -> Logger {
+		    internal var logger: Logger {
 		        makeLogger()
 		    }
 
-		    internal func urlSession() -> URLSession {
+		    internal var urlSession: URLSession {
 		        makeURLSession()
 		    }
 		}

@@ -23,5 +23,5 @@ final class BodylessProviderGraph {
 // 본문 없는 Factory의 실제 graph 호출 확인
 @Test
 func bodylessProviderGraphBuildsDependency() {
-	#expect(BodylessProviderGraph().bodylessDependency().token == 42)
+	#expect(BodylessProviderGraph().bodylessDependency.token == 42)
 }

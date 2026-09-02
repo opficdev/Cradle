@@ -48,43 +48,20 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 			"`@Provide` factory는 generic, type method, `async`, `throws`, "
 				+ "`rethrows`를 가질 수 없습니다."
 		case .invalidProviderParameter:
-			"`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
-				+ "등록 생성 접근자와 일치해야 합니다."
+			"`@Provide` Factory 매개변수는 지원하는 형식이어야 합니다."
 		case .missingProviderResult:
 			"`@Provide` factory는 명시적 반환 타입이 필요합니다."
 		case .unsupportedProviderResult:
 			"`@Provide` 반환 타입은 프로퍼티 이름을 만들 수 있는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다."
 		case .invalidAccessorName:
-			"`@Provide` 반환 타입에서 유효한 생성 접근자 이름을 만들 수 없습니다."
+			"`@Provide` 등록 타입에서 유효한 프로퍼티 이름을 만들 수 없습니다."
 		case .existingMemberCollision:
-			"생성 접근자 이름이 기존 instance member와 충돌합니다."
+			"생성 프로퍼티 이름이 기존 인스턴스 멤버와 충돌합니다."
 		}
 	}
 
 	// Cradle 구성 오류 severity
 	var severity: DiagnosticSeverity { .error }
-}
-
-// `@Provide` factory 접근자 생성용 문법 정보 보관
-struct ProviderDescriptor {
-	// 오류 위치로 사용할 `@Provide` attribute
-	let attribute: AttributeSyntax
-	// graph 본체에서 호출할 private factory 이름
-	let factoryName: String
-	// 생성 접근자가 그대로 노출할 반환 타입
-	let returnType: TypeSyntax
-	// 반환 타입에서 만든 생성 접근자 이름
-	let accessorName: String
-	// provider factory 호출에 사용할 매개변수
-	let parameters: [ProviderParameterDescriptor]
-
-	// 백틱 표기를 제외한 생성 접근자 비교용 식별자
-	var accessorIdentifier: String {
-		guard accessorName.hasPrefix("`"), accessorName.hasSuffix("`") else {
-			return accessorName
-		}
-		return String(accessorName.dropFirst().dropLast())
-	}
 }
 
 // provider factory 인자 생성용 매개변수 정보 보관
@@ -95,11 +72,14 @@ struct ProviderParameterDescriptor {
 	let localName: String
 	// 누락 오류를 표시할 원본 지역 이름 토큰
 	let localNameToken: TokenSyntax
+	// 타입 기반 provider 연결에 사용할 원본 타입
+	let type: TypeSyntax
+	// 타입 철자 비교용 정규형
+	let typeIdentity: RegisteredTypeIdentity
 
-	// 외부 인자 레이블을 보존한 생성 접근자 호출
-	func factoryArgument(accessorName: String) -> String {
-		// 등록된 생성 접근자의 백틱 표기를 보존한 호출문
-		let dependency = "\(accessorName)()"
+	// 외부 인자 레이블을 보존한 생성 프로퍼티 참조
+	func factoryArgument(propertyName: String) -> String {
+		let dependency = propertyName
 		guard let externalLabel else {
 			return dependency
 		}
@@ -155,7 +135,9 @@ func providerParameterDescriptors(
 			ProviderParameterDescriptor(
 				externalLabel: label == "_" ? nil : label,
 				localName: localName,
-				localNameToken: name
+				localNameToken: name,
+				type: parameter.type,
+				typeIdentity: registeredTypeIdentity(for: parameter.type)
 			)
 		)
 	}

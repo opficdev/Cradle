@@ -122,8 +122,8 @@ func protocolBindingDeliversImplementationsWithoutCaching() {
 	for (create, token) in zip(factories, [11, 22, 33]) {
 		// 구현별 독립 그래프
 		let graph = ProtocolBindingGraph(create: create)
-		#expect(graph.bindingConsumer().bindingService.token == token)
-		#expect(graph.bindingConsumer().bindingService.token == token)
+		#expect(graph.bindingConsumer.bindingService.token == token)
+		#expect(graph.bindingConsumer.bindingService.token == token)
 		#expect(graph.calls == 2)
 	}
 }
@@ -134,9 +134,9 @@ func protocolBindingPreservesFactoryIdentityPolicy() throws {
 	// 매번 새 값을 반환할 그래프
 	let graph = ProtocolBindingGraph(create: { BindingReference() })
 	// 첫 번째 결과
-	let first = try #require(graph.bindingService() as? BindingReference)
+	let first = try #require(graph.bindingService as? BindingReference)
 	// 두 번째 결과
-	let second = try #require(graph.bindingService() as? BindingReference)
+	let second = try #require(graph.bindingService as? BindingReference)
 	#expect(first !== second)
 	#expect(graph.calls == 2)
 
@@ -144,8 +144,8 @@ func protocolBindingPreservesFactoryIdentityPolicy() throws {
 	let shared = BindingReference()
 	// 저장된 값을 반환할 그래프
 	let sharedGraph = ProtocolBindingGraph(create: { shared })
-	#expect(try #require(sharedGraph.bindingService() as? BindingReference) === shared)
-	#expect(try #require(sharedGraph.bindingService() as? BindingReference) === shared)
+	#expect(try #require(sharedGraph.bindingService as? BindingReference) === shared)
+	#expect(try #require(sharedGraph.bindingService as? BindingReference) === shared)
 	#expect(sharedGraph.calls == 2)
 }
 
@@ -154,7 +154,7 @@ func protocolBindingPreservesFactoryIdentityPolicy() throws {
 func protocolBindingBuildsMultipleSteps() {
 	// 다단계 연결을 확인할 그래프
 	let graph = ProtocolBindingGraph(create: { BindingValue() })
-	#expect(graph.bindingRoot().bindingConsumer.bindingService.token == 11)
+	#expect(graph.bindingRoot.bindingConsumer.bindingService.token == 11)
 	#expect(graph.calls == 1)
 	#expect(graph.invocations == ["service", "consumer", "root"])
 }
@@ -167,9 +167,9 @@ func protocolBindingIgnoresDeclarationOrder() {
 	// 의존 순서를 뒤집은 그래프
 	let reversed = ReversedProtocolBindingGraph()
 	// 의존 순서대로 생성한 결과
-	let root = graph.bindingRoot()
+	let root = graph.bindingRoot
 	// 역순 선언에서 생성한 결과
-	let reversedRoot = reversed.bindingRoot()
+	let reversedRoot = reversed.bindingRoot
 	#expect(root.bindingConsumer.bindingService.token == reversedRoot.bindingConsumer.bindingService.token)
 	#expect(graph.invocations == ["service", "consumer", "root"])
 	#expect(reversed.invocations == graph.invocations)

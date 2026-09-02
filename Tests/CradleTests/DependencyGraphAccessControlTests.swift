@@ -15,7 +15,7 @@ func anotherModuleCanUsePublicGraphAccessor() {
 	// fixture module이 제공한 public graph
 	let graph = PublicGraph()
 
-	_ = graph.publicService()
+	_ = graph.publicService
 }
 
 // public 접근자가 internal 반환 타입을 노출하는지 확인
@@ -81,6 +81,6 @@ func publicAccessorCannotExposeInternalReturnType() throws {
 	) ?? ""
 
 	#expect(process.terminationStatus != 0)
-	#expect(output.contains("method cannot be declared public because its result uses an internal type"))
+	#expect(output.contains("property cannot be declared public because its type uses an internal type"))
 	#expect(output.contains("InternalService"))
 }

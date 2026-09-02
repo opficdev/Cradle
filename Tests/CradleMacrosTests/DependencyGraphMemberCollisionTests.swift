@@ -25,7 +25,7 @@ func dependencyGraphAllowsParameterizedMemberName() {
 			func service(value: Value) {}
 			private func makeService() -> Service { Service() }
 
-		    internal func service() -> Service {
+		    internal var service: Service {
 		        makeService()
 		    }
 		}
@@ -54,7 +54,7 @@ func dependencyGraphRejectsExistingPropertyName() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "생성 접근자 이름이 기존 instance member와 충돌합니다.",
+				message: "생성 프로퍼티 이름이 기존 인스턴스 멤버와 충돌합니다.",
 				line: 4,
 				column: 2
 			)

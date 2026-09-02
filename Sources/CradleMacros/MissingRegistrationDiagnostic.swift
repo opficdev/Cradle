@@ -7,21 +7,21 @@
 
 import SwiftDiagnostics
 
-// 등록되지 않은 지역 이름을 요구하는 Factory 매개변수 오류
+// 등록되지 않은 타입을 요구하는 Factory 매개변수 오류
 struct MissingRegistrationDiagnostic: DiagnosticMessage {
 	// 누락된 의존성을 요구한 Factory 이름
 	let factoryName: String
-	// 등록 생성 접근자와 일치하지 않는 지역 이름
-	let localName: String
+	// 등록 목록에 없는 매개변수 타입
+	let registrationType: String
 
-	// Factory와 매개변수 이름에 영향을 받지 않는 누락 진단 식별자
+	// Factory와 매개변수 타입에 영향을 받지 않는 누락 진단 식별자
 	var diagnosticID: MessageID {
 		MessageID(domain: "Cradle", id: "missingRegistration")
 	}
 
 	// 누락된 등록과 이를 요구한 Factory를 함께 표시하는 오류 문구
 	var message: String {
-		"\(quotedFactoryName(factoryName))의 매개변수 `\(localName)`에 대응하는 등록이 없습니다."
+		"\(quotedFactoryName(factoryName))의 매개변수 타입 `\(registrationType)`에 대응하는 등록이 없습니다."
 	}
 
 	// 누락된 등록이 있는 그래프의 컴파일 중단

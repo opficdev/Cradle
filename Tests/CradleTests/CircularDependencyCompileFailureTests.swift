@@ -32,8 +32,8 @@ func circularDependencyCompileFailureReportsOriginalLocations() throws {
 	let result = try buildCircularDependencyFixture(at: fixture)
 	// 자기 순환과 세 등록 순환의 닫는 원본 매개변수 오류
 	let errors = [
-		"\(source.path):24:32: error: `firstService → firstService` 순환 의존성이 있습니다.",
-		"\(source.path):41:19: error: `firstService → secondService → thirdService → firstService` 순환 의존성이 있습니다."
+		"\(source.path):24:46: error: `firstService → firstService` 순환 의존성이 있습니다.",
+		"\(source.path):41:35: error: `firstService → secondService → thirdService → firstService` 순환 의존성이 있습니다."
 	]
 	// 자기 순환 등록 하나와 다중 순환 등록 세 개의 원본 위치
 	let notes = [
@@ -43,7 +43,7 @@ func circularDependencyCompileFailureReportsOriginalLocations() throws {
 		(39, "makeThirdService", "thirdService")
 	]
 		.map { line, factory, accessor in
-			"\(source.path):\(line):2: note: `\(factory)` Factory의 등록입니다. 생성 접근자는 `\(accessor)`입니다."
+			"\(source.path):\(line):2: note: `\(factory)` Factory의 등록입니다. 생성 프로퍼티는 `\(accessor)`입니다."
 		}
 
 	#expect(result.terminationReason == .exit)

@@ -32,7 +32,7 @@ private struct CircularDependencyTraversalFrame {
 func firstCircularDependency(in providers: [ProviderDescriptor]) -> CircularDependency? {
 	// 기존 생성용 이름 사전과 분리한 등록 인덱스
 	let indices = Dictionary(uniqueKeysWithValues: providers.enumerated().map { index, provider in
-		(provider.accessorIdentifier, index)
+		(provider.registrationIdentity, index)
 	})
 	// 등록마다 현재 탐색 경로 포함 여부와 탐색 완료 여부 보관
 	var states = Array(repeating: CircularDependencyVisitState.unvisited, count: providers.count)
@@ -56,7 +56,7 @@ func firstCircularDependency(in providers: [ProviderDescriptor]) -> CircularDepe
 			let parameter = providers[frame.providerIndex].parameters[frame.nextParameterIndex]
 			stack[stack.count - 1].nextParameterIndex += 1
 			// 선행 누락 검사에서 존재를 확인한 대상 등록
-			let target = indices[parameter.localName]!
+			let target = indices[parameter.typeIdentity]!
 
 			switch states[target] {
 			case .unvisited:

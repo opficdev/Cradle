@@ -24,7 +24,7 @@ func protocolBindingRejectsInvalidConsumerPrograms() throws {
 	// 의도한 오류별 fixture와 반드시 포함할 타입 이름
 	let cases = [
 		("ProtocolBindingNonconformingImplementation", ["NonconformingRepository", "RequiredRepository"]),
-		("ProtocolBindingMismatchedDependency", ["ProvidedRepository", "ExpectedRepository"]),
+		("ProtocolBindingMismatchedDependency", ["ExpectedRepository"]),
 		("PublicGraphLeaksInternalProtocol", ["InternalRepositoryContract"])
 	]
 
@@ -44,9 +44,9 @@ func protocolBindingRejectsInvalidConsumerPrograms() throws {
 			#expect(result.output.contains("return expression of type"))
 			#expect(result.output.contains("does not conform"))
 		} else if name == "ProtocolBindingMismatchedDependency" {
-			#expect(result.output.contains("does not conform") || result.output.contains("cannot convert"))
+			#expect(result.output.contains("`makeMismatchedConsumer`의 매개변수 타입 `any ExpectedRepository`에 대응하는 등록이 없습니다."))
 		} else {
-			#expect(result.output.contains("method cannot be declared public"))
+			#expect(result.output.contains("property cannot be declared public"))
 			#expect(result.output.contains("internal type"))
 		}
 	}

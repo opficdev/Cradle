@@ -65,9 +65,9 @@ func missingProviderDependencyFailsAtBuildTime() throws {
 	let output = String(data: try Data(contentsOf: outputFileURL), encoding: .utf8) ?? ""
 	// 매크로 확장 파일이 아닌 원본 Factory 선언 위치
 	let sourceFile = fixtureDirectory.appendingPathComponent("Sources/MissingProviderDependency/main.swift")
-	// 외부 레이블이 아닌 지역 이름에 표시할 누락 오류
-	let error = "\(sourceFile.path):27:14: error: "
-		+ "`makeMissingService`의 매개변수 `missingRepository`에 대응하는 등록이 없습니다."
+	// 매개변수 타입에 표시할 누락 오류
+	let error = "\(sourceFile.path):27:33: error: "
+		+ "`makeMissingService`의 매개변수 타입 `MissingRepository`에 대응하는 등록이 없습니다."
 	// 같은 Factory의 @Provide에 표시할 보조 설명
 	let note = "\(sourceFile.path):25:2: note: "
 		+ "`makeMissingService` Factory가 이 의존성을 요구합니다."

@@ -8,9 +8,9 @@
 import SwiftSyntaxMacrosTestSupport
 import Testing
 
-// 타입이 같아도 지역 이름이 다른 등록을 선택하지 않는지 확인
+// 지역 이름과 무관하게 같은 등록 타입을 연결하는지 확인
 @Test
-func protocolBindingRejectsMissingAccessor() {
+func protocolBindingConnectsMatchingRegistrationType() {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
@@ -25,18 +25,16 @@ func protocolBindingRejectsMissingAccessor() {
 		final class Graph {
 			private func makeConsumer(missing: any Repository) -> Consumer { Consumer() }
 			private func makeRepository() -> any Repository { LiveRepository() }
+
+		    internal var consumer: Consumer {
+		        makeConsumer(missing: repository)
+		    }
+
+		    internal var repository: any Repository {
+		        makeRepository()
+		    }
 		}
 		""",
-		diagnostics: [
-			DiagnosticSpec(
-				id: .init(domain: "Cradle", id: "missingRegistration"),
-				message: "`makeConsumer`의 매개변수 `missing`에 대응하는 등록이 없습니다.",
-				line: 4,
-				column: 28,
-				highlights: ["missing"],
-				notes: [NoteSpec(message: "`makeConsumer` Factory가 이 의존성을 요구합니다.", line: 3, column: 2)]
-			)
-		],
 		macros: testMacros
 	)
 }
@@ -63,14 +61,14 @@ func protocolBindingRejectsDuplicateAccessors() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "duplicateAccessor"),
-				message: "`repository` 생성 접근자를 만드는 등록이 중복됩니다.",
+				message: "`repository` 생성 프로퍼티를 만드는 등록이 중복됩니다.",
 				line: 4,
 				column: 30,
 				highlights: ["any Repository"],
 				notes: [
-					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `any Repository`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 등록 타입은 `any Repository`입니다.", line: 3, column: 2),
 					NoteSpec(
-						message: "`makeSecond` Factory의 등록입니다. 반환 타입은 `any Domain.Repository`입니다.",
+						message: "`makeSecond` Factory의 등록입니다. 등록 타입은 `any Domain.Repository`입니다.",
 						line: 5,
 						column: 2
 					)
@@ -102,7 +100,7 @@ func protocolBindingRejectsMemberCollision() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "existingMemberCollision"),
-				message: "생성 접근자 이름이 기존 instance member와 충돌합니다.",
+				message: "생성 프로퍼티 이름이 기존 인스턴스 멤버와 충돌합니다.",
 				line: 4,
 				column: 2
 			)

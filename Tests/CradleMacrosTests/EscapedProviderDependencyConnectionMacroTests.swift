@@ -13,13 +13,13 @@ import Testing
 func providerDependencyConnectionPreservesEscapedAccessorNames() {
 	// 반환 타입, 매개변수 선언, 기존 접근자 이름과 기대 호출 인자
 	let fixtures = [
-		("dependency", "dependency: dependency", "dependency", "dependency: dependency()"),
-		("`dependency`", "dependency: dependency", "`dependency`", "dependency: `dependency`()"),
-		("`dependency`", "client `dependency`: dependency", "`dependency`", "client: `dependency`()"),
-		("Module.`dependency`", "_ dependency: Module.dependency", "`dependency`", "`dependency`()"),
-		("`default`", "default: `default`", "`default`", "default: `default`()"),
-		("`default`", "`default`: `default`", "`default`", "`default`: `default`()"),
-		("`Dependency`", "value Dependency: Dependency", "`Dependency`", "value: `Dependency`()")
+		("dependency", "dependency: dependency", "dependency", "dependency: dependency"),
+		("`dependency`", "dependency: dependency", "`dependency`", "dependency: `dependency`"),
+		("`dependency`", "client `dependency`: dependency", "`dependency`", "client: `dependency`"),
+		("Module.`dependency`", "_ dependency: Module.dependency", "`dependency`", "`dependency`"),
+		("`default`", "default: `default`", "`default`", "default: `default`"),
+		("`default`", "`default`: `default`", "`default`", "`default`: `default`"),
+		("`Dependency`", "value Dependency: Dependency", "`Dependency`", "value: `Dependency`")
 	]
 
 	for (returnType, parameter, accessor, argument) in fixtures {
@@ -38,11 +38,11 @@ func providerDependencyConnectionPreservesEscapedAccessorNames() {
 				private func makeService(\(parameter)) -> Service { .init() }
 				private func makeDependency() -> \(returnType) { .init() }
 
-			    internal func service() -> Service {
+			    internal var service: Service {
 			        makeService(\(argument))
 			    }
 
-			    internal func \(accessor)() -> \(returnType) {
+			    internal var \(accessor): \(returnType) {
 			        makeDependency()
 			    }
 			}
@@ -77,13 +77,13 @@ func providerDependencyConnectionRejectsEscapedDuplicateAccessors() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "duplicateAccessor"),
-				message: "`dependency` 생성 접근자를 만드는 등록이 중복됩니다.",
+				message: "`dependency` 등록 타입이 중복됩니다.",
 				line: 4,
 				column: 30,
 				highlights: ["dependency"],
 				notes: [
-					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `dependency`입니다.", line: 3, column: 2),
-					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 반환 타입은 ``dependency``입니다.", line: 5, column: 2)
+					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 등록 타입은 `dependency`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 등록 타입은 ``dependency``입니다.", line: 5, column: 2)
 				]
 			)
 		],

@@ -31,10 +31,10 @@ func duplicateRegistrationCompileFailureReportsOriginalLocations() throws {
 	// fixture 실행 없이 수집한 빌드 결과
 	let result = try buildDuplicateRegistrationFixture(at: fixture)
 	// 주석 다음 원본 반환 타입의 첫 토큰에 표시할 오류
-	let error = "\(source.path):28:16: error: `repository` 생성 접근자를 만드는 등록이 중복됩니다."
+	let error = "\(source.path):28:16: error: `any Repository` 등록 타입이 중복됩니다."
 	// 대표를 포함한 모든 @Provide 위치와 백틱을 한 번만 인용한 Factory 이름
 	let notes = [(26, "makeFirst"), (33, "makeSecond"), (39, "makeThird")].map { line, factory in
-		"\(source.path):\(line):2: note: `\(factory)` Factory의 등록입니다. 반환 타입은 `any Repository`입니다."
+		"\(source.path):\(line):2: note: `\(factory)` Factory의 등록입니다. 등록 타입은 `any Repository`입니다."
 	}
 
 	#expect(result.terminationReason == .exit)

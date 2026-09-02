@@ -35,8 +35,7 @@ func providerParameterDiagnosticsRejectUnsupportedSyntax(parameter: String) {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
-					+ "등록 생성 접근자와 일치해야 합니다.",
+				message: "`@Provide` Factory 매개변수는 지원하는 형식이어야 합니다.",
 				line: 3,
 				column: 2
 			)
@@ -71,8 +70,7 @@ func providerParameterDiagnosticsRejectEscapedAutoclosure(attributes: String) {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
-					+ "등록 생성 접근자와 일치해야 합니다.",
+				message: "`@Provide` Factory 매개변수는 지원하는 형식이어야 합니다.",
 				line: 3,
 				column: 2
 			)
@@ -109,10 +107,10 @@ func providerParameterDiagnosticsRejectNonProviderConnection(member: String) {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "missingRegistration"),
-				message: "`makeService`의 매개변수 `dependency`에 대응하는 등록이 없습니다.",
+				message: "`makeService`의 매개변수 타입 `Dependency`에 대응하는 등록이 없습니다.",
 				line: 5,
-				column: 27,
-				highlights: ["dependency"],
+				column: 39,
+				highlights: ["Dependency"],
 				notes: [NoteSpec(message: "`makeService` Factory가 이 의존성을 요구합니다.", line: 4, column: 2)]
 			)
 		],
@@ -120,9 +118,9 @@ func providerParameterDiagnosticsRejectNonProviderConnection(member: String) {
 	)
 }
 
-// 같은 타입이어도 지역 이름의 대소문자가 다르면 연결하지 않는지 확인
+// 지역 이름과 관계없이 같은 타입을 연결하는지 확인
 @Test
-func providerParameterDiagnosticsRequireExactAccessorName() {
+func providerParameterDiagnosticsConnectByType() {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
@@ -137,18 +135,16 @@ func providerParameterDiagnosticsRequireExactAccessorName() {
 		final class Graph {
 			private func makeClient(urlsession: URLSession) -> Client { Client() }
 			private func makeURLSession() -> URLSession { URLSession() }
+
+		    internal var client: Client {
+		        makeClient(urlsession: urlSession)
+		    }
+
+		    internal var urlSession: URLSession {
+		        makeURLSession()
+		    }
 		}
 		""",
-		diagnostics: [
-			DiagnosticSpec(
-				id: .init(domain: "Cradle", id: "missingRegistration"),
-				message: "`makeClient`의 매개변수 `urlsession`에 대응하는 등록이 없습니다.",
-				line: 4,
-				column: 26,
-				highlights: ["urlsession"],
-				notes: [NoteSpec(message: "`makeClient` Factory가 이 의존성을 요구합니다.", line: 3, column: 2)]
-			)
-		],
 		macros: testMacros
 	)
 }

@@ -54,23 +54,23 @@ final class AppGraph {
 		Feature.ModuleUseCase()
 	}
 
-    internal func testUseCase() -> TestUseCase {
+    internal var testUseCase: TestUseCase {
         buildTestUseCase()
     }
 
-    internal func urlSession() -> URLSession {
+    internal var urlSession: URLSession {
         makeURLSession()
     }
 
-    internal func httpClient() -> HTTPClient {
+    internal var httpClient: HTTPClient {
         createHTTPClient()
     }
 
-    internal func id() -> ID {
+    internal var id: ID {
         newID()
     }
 
-    internal func moduleUseCase() -> Feature.ModuleUseCase {
+    internal var moduleUseCase: Feature.ModuleUseCase {
         featureFactory()
     }
 }
@@ -102,23 +102,23 @@ final class InitialismGraph {
 	private func makeURLSession() -> URLSession { URLSession() }
 	private func makeID() -> ID { ID() }
 
-    internal func sha256() -> SHA256 {
+    internal var sha256: SHA256 {
         makeSHA256()
     }
 
-    internal func http2Client() -> HTTP2Client {
+    internal var http2Client: HTTP2Client {
         makeHTTP2Client()
     }
 
-    internal func httpClient() -> HTTPClient {
+    internal var httpClient: HTTPClient {
         makeHTTPClient()
     }
 
-    internal func urlSession() -> URLSession {
+    internal var urlSession: URLSession {
         makeURLSession()
     }
 
-    internal func id() -> ID {
+    internal var id: ID {
         makeID()
     }
 }
@@ -188,7 +188,7 @@ func accessorsUseTheGraphAccessLevel() {
 			\(graphModifier)final class Graph {
 				private func makeService() -> Service { Service() }
 
-			    \(accessorAccess) func service() -> Service {
+			    \(accessorAccess) var service: Service {
 			        makeService()
 			    }
 			}
@@ -196,4 +196,30 @@ func accessorsUseTheGraphAccessLevel() {
 			macros: testMacros
 		)
 	}
+}
+
+// 본문 없는 Factory와 graph member 확장의 결합 확인
+@Test
+func bodylessProviderGraphExpansionBuildsFactoryBodyAndAccessor() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide
+			private func provideService() -> Service
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func provideService() -> Service {
+			    (Service).init()
+			}
+
+		    internal var service: Service {
+		        provideService()
+		    }
+		}
+		""",
+		macros: testMacros
+	)
 }

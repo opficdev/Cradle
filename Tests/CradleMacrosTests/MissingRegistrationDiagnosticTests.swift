@@ -17,20 +17,20 @@ func missingRegistrationKeepsProviderNoteIdentifierStable(factoryName: String) {
 	#expect(note.noteID == .init(domain: "Cradle", id: "missingRegistrationProvider"))
 }
 
-// 외부 레이블과 백틱 표기에 관계없이 원본 지역 이름에 누락 오류 표시
+// 외부 레이블과 백틱 표기에 관계없이 원본 타입에 누락 오류 표시
 @Test
 func missingRegistrationHighlightsLocalName() {
-	// 매개변수 원문, 지역 이름, 열과 강조할 원본 토큰
+	// 매개변수 원문과 타입이 시작하는 열
 	let parameters = [
-		("dependency: Dependency", "dependency", 3, "dependency"),
-		("value dependency: Dependency", "dependency", 9, "dependency"),
-		("_ dependency: Dependency", "dependency", 5, "dependency"),
-		("value `dependency`: Dependency", "dependency", 9, "`dependency`"),
-		("value /* label */ dependency: Dependency", "dependency", 21, "dependency"),
-		("_ `default`: Dependency", "default", 5, "`default`")
+		("dependency: Dependency", 15),
+		("value dependency: Dependency", 21),
+		("_ dependency: Dependency", 17),
+		("value `dependency`: Dependency", 23),
+		("value /* label */ dependency: Dependency", 33),
+		("_ `default`: Dependency", 16)
 	]
 
-	for (parameter, name, column, highlight) in parameters {
+	for (parameter, column) in parameters {
 		assertMacroExpansion(
 			"""
 			@DependencyGraph
@@ -51,10 +51,10 @@ func missingRegistrationHighlightsLocalName() {
 			diagnostics: [
 				DiagnosticSpec(
 					id: .init(domain: "Cradle", id: "missingRegistration"),
-					message: "`makeService`의 매개변수 `\(name)`에 대응하는 등록이 없습니다.",
+					message: "`makeService`의 매개변수 타입 `Dependency`에 대응하는 등록이 없습니다.",
 					line: 5,
 					column: column,
-					highlights: [highlight],
+					highlights: ["Dependency"],
 					notes: [
 						NoteSpec(message: "`makeService` Factory가 이 의존성을 요구합니다.", line: 3, column: 2)
 					]
@@ -68,18 +68,18 @@ func missingRegistrationHighlightsLocalName() {
 // 여러 누락과 같은 이름의 재사용을 Factory·매개변수 선언 순서대로 진단
 @Test
 func missingRegistrationReportsEachUseInSourceOrder() {
-	// Factory·지역 이름·오류 행·보조 설명 행의 기대 순서
+	// Factory·오류 행·보조 설명 행의 기대 순서
 	let diagnostics = [
-		("makeFirst", "zDependency", 5, 3),
-		("makeFirst", "aDependency", 6, 3),
-		("makeSecond", "zDependency", 10, 8)
-	].map { factory, name, line, providerLine in
+		("makeFirst", 5, 3),
+		("makeFirst", 6, 3),
+		("makeSecond", 10, 8)
+	].map { factory, line, providerLine in
 		DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "missingRegistration"),
-			message: "`\(factory)`의 매개변수 `\(name)`에 대응하는 등록이 없습니다.",
+			message: "`\(factory)`의 매개변수 타입 `Dependency`에 대응하는 등록이 없습니다.",
 			line: line,
-			column: 3,
-			highlights: [name],
+			column: 16,
+			highlights: ["Dependency"],
 			notes: [NoteSpec(message: "`\(factory)` Factory가 이 의존성을 요구합니다.", line: providerLine, column: 2)]
 		)
 	}
@@ -140,8 +140,7 @@ func missingRegistrationPreservesParameterValidationPrecedence() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "invalidProviderParameter"),
-				message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
-					+ "등록 생성 접근자와 일치해야 합니다.",
+				message: "`@Provide` Factory 매개변수는 지원하는 형식이어야 합니다.",
 				line: 5,
 				column: 2
 			)
@@ -171,7 +170,7 @@ func missingRegistrationPreservesAccessorValidationPrecedence() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "existingMemberCollision"),
-				message: "생성 접근자 이름이 기존 instance member와 충돌합니다.",
+				message: "생성 프로퍼티 이름이 기존 인스턴스 멤버와 충돌합니다.",
 				line: 4,
 				column: 2
 			)
@@ -203,10 +202,10 @@ func missingRegistrationPreservesEscapedFactoryName() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "missingRegistration"),
-				message: "`makeService`의 매개변수 `dependency`에 대응하는 등록이 없습니다.",
+				message: "`makeService`의 매개변수 타입 `Dependency`에 대응하는 등록이 없습니다.",
 				line: 5,
-				column: 3,
-				highlights: ["dependency"],
+				column: 15,
+				highlights: ["Dependency"],
 				notes: [NoteSpec(message: "`makeService` Factory가 이 의존성을 요구합니다.", line: 3, column: 2)]
 			)
 		],

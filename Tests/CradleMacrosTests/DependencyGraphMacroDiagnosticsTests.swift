@@ -226,9 +226,9 @@ func dependencyGraphRejectsProviderWithoutReturnType() {
 	)
 }
 
-// generic specialization 반환 타입의 생성 접근자 생성 확인
+// generic specialization 반환 타입 보존 확인
 @Test
-func dependencyGraphAllowsGenericSpecializationReturnType() {
+func dependencyGraphPreservesGenericSpecializationReturnType() {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
@@ -241,7 +241,7 @@ func dependencyGraphAllowsGenericSpecializationReturnType() {
 		final class Graph {
 			private func makeService() -> Service<Value> { Service<Value>() }
 
-		    internal func service() -> Service<Value> {
+		    internal var service: Service<Value> {
 		        makeService()
 		    }
 		}
@@ -272,13 +272,13 @@ func dependencyGraphRejectsDuplicateAccessorName() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "duplicateAccessor"),
-				message: "`service` 생성 접근자를 만드는 등록이 중복됩니다.",
+				message: "`service` 생성 프로퍼티를 만드는 등록이 중복됩니다.",
 				line: 4,
 				column: 30,
 				highlights: ["Service"],
 				notes: [
-					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `Service`입니다.", line: 3, column: 2),
-					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 반환 타입은 `Feature.Service`입니다.", line: 5, column: 2)
+					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 등록 타입은 `Service`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 등록 타입은 `Feature.Service`입니다.", line: 5, column: 2)
 				]
 			)
 		],
@@ -306,7 +306,7 @@ func dependencyGraphRejectsExistingMemberName() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "생성 접근자 이름이 기존 instance member와 충돌합니다.",
+				message: "생성 프로퍼티 이름이 기존 인스턴스 멤버와 충돌합니다.",
 				line: 4,
 				column: 2
 			)
@@ -361,7 +361,7 @@ func dependencyGraphRejectsReservedAccessorName() {
 		""",
 		diagnostics: [
 			DiagnosticSpec(
-				message: "`@Provide` 반환 타입에서 유효한 생성 접근자 이름을 만들 수 없습니다.",
+				message: "`@Provide` 등록 타입에서 유효한 프로퍼티 이름을 만들 수 없습니다.",
 				line: 3,
 				column: 2
 			)

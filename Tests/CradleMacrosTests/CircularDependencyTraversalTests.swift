@@ -6,6 +6,7 @@
 //
 
 import SwiftSyntax
+import SwiftSyntaxBuilder
 import Testing
 @testable import CradleMacros
 
@@ -35,17 +36,31 @@ func circularDependencyTraversalReusesCompletedTargets() {
 
 // 탐색 함수만 검증하기 위한 원본 매개변수 정보를 가진 등록 구성
 private func circularDependencyProviders(_ connections: [[Int]]) -> [ProviderDescriptor] {
-	connections.enumerated().map { index, targets in
-		ProviderDescriptor(
+	connections.enumerated().compactMap { index, targets in
+		let returnType = TypeSyntax(IdentifierTypeSyntax(name: .identifier("Value\(index)")))
+		let propertyName = "value\(index)"
+		guard let factory = try? FunctionDeclSyntax(
+			"private func makeValue\(raw: index)() -> \(raw: returnType.trimmedDescription) {}"
+		) else {
+			return nil
+		}
+		return ProviderDescriptor(
 			attribute: AttributeSyntax(attributeName: IdentifierTypeSyntax(name: .identifier("Provide"))),
-			factoryName: "makeValue\(index)",
-			returnType: TypeSyntax(IdentifierTypeSyntax(name: .identifier("Value\(index)"))),
-			accessorName: "value\(index)",
+			factory: factory,
+			registeredType: RegisteredType(
+				exposedType: returnType,
+				identity: registeredTypeIdentity(for: returnType),
+				propertyName: propertyName
+			),
 			parameters: targets.map { target in
-				ProviderParameterDescriptor(
-					externalLabel: "value\(target)",
-					localName: "value\(target)",
-					localNameToken: .identifier("value\(target)")
+				let type = TypeSyntax(IdentifierTypeSyntax(name: .identifier("Value\(target)")))
+				let targetName = "value\(target)"
+				return ProviderParameterDescriptor(
+					externalLabel: targetName,
+					localName: targetName,
+					localNameToken: .identifier(targetName),
+					type: type,
+					typeIdentity: registeredTypeIdentity(for: type)
 				)
 			}
 		)

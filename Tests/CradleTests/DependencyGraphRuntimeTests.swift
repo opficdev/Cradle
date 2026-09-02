@@ -70,8 +70,8 @@ final class RuntimeGraph {
 @Test
 func providerCreatesANewClassInstanceForEachAccess() {
 	let graph = RuntimeGraph(token: UUID())
-	let first = graph.referenceProbe()
-	let second = graph.referenceProbe()
+	let first = graph.referenceProbe
+	let second = graph.referenceProbe
 
 	#expect(first !== second)
 	#expect(graph.invocationCount == 2)
@@ -82,8 +82,8 @@ func providerCreatesANewClassInstanceForEachAccess() {
 func providerCreatesNewStructAndActorValuesForEachAccess() {
 	let graph = RuntimeGraph(token: UUID())
 
-	#expect(graph.valueProbe() != graph.valueProbe())
-	#expect(graph.actorProbe() !== graph.actorProbe())
+	#expect(graph.valueProbe != graph.valueProbe)
+	#expect(graph.actorProbe !== graph.actorProbe)
 }
 
 // Macro의 사용자 initializer·stored property 미변경 확인
@@ -91,5 +91,5 @@ func providerCreatesNewStructAndActorValuesForEachAccess() {
 func graphKeepsUserInitializerAndStoredProperty() {
 	let token = UUID()
 
-	#expect(RuntimeGraph(token: token).configurationValue().token == token)
+	#expect(RuntimeGraph(token: token).configurationValue.token == token)
 }
