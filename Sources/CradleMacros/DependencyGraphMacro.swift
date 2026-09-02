@@ -30,50 +30,27 @@ struct DependencyGraphMacro: MemberMacro {
 		let sourceResult = sourceGraphResult(from: node, in: context)
 		let providerResult = providers(in: graph, context: context)
 		let graphAccess = accessLevel(of: graph)
-		let memberNames = instanceMemberNames(in: graph)
-		let sourceError = diagnoseSourceGraphErrors(
+		let hasDeclarationError = hasInitialDeclarationError(
 			in: graph,
 			sources: sourceResult.descriptors,
-			providerNames: Set(providerResult.descriptors.map(\.propertyIdentifier)),
-			memberNames: memberNames,
-			context: context
-		)
-		let hasPropertyError = diagnosePropertyNameErrors(
-			in: providerResult.descriptors,
-			memberNames: memberNames,
+			providers: providerResult.descriptors,
 			context: context
 		)
 
 		guard !sourceResult.hasError,
-			!sourceError,
 			!providerResult.hasError,
-			!hasPropertyError else {
+			!hasDeclarationError else {
 			return []
 		}
 		let propertyNames = Dictionary(uniqueKeysWithValues: providerResult.descriptors.map { provider in
 			(provider.registrationIdentity, provider.propertyName)
 		})
-		guard !diagnoseProviderParameterErrors(
+		guard providerConnectionsAreValid(
 			in: providerResult.descriptors,
+			sources: sourceResult.descriptors,
 			propertyNames: propertyNames,
 			context: context
 		) else {
-			return []
-		}
-		guard !diagnoseSharedProviderReferenceErrors(
-			in: providerResult.descriptors,
-			context: context
-		) else {
-			return []
-		}
-		guard !diagnoseSourceGraphSharedReferenceErrors(
-			in: providerResult.descriptors,
-			sources: sourceResult.descriptors,
-			context: context
-		) else {
-			return []
-		}
-		guard !diagnoseCircularDependency(in: providerResult.descriptors, context: context) else {
 			return []
 		}
 		let storage = sharedStorage(
@@ -92,6 +69,56 @@ struct DependencyGraphMacro: MemberMacro {
 			propertyNames: propertyNames,
 			storage: storage
 		)
+	}
+
+	// source 선언과 Factory 생성 프로퍼티 선언 충돌 진단
+	private static func hasInitialDeclarationError(
+		in graph: ClassDeclSyntax,
+		sources: [SourceGraphDescriptor],
+		providers: [ProviderDescriptor],
+		context: some MacroExpansionContext
+	) -> Bool {
+		let memberNames = instanceMemberNames(in: graph)
+		let sourceError = diagnoseSourceGraphErrors(
+			in: graph,
+			sources: sources,
+			providerNames: Set(providers.map(\.propertyIdentifier)),
+			memberNames: memberNames,
+			context: context
+		)
+		let propertyError = diagnosePropertyNameErrors(
+			in: providers,
+			memberNames: memberNames,
+			context: context
+		)
+		return sourceError || propertyError
+	}
+
+	// Factory 매개변수·shared 참조·순환 연결 진단
+	private static func providerConnectionsAreValid(
+		in providers: [ProviderDescriptor],
+		sources: [SourceGraphDescriptor],
+		propertyNames: [RegisteredTypeIdentity: String],
+		context: some MacroExpansionContext
+	) -> Bool {
+		guard !diagnoseProviderParameterErrors(
+			in: providers,
+			propertyNames: propertyNames,
+			context: context
+		) else {
+			return false
+		}
+		guard !diagnoseSharedProviderReferenceErrors(in: providers, context: context) else {
+			return false
+		}
+		guard !diagnoseSourceGraphSharedReferenceErrors(
+			in: providers,
+			sources: sources,
+			context: context
+		) else {
+			return false
+		}
+		return !diagnoseCircularDependency(in: providers, context: context)
 	}
 
 	// 첫 순환의 닫는 매개변수와 경로에 포함된 원본 등록 위치 진단
@@ -120,33 +147,6 @@ struct DependencyGraphMacro: MemberMacro {
 			)
 		)
 		return true
-	}
-
-	// graph 본체의 `@Provide` Factory 검증과 수집
-	private static func providers(
-		in graph: ClassDeclSyntax,
-		context: some MacroExpansionContext
-	) -> (descriptors: [ProviderDescriptor], hasError: Bool) {
-		var hasError = false
-		var descriptors: [ProviderDescriptor] = []
-
-		for member in graph.memberBlock.members {
-			guard let attribute = provideAttribute(in: member.decl) else {
-				continue
-			}
-			guard let function = member.decl.as(FunctionDeclSyntax.self) else {
-				context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderDeclaration))
-				hasError = true
-				continue
-			}
-			guard let provider = providerDescriptor(from: function, attribute: attribute, in: context) else {
-				hasError = true
-				continue
-			}
-			descriptors.append(provider)
-		}
-
-		return (descriptors, hasError)
 	}
 
 	// 등록 타입 중복·생성 프로퍼티 이름·기존 member 충돌 진단
@@ -272,6 +272,33 @@ struct DependencyGraphMacro: MemberMacro {
 			modifier.name.tokenKind == .keyword(.final)
 		}
 	}
+}
+
+// graph 본체의 `@Provide` Factory 검증과 수집
+private func providers(
+	in graph: ClassDeclSyntax,
+	context: some MacroExpansionContext
+) -> (descriptors: [ProviderDescriptor], hasError: Bool) {
+	var hasError = false
+	var descriptors: [ProviderDescriptor] = []
+
+	for member in graph.memberBlock.members {
+		guard let attribute = provideAttribute(in: member.decl) else {
+			continue
+		}
+		guard let function = member.decl.as(FunctionDeclSyntax.self) else {
+			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderDeclaration))
+			hasError = true
+			continue
+		}
+		guard let provider = providerDescriptor(from: function, attribute: attribute, in: context) else {
+			hasError = true
+			continue
+		}
+		descriptors.append(provider)
+	}
+
+	return (descriptors, hasError)
 }
 
 // shared 등록이 있을 때만 graph 전용 저장소 생성

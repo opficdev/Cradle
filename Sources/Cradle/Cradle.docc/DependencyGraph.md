@@ -246,7 +246,7 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 ## 접근 수준과 초기화
 
-생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `public` graph를 다른 모듈에서 만들려면 `public init()`을 직접 선언해야 합니다. `public` 생성 프로퍼티의 반환 타입도 외부 모듈에서 접근할 수 있어야 합니다.
+생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `sources`가 없는 `public` graph를 다른 모듈에서 만들려면 `public init()`을 직접 선언해야 합니다. `public` 생성 프로퍼티의 반환 타입도 외부 모듈에서 접근할 수 있어야 합니다.
 
 `sources`가 없는 graph에서는 Macro가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티를 바꾸지 않습니다. 반면 `sources` graph는 source 저장 프로퍼티를 초기화할 생성자를 Macro가 만듭니다. 이때 사용자가 initializer를 직접 선언하거나 초기값 없는 인스턴스 저장 프로퍼티를 선언하면 오류를 냅니다.
 
@@ -260,6 +260,6 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 - source graph 생성 프로퍼티의 자동 주입
 - qualifier와 multibinding
 - graph 입력과 assisted factory
-- actor graph와 부모·자식 graph
+- actor graph와 superclass initializer가 필요한 source 조합
 - `async`, `throws`, `rethrows` Factory
 - 구체 구현 타입 자동 탐색

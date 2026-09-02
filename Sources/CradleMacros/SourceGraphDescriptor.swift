@@ -116,65 +116,130 @@ func diagnoseSourceGraphErrors(
 	guard !sources.isEmpty else {
 		return false
 	}
-	var hasError = false
+	let collisionError = diagnoseSourceGraphCollisions(
+		sources: sources,
+		providerNames: providerNames,
+		memberNames: memberNames,
+		context: context
+	)
+	let declarationError = diagnoseSourceGraphMemberErrors(in: graph, context: context)
+	return collisionError || declarationError
+}
+
+// source type·저장 프로퍼티·기존 member 이름 충돌 진단
+private func diagnoseSourceGraphCollisions(
+	sources: [SourceGraphDescriptor],
+	providerNames: Set<String>,
+	memberNames: Set<String>,
+	context: some MacroExpansionContext
+) -> Bool {
+	let duplicateError = diagnoseDuplicateSourceGraphs(sources: sources, context: context)
+	let propertyError = diagnoseSourceGraphPropertyCollisions(sources: sources, context: context)
+	let memberError = diagnoseSourceGraphMemberCollisions(
+		sources: sources,
+		providerNames: providerNames,
+		memberNames: memberNames,
+		context: context
+	)
+	return duplicateError || propertyError || memberError
+}
+
+// 같은 source type의 중복 선언 진단
+private func diagnoseDuplicateSourceGraphs(
+	sources: [SourceGraphDescriptor],
+	context: some MacroExpansionContext
+) -> Bool {
 	let identityGroups = Dictionary(grouping: sources, by: \.identity)
-	let propertyGroups = Dictionary(grouping: sources, by: \.propertyIdentifier)
 	var reportedIdentities = Set<RegisteredTypeIdentity>()
-	var reportedProperties = Set<String>()
+	var hasError = false
 
 	for source in sources {
 		let identityGroup = identityGroups[source.identity] ?? []
-		if 1 < identityGroup.count,
-			reportedIdentities.insert(source.identity).inserted {
-			for duplicate in identityGroup.dropFirst() {
-				context.diagnose(
-					Diagnostic(
-						node: duplicate.expression,
-						message: SourceGraphDiagnostic.duplicateSource(type: duplicate.type.trimmedDescription),
-						notes: [
-							Note(
-								node: Syntax(identityGroup[0].expression),
-								message: SourceGraphNote(type: identityGroup[0].type.trimmedDescription)
-							)
-						]
-					)
-				)
-			}
-			hasError = true
+		guard 1 < identityGroup.count,
+			reportedIdentities.insert(source.identity).inserted else {
+			continue
 		}
-
-		let propertyGroup = propertyGroups[source.propertyIdentifier] ?? []
-		if 1 < propertyGroup.count,
-			1 < Set(propertyGroup.map(\.identity)).count,
-			reportedProperties.insert(source.propertyIdentifier).inserted {
-			for collision in propertyGroup.dropFirst() {
-				context.diagnose(
-					Diagnostic(
-						node: collision.expression,
-						message: SourceGraphDiagnostic.sourceNameCollision(name: collision.propertyName),
-						notes: [
-							Note(
-								node: Syntax(propertyGroup[0].expression),
-								message: SourceGraphNote(type: propertyGroup[0].type.trimmedDescription)
-							)
-						]
-					)
-				)
-			}
-			hasError = true
-		}
-
-		if memberNames.contains(source.propertyIdentifier) || providerNames.contains(source.propertyIdentifier) {
+		for duplicate in identityGroup.dropFirst() {
 			context.diagnose(
 				Diagnostic(
-					node: source.expression,
-					message: SourceGraphDiagnostic.sourceNameCollision(name: source.propertyName)
+					node: duplicate.expression,
+					message: SourceGraphDiagnostic.duplicateSource(type: duplicate.type.trimmedDescription),
+					notes: [
+						Note(
+							node: Syntax(identityGroup[0].expression),
+							message: SourceGraphNote(type: identityGroup[0].type.trimmedDescription)
+						)
+					]
 				)
 			)
-			hasError = true
 		}
+		hasError = true
 	}
+	return hasError
+}
 
+// 서로 다른 source type의 저장 프로퍼티 이름 충돌 진단
+private func diagnoseSourceGraphPropertyCollisions(
+	sources: [SourceGraphDescriptor],
+	context: some MacroExpansionContext
+) -> Bool {
+	let propertyGroups = Dictionary(grouping: sources, by: \.propertyIdentifier)
+	var reportedProperties = Set<String>()
+	var hasError = false
+
+	for source in sources {
+		let propertyGroup = propertyGroups[source.propertyIdentifier] ?? []
+		guard 1 < propertyGroup.count,
+			1 < Set(propertyGroup.map(\.identity)).count,
+			reportedProperties.insert(source.propertyIdentifier).inserted else {
+			continue
+		}
+		for collision in propertyGroup.dropFirst() {
+			context.diagnose(
+				Diagnostic(
+					node: collision.expression,
+					message: SourceGraphDiagnostic.sourceNameCollision(name: collision.propertyName),
+					notes: [
+						Note(
+							node: Syntax(propertyGroup[0].expression),
+							message: SourceGraphNote(type: propertyGroup[0].type.trimmedDescription)
+						)
+					]
+				)
+			)
+		}
+		hasError = true
+	}
+	return hasError
+}
+
+// source 저장 프로퍼티와 기존 graph member 이름 충돌 진단
+private func diagnoseSourceGraphMemberCollisions(
+	sources: [SourceGraphDescriptor],
+	providerNames: Set<String>,
+	memberNames: Set<String>,
+	context: some MacroExpansionContext
+) -> Bool {
+	var hasError = false
+	for source in sources where memberNames.contains(source.propertyIdentifier)
+		|| providerNames.contains(source.propertyIdentifier) {
+		context.diagnose(
+			Diagnostic(
+				node: source.expression,
+				message: SourceGraphDiagnostic.sourceNameCollision(name: source.propertyName)
+			)
+		)
+		hasError = true
+	}
+	return hasError
+}
+
+// source graph의 사용자 initializer와 초기값 없는 저장 프로퍼티 진단
+private func diagnoseSourceGraphMemberErrors(
+	in graph: ClassDeclSyntax,
+	context: some MacroExpansionContext
+) -> Bool {
+	var hasError = false
 	for member in graph.memberBlock.members {
 		if let initializer = member.decl.as(InitializerDeclSyntax.self) {
 			context.diagnose(Diagnostic(node: initializer.initKeyword, message: SourceGraphDiagnostic.userInitializer))
@@ -184,15 +249,31 @@ func diagnoseSourceGraphErrors(
 			!sourceGraphHasTypeMemberModifier(variable.modifiers) else {
 			continue
 		}
-		for binding in variable.bindings where binding.initializer == nil && binding.accessorBlock == nil {
+		for binding in variable.bindings where sourceGraphHasUninitializedStoredProperty(binding) {
 			context.diagnose(
 				Diagnostic(node: binding.pattern, message: SourceGraphDiagnostic.uninitializedStoredProperty)
 			)
 			hasError = true
 		}
 	}
-
 	return hasError
+}
+
+// initializer 또는 observer가 없는 저장 프로퍼티 초기화 필요 여부 판별
+private func sourceGraphHasUninitializedStoredProperty(_ binding: PatternBindingSyntax) -> Bool {
+	guard binding.initializer == nil else {
+		return false
+	}
+	guard let accessorBlock = binding.accessorBlock else {
+		return true
+	}
+	guard case let .accessors(accessors) = accessorBlock.accessors else {
+		return false
+	}
+	return accessors.allSatisfy { accessor in
+		let name = accessor.accessorSpecifier.text
+		return name == "willSet" || name == "didSet"
+	}
 }
 
 // source graph 저장 프로퍼티 검사에서 제외할 type member 판별

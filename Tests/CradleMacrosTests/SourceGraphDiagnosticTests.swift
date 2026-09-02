@@ -174,6 +174,38 @@ func sourceGraphMacroRejectsUninitializedStoredProperty() {
 	)
 }
 
+// observer만 가진 초기값 없는 저장 프로퍼티 충돌 진단 확인
+@Test
+func sourceGraphMacroRejectsUninitializedObservedStoredProperty() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph(sources: [AppGraph.self])
+		final class FeatureGraph {
+			private var token: Int {
+				willSet {}
+			}
+		}
+		""",
+		expandedSource: """
+		final class FeatureGraph {
+			private var token: Int {
+				willSet {}
+			}
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "sourceUninitializedStoredProperty"),
+				message: "`sources` graph는 초기값 없는 인스턴스 저장 프로퍼티를 선언할 수 없습니다.",
+				line: 3,
+				column: 14,
+				highlights: ["token"]
+			)
+		],
+		macros: testMacros
+	)
+}
+
 // source graph와 사용자 initializer 충돌 진단 확인
 @Test
 func sourceGraphMacroRejectsUserInitializer() {

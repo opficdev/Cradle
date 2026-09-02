@@ -36,13 +36,32 @@ func sourceGraphInvalidUsageFailsAtBuildTime() throws {
 
 	#expect(invalidUsageResult.terminationReason == .exit)
 	#expect(invalidUsageResult.status != 0)
-	#expect(invalidUsageResult.output.contains("\(invalidUsageSource.path):36:27: error: value of type 'SourceGraphGetterSource' has no member 'missingFeature'"))
-	#expect(invalidUsageResult.output.contains("\(invalidUsageSource.path):51:28: error: 'privateFeature' is inaccessible due to 'private' protection level"))
-	#expect(invalidUsageResult.output.contains("\(invalidUsageSource.path):60:27: error: cannot convert return expression of type 'SourceGraphActualFeature' to return type 'SourceGraphExpectedFeature'"))
+	#expect(
+		invalidUsageResult.output.contains(
+			"\(invalidUsageSource.path):36:27: error: value of type "
+				+ "'SourceGraphGetterSource' has no member 'missingFeature'"
+		)
+	)
+	#expect(
+		invalidUsageResult.output.contains(
+			"\(invalidUsageSource.path):51:28: error: 'privateFeature' "
+				+ "is inaccessible due to 'private' protection level"
+		)
+	)
+	#expect(
+		invalidUsageResult.output.contains(
+			"\(invalidUsageSource.path):60:27: error: cannot convert return "
+				+ "expression of type 'SourceGraphActualFeature' to return type 'SourceGraphExpectedFeature'"
+		)
+	)
 	#expect(superclassResult.terminationReason == .exit)
 	#expect(superclassResult.status != 0)
 	#expect(superclassResult.output.contains("\(superclassSource.path)"))
-	#expect(superclassResult.output.contains("error: 'super.init' isn't called on all paths before returning from initializer"))
+	#expect(
+		superclassResult.output.contains(
+			"error: 'super.init' isn't called on all paths before returning from initializer"
+		)
+	)
 }
 
 // fixture 실행 없이 별도 scratch 경로에서 Swift build와 진단 수집
