@@ -27,6 +27,13 @@ func protocolBindingAllowsExternalContractAccess() {
 	#expect(graph.publicRepository.token == 42)
 }
 
+// 별도 모듈에서 상위 클래스 타입의 생성 프로퍼티 사용 확인
+@Test
+func superclassBindingAllowsExternalContractAccess() {
+	let graph = PublicSuperclassGraph()
+	#expect(graph.publicRepositorySuperclass.token == 84)
+}
+
 // 실제 모듈 경로가 붙은 프로토콜 반환 타입의 컴파일과 전달 확인
 @Test
 func protocolBindingPreservesModuleQualifiedReturnType() {
