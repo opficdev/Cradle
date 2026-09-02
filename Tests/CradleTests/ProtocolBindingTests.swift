@@ -60,7 +60,7 @@ final class ProtocolBindingGraph {
 	}
 
 	// 캐시 없이 사용자 Factory 결과 반환
-	@Provide
+	@Provide(.transient)
 	private func makeBindingService() -> any BindingService {
 		calls += 1
 		invocations.append("service")
@@ -68,14 +68,14 @@ final class ProtocolBindingGraph {
 	}
 
 	// 생성 접근자를 경유해 프로토콜 소비자 생성
-	@Provide
+	@Provide(.transient)
 	private func makeBindingConsumer(bindingService: any BindingService) -> BindingConsumer {
 		invocations.append("consumer")
 		return BindingConsumer(bindingService: bindingService)
 	}
 
 	// 중간 소비자의 생성 접근자로 다단계 연결
-	@Provide
+	@Provide(.transient)
 	private func makeBindingRoot(bindingConsumer: BindingConsumer) -> BindingRoot {
 		invocations.append("root")
 		return BindingRoot(bindingConsumer: bindingConsumer)
@@ -90,21 +90,21 @@ final class ReversedProtocolBindingGraph {
 	private(set) var invocations = [String]()
 
 	// 의존 Factory보다 앞에 선언한 최종 소비자
-	@Provide
+	@Provide(.transient)
 	private func makeBindingRoot(bindingConsumer: BindingConsumer) -> BindingRoot {
 		invocations.append("root")
 		return BindingRoot(bindingConsumer: bindingConsumer)
 	}
 
 	// 의존 Factory보다 앞에 선언한 중간 소비자
-	@Provide
+	@Provide(.transient)
 	private func makeBindingConsumer(bindingService: any BindingService) -> BindingConsumer {
 		invocations.append("consumer")
 		return BindingConsumer(bindingService: bindingService)
 	}
 
 	// 마지막에 선언해도 먼저 호출할 의존성 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeBindingService() -> any BindingService {
 		invocations.append("service")
 		return BindingValue()
@@ -127,13 +127,13 @@ struct SuperclassBindingConsumer {
 @DependencyGraph
 final class SuperclassBindingGraph {
 	// 하위 구현을 상위 클래스 등록 타입으로 노출하는 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeRepositorySuperclass() -> RepositorySuperclass {
 		LiveRepositorySubclass()
 	}
 
 	// 상위 클래스 타입을 요구하는 소비자 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeSuperclassBindingConsumer(
 		repository: RepositorySuperclass
 	) -> SuperclassBindingConsumer {

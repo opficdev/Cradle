@@ -33,7 +33,7 @@ public final class PublicSuperclassGraph {
 	public init() {}
 
 	// 비공개 하위 구현을 공개 상위 클래스 타입으로 반환
-	@Provide
+	@Provide(.transient)
 	private func makePublicRepositorySuperclass() -> PublicRepositorySuperclass {
 		InternalRepositorySubclass()
 	}

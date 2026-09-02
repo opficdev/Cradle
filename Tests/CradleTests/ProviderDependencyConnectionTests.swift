@@ -65,35 +65,35 @@ final class ProviderDependencyConnectionGraph {
 	}
 
 	// 매 호출마다 새 class 의존성 생성
-	@Provide
+	@Provide(.transient)
 	private func makeConnectedReference() -> ConnectedReference {
 		invocationOrder.append("reference")
 		return ConnectedReference(token: token)
 	}
 
 	// class 의존성을 받는 struct 생성
-	@Provide
+	@Provide(.transient)
 	private func makeConnectedValue(connectedReference: ConnectedReference) -> ConnectedValue {
 		invocationOrder.append("value")
 		return ConnectedValue(connectedReference: connectedReference)
 	}
 
 	// struct 의존성을 받는 actor 생성
-	@Provide
+	@Provide(.transient)
 	private func makeConnectedActor(connectedValue: ConnectedValue) -> ConnectedActor {
 		invocationOrder.append("actor")
 		return ConnectedActor(connectedValue: connectedValue)
 	}
 
 	// actor 의존성을 받는 최종 값 생성
-	@Provide
+	@Provide(.transient)
 	private func makeConnectedRoot(connectedActor: ConnectedActor) -> ConnectedRoot {
 		invocationOrder.append("root")
 		return ConnectedRoot(connectedActor: connectedActor)
 	}
 
 	// 외부 레이블 생략과 이름 변경을 포함한 직접 연결
-	@Provide
+	@Provide(.transient)
 	private func makeDirectConnection(
 		_ connectedReference: ConnectedReference,
 		value connectedValue: ConnectedValue
@@ -117,28 +117,28 @@ final class ReversedDependencyConnectionGraph {
 	}
 
 	// 의존 선언보다 앞에 배치한 최종 값 provider
-	@Provide
+	@Provide(.transient)
 	private func makeConnectedRoot(connectedActor: ConnectedActor) -> ConnectedRoot {
 		invocationOrder.append("root")
 		return ConnectedRoot(connectedActor: connectedActor)
 	}
 
 	// struct 선언보다 앞에 배치한 actor provider
-	@Provide
+	@Provide(.transient)
 	private func makeConnectedActor(connectedValue: ConnectedValue) -> ConnectedActor {
 		invocationOrder.append("actor")
 		return ConnectedActor(connectedValue: connectedValue)
 	}
 
 	// class 선언보다 앞에 배치한 struct provider
-	@Provide
+	@Provide(.transient)
 	private func makeConnectedValue(connectedReference: ConnectedReference) -> ConnectedValue {
 		invocationOrder.append("value")
 		return ConnectedValue(connectedReference: connectedReference)
 	}
 
 	// 의존 순서의 마지막에 배치한 class provider
-	@Provide
+	@Provide(.transient)
 	private func makeConnectedReference() -> ConnectedReference {
 		invocationOrder.append("reference")
 		return ConnectedReference(token: token)

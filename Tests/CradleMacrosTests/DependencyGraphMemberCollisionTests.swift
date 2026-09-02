@@ -16,7 +16,7 @@ func dependencyGraphAllowsParameterizedMemberName() {
 		@DependencyGraph
 		final class Graph {
 			func service(value: Value) {}
-			@Provide
+			@Provide(.transient)
 			private func makeService() -> Service { Service() }
 		}
 		""",
@@ -42,7 +42,7 @@ func dependencyGraphRejectsExistingPropertyName() {
 		@DependencyGraph
 		final class Graph {
 			private var service: Service { Service() }
-			@Provide
+			@Provide(.transient)
 			private func makeService() -> Service { Service() }
 		}
 		""",

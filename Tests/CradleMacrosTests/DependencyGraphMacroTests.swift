@@ -12,23 +12,23 @@ import Testing
 private let appGraphSource = """
 @DependencyGraph
 final class AppGraph {
-	@Provide
+	@Provide(.transient)
 	private func buildTestUseCase() -> TestUseCase {
 		TestUseCase()
 	}
-	@Provide
+	@Provide(.transient)
 	private func makeURLSession() -> URLSession {
 		URLSession()
 	}
-	@Provide
+	@Provide(.transient)
 	private func createHTTPClient() -> HTTPClient {
 		HTTPClient()
 	}
-	@Provide
+	@Provide(.transient)
 	private func newID() -> ID {
 		ID()
 	}
-	@Provide
+	@Provide(.transient)
 	private func featureFactory() -> Feature.ModuleUseCase {
 		Feature.ModuleUseCase()
 	}
@@ -80,15 +80,15 @@ final class AppGraph {
 private let initialismGraphSource = """
 @DependencyGraph
 final class InitialismGraph {
-	@Provide
+	@Provide(.transient)
 	private func makeSHA256() -> SHA256 { SHA256() }
-	@Provide
+	@Provide(.transient)
 	private func makeHTTP2Client() -> HTTP2Client { HTTP2Client() }
-	@Provide
+	@Provide(.transient)
 	private func makeHTTPClient() -> HTTPClient { HTTPClient() }
-	@Provide
+	@Provide(.transient)
 	private func makeURLSession() -> URLSession { URLSession() }
-	@Provide
+	@Provide(.transient)
 	private func makeID() -> ID { ID() }
 }
 """
@@ -180,7 +180,7 @@ func accessorsUseTheGraphAccessLevel() {
 			"""
 			@DependencyGraph
 			\(graphModifier)final class Graph {
-				@Provide
+				@Provide(.transient)
 				private func makeService() -> Service { Service() }
 			}
 			""",
@@ -205,7 +205,7 @@ func bodylessProviderGraphExpansionBuildsFactoryBodyAndAccessor() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func provideService() -> Service
 		}
 		""",

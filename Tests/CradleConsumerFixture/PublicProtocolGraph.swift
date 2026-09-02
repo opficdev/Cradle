@@ -26,7 +26,7 @@ public final class PublicProtocolGraph {
 	public init() {}
 
 	// 비공개 구현을 공개 계약으로 반환
-	@Provide
+	@Provide(.transient)
 	private func makePublicRepository() -> any PublicRepository {
 		InternalRepository()
 	}

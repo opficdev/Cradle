@@ -23,20 +23,20 @@ struct ThirdRepository: Repository {}
 @DependencyGraph
 final class DuplicateRegistrationGraph {
 	// 여러 줄 반환 선언에서 주 오류를 표시할 대표 등록
-	@Provide
+	@Provide(.transient)
 	private func makeFirst() ->
 		/* result */ any Repository {
 		FirstRepository()
 	}
 
 	// 같은 접근자 이름을 만드는 두 번째 등록
-	@Provide
+	@Provide(.transient)
 	private func makeSecond() -> any Repository {
 		SecondRepository()
 	}
 
 	// 백틱 Factory 이름의 보조 설명을 확인할 세 번째 등록
-	@Provide
+	@Provide(.transient)
 	private func `makeThird`() -> any Repository {
 		ThirdRepository()
 	}

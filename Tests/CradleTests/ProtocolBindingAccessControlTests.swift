@@ -13,7 +13,7 @@ import Testing
 @DependencyGraph
 final class QualifiedProtocolGraph {
 	// 전체 모듈 경로를 보존해야 하는 반환 타입
-	@Provide
+	@Provide(.transient)
 	private func makePublicRepository() -> any CradleConsumerFixture.PublicRepository {
 		PublicProtocolGraph().publicRepository
 	}

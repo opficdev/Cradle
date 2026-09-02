@@ -25,9 +25,9 @@ func providerDependencyConnectionPreservesParameterLabels() {
 			"""
 			@DependencyGraph
 			final class Graph {
-				@Provide
+				@Provide(.transient)
 				private func makeHTTPClient(\(parameter)) -> HTTPClient { HTTPClient() }
-				@Provide
+				@Provide(.transient)
 				private func makeURLSession() -> URLSession { URLSession() }
 			}
 			""",
@@ -57,13 +57,13 @@ func providerDependencyConnectionPreservesParameterOrder() {
 		"""
 		@DependencyGraph
 		final class FeatureGraph {
-			@Provide
+			@Provide(.transient)
 			private func makeFeature(session urlSession: URLSession, _ logger: Logger) -> Feature {
 				Feature(urlSession: urlSession, logger: logger)
 			}
-			@Provide
+			@Provide(.transient)
 			private func makeLogger() -> Logger { Logger() }
-			@Provide
+			@Provide(.transient)
 			private func makeURLSession() -> URLSession { URLSession() }
 		}
 		""",

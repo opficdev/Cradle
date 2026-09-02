@@ -60,7 +60,7 @@ final class SourceGraphAppGraph {
 		SourceGraphRepository()
 	}
 
-	@Provide
+	@Provide(.transient)
 	private func makeRequestIdentifier() -> SourceGraphRequestIdentifier {
 		requestCount += 1
 		return SourceGraphRequestIdentifier(value: requestCount)
@@ -79,7 +79,7 @@ final class SourceGraphSessionGraph {
 // 두 source graph의 접근자를 직접 조합할 graph
 @DependencyGraph(sources: [SourceGraphSessionGraph.self, SourceGraphAppGraph.self])
 final class SourceGraphFeatureGraph {
-	@Provide
+	@Provide(.transient)
 	private func makeFeature() -> SourceGraphFeature {
 		SourceGraphFeature(
 			repository: sourceGraphAppGraph.sourceGraphRepository,

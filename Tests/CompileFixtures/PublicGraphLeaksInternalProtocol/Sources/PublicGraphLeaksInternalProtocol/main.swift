@@ -17,7 +17,7 @@ struct HiddenRepository: InternalRepositoryContract {}
 @DependencyGraph
 public final class LeakingProtocolGraph {
 	// 공개 생성 접근자에 비공개 계약을 노출하는 Factory
-	@Provide
+	@Provide(.transient)
 	private func makeInternalRepositoryContract() -> any InternalRepositoryContract {
 		HiddenRepository()
 	}

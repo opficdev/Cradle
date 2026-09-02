@@ -32,9 +32,9 @@ func duplicateRegistrationReportsBothProviderLocations(first: String, second: St
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst(missing: Missing) -> \(first) { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> \(second) { fatalError() }
 		}
 		""",
@@ -68,9 +68,9 @@ func duplicateRegistrationHighlightsOriginalReturnType() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func `makeFirst`() -> any Domain.`repository` { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> any repository { fatalError() }
 		}
 		""",
@@ -108,17 +108,17 @@ func duplicateRegistrationReportsInterleavedGroupsInSourceOrder() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst() -> Zeta { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> Alpha { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeThird() -> Zeta { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeFourth() -> Alpha { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeFifth() -> Zeta { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeOther() -> Other { .init() }
 		}
 		""",
@@ -145,13 +145,13 @@ func duplicateRegistrationPreservesValidationOrder() {
 		@DependencyGraph
 		final class Graph {
 			func service() {}
-			@Provide
+			@Provide(.transient)
 			private func makeFirst(missing: Missing) -> Service { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> Service { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeInvalid(value: Value = Value()) -> Value { value }
-			@Provide
+			@Provide(.transient)
 			private func makeOther(missing: Missing) -> Other { .init() }
 		}
 		""",
@@ -178,9 +178,9 @@ func duplicateRegistrationPreservesDistinctAliasAccessors() {
 		typealias SecondAlias = Service
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst() -> FirstAlias { .init() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> SecondAlias { .init() }
 		}
 		""",
@@ -211,9 +211,9 @@ func duplicateRegistrationPreservesEscapedUppercaseAccessor() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst() -> any Domain.`Repository` { fatalError() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> any Repository { fatalError() }
 		}
 		""",

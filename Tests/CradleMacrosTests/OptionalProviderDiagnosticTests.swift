@@ -15,7 +15,7 @@ func optionalProviderDiagnosticRejectsReturnType(type: String) {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func provideService() -> \(type) { nil }
 		}
 		""",
@@ -36,7 +36,7 @@ func optionalProviderDiagnosticRejectsParameterType() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func provideFeature(service: Service?) -> Feature { Feature() }
 		}
 		""",

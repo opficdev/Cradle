@@ -101,7 +101,7 @@ func dependencyGraphRejectsExtension() {
 func provideRejectsDeclarationOutsideGraphBody() {
 	assertMacroExpansion(
 		"""
-		@Provide
+		@Provide(.transient)
 		private func makeService() -> Service { Service() }
 		""",
 		expandedSource: """
@@ -125,7 +125,7 @@ func dependencyGraphRejectsNonPrivateProvider() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			func makeService() -> Service { Service() }
 		}
 		""",
@@ -152,7 +152,7 @@ func dependencyGraphRejectsProviderEffect() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeService() async throws -> Service { Service() }
 		}
 		""",
@@ -179,7 +179,7 @@ func dependencyGraphRejectsGenericTypeMemberProvider() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private static func makeService<Value>() -> Service { Service() }
 		}
 		""",
@@ -206,7 +206,7 @@ func dependencyGraphRejectsProviderWithoutReturnType() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeService() { Service() }
 		}
 		""",
@@ -233,7 +233,7 @@ func dependencyGraphPreservesGenericSpecializationReturnType() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeService() -> Service<Value> { Service<Value>() }
 		}
 		""",
@@ -257,9 +257,9 @@ func dependencyGraphRejectsDuplicateAccessorName() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeFirst() -> Service { Service() }
-			@Provide
+			@Provide(.transient)
 			private func makeSecond() -> Feature.Service { Feature.Service() }
 		}
 		""",
@@ -294,7 +294,7 @@ func dependencyGraphRejectsExistingMemberName() {
 		@DependencyGraph
 		final class Graph {
 			func service() -> Service { Service() }
-			@Provide
+			@Provide(.transient)
 			private func makeService() -> Service { Service() }
 		}
 		""",
@@ -321,9 +321,9 @@ func dependencyGraphStopsAccessorsForNonMethodProvider() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private var invalidService: Service { Service() }
-			@Provide
+			@Provide(.transient)
 			private func makeValidService() -> ValidService { ValidService() }
 		}
 		""",
@@ -350,7 +350,7 @@ func dependencyGraphRejectsReservedAccessorName() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeClass() -> Class { Class() }
 		}
 		""",

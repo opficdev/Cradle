@@ -22,7 +22,7 @@ final class MissingProviderDependencyGraph {
 	}
 
 	// 등록되지 않은 지역 이름을 요구하는 provider
-	@Provide
+	@Provide(.transient)
 	private func makeMissingService(
 		repository missingRepository: MissingRepository
 	) -> MissingService {

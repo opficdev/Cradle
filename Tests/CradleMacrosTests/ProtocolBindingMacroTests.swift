@@ -25,7 +25,7 @@ func protocolBindingPreservesReturnTypesAndAccessorNames() {
 			"""
 			@DependencyGraph
 			final class Graph {
-				@Provide
+				@Provide(.transient)
 				private func makeValue() -> \(type) { LiveRepository() }
 			}
 			""",
@@ -59,9 +59,9 @@ func protocolBindingPreservesParameterLabels() {
 			"""
 			@DependencyGraph
 			final class Graph {
-				@Provide
+				@Provide(.transient)
 				private func makeConsumer(\(parameter)) -> Consumer { Consumer() }
-				@Provide
+				@Provide(.transient)
 				private func makeRepository() -> any Repository { LiveRepository() }
 			}
 			""",
@@ -91,9 +91,9 @@ func protocolBindingConnectsEquivalentExistentialTypes() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeConsumer(repository: any Repository) -> Consumer { Consumer() }
-			@Provide
+			@Provide(.transient)
 			private func makeRepository() -> (any Repository) { LiveRepository() }
 		}
 		""",
@@ -122,9 +122,9 @@ func protocolBindingConnectsBareAndExistentialTypes() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeConsumer(repository: any Repository) -> Consumer { Consumer() }
-			@Provide
+			@Provide(.transient)
 			private func makeRepository() -> Repository { LiveRepository() }
 		}
 		""",
@@ -153,13 +153,13 @@ func protocolBindingPreservesLabelsAndOrder() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeConsumer(client repository: any Repository, _ logger: any Logger) -> Consumer {
 				Consumer(repository: repository, logger: logger)
 			}
-			@Provide
+			@Provide(.transient)
 			private func makeLogger() -> any Logger { LiveLogger() }
-			@Provide
+			@Provide(.transient)
 			private func makeRepository() -> any Repository { LiveRepository() }
 		}
 		""",
@@ -195,9 +195,9 @@ func protocolBindingPreservesEscapedNames() {
 		"""
 		@DependencyGraph
 		final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeConsumer(client repository: any Module.repository) -> Consumer { Consumer() }
-			@Provide
+			@Provide(.transient)
 			private func makeRepository() -> any Module.`repository` { LiveRepository() }
 		}
 		""",
@@ -226,7 +226,7 @@ func protocolBindingPreservesGraphAccessLevel() {
 		"""
 		@DependencyGraph
 		public final class Graph {
-			@Provide
+			@Provide(.transient)
 			private func makeRepository() -> any Repository { InternalRepository() }
 		}
 		""",
