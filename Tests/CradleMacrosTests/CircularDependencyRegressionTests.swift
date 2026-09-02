@@ -32,19 +32,19 @@ func circularDependencyRegressionPreservesDiamondExpansion() {
 			private func makeC(d: D) -> C { fatalError() }
 			private func makeD() -> D { D() }
 
-		    internal func a() -> A {
-		        makeA(b: b(), c: c())
+		    internal var a: A {
+		        makeA(b: b, c: c)
 		    }
 
-		    internal func b() -> B {
-		        makeB(d: d())
+		    internal var b: B {
+		        makeB(d: d)
 		    }
 
-		    internal func c() -> C {
-		        makeC(d: d())
+		    internal var c: C {
+		        makeC(d: d)
 		    }
 
-		    internal func d() -> D {
+		    internal var d: D {
 		        makeD()
 		    }
 		}
@@ -53,15 +53,15 @@ func circularDependencyRegressionPreservesDiamondExpansion() {
 	)
 }
 
-// 외부 레이블·백틱 이름·Optional 프로토콜 매개변수의 정상 연결 보존 확인
+// 외부 레이블·백틱 이름·프로토콜 매개변수의 정상 연결 보존 확인
 @Test
-func circularDependencyRegressionPreservesLabelsAndOptionalParameters() {
+func circularDependencyRegressionPreservesLabelsAndProtocolParameters() {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
 		final class Graph {
 			@Provide
-			private func makeConsumer(primary repository: (any Repository)?, _ `default`: `default`) -> Consumer {
+			private func makeConsumer(primary repository: any Repository, _ `default`: `default`) -> Consumer {
 				fatalError()
 			}
 			@Provide
@@ -72,21 +72,21 @@ func circularDependencyRegressionPreservesLabelsAndOptionalParameters() {
 		""",
 		expandedSource: """
 		final class Graph {
-			private func makeConsumer(primary repository: (any Repository)?, _ `default`: `default`) -> Consumer {
+			private func makeConsumer(primary repository: any Repository, _ `default`: `default`) -> Consumer {
 				fatalError()
 			}
 			private func makeRepository() -> any Repository { fatalError() }
 			private func makeDefault() -> `default` { fatalError() }
 
-		    internal func consumer() -> Consumer {
-		        makeConsumer(primary: repository(), `default`())
+		    internal var consumer: Consumer {
+		        makeConsumer(primary: repository, `default`)
 		    }
 
-		    internal func repository() -> any Repository {
+		    internal var repository: any Repository {
 		        makeRepository()
 		    }
 
-		    internal func `default`() -> `default` {
+		    internal var `default`: `default` {
 		        makeDefault()
 		    }
 		}
@@ -103,7 +103,7 @@ func circularDependencyRegressionPreservesProviderValidationPrecedence() {
 		expandedMember: "\tprivate func makeB(b: B = B()) -> B { B() }",
 		diagnostic: DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "invalidProviderParameter"),
-			message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 등록 생성 접근자와 일치해야 합니다.",
+			message: "`@Provide` Factory 매개변수는 지원하는 형식이어야 합니다.",
 			line: 5,
 			column: 2
 		)
@@ -118,13 +118,13 @@ func circularDependencyRegressionPreservesDuplicateValidationPrecedence() {
 		expandedMember: "\tprivate func makeOther() -> A { A() }",
 		diagnostic: DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "duplicateAccessor"),
-			message: "`a` 생성 접근자를 만드는 등록이 중복됩니다.",
+			message: "`A` 등록 타입이 중복됩니다.",
 			line: 4,
 			column: 30,
 			highlights: ["A"],
 			notes: [
-				NoteSpec(message: "`makeA` Factory의 등록입니다. 반환 타입은 `A`입니다.", line: 3, column: 2),
-				NoteSpec(message: "`makeOther` Factory의 등록입니다. 반환 타입은 `A`입니다.", line: 5, column: 2)
+				NoteSpec(message: "`makeA` Factory의 등록입니다. 등록 타입은 `A`입니다.", line: 3, column: 2),
+				NoteSpec(message: "`makeOther` Factory의 등록입니다. 등록 타입은 `A`입니다.", line: 5, column: 2)
 			]
 		)
 	)
@@ -138,7 +138,7 @@ func circularDependencyRegressionPreservesMemberValidationPrecedence() {
 		expandedMember: "\tfunc a() {}",
 		diagnostic: DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "existingMemberCollision"),
-			message: "생성 접근자 이름이 기존 instance member와 충돌합니다.",
+			message: "생성 프로퍼티 이름이 기존 인스턴스 멤버와 충돌합니다.",
 			line: 3,
 			column: 2
 		)
@@ -153,10 +153,10 @@ func circularDependencyRegressionPreservesMissingValidationPrecedence() {
 		expandedMember: "\tprivate func makeB(missing: Missing) -> B { B() }",
 		diagnostic: DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "missingRegistration"),
-			message: "`makeB`의 매개변수 `missing`에 대응하는 등록이 없습니다.",
+			message: "`makeB`의 매개변수 타입 `Missing`에 대응하는 등록이 없습니다.",
 			line: 6,
-			column: 21,
-			highlights: ["missing"],
+			column: 30,
+			highlights: ["Missing"],
 			notes: [NoteSpec(message: "`makeB` Factory가 이 의존성을 요구합니다.", line: 5, column: 2)]
 		)
 	)
@@ -193,7 +193,7 @@ func circularDependencyRegressionIsolatesGraphs() {
 		final class ValidGraph {
 			private func makeA() -> A { A() }
 
-		    internal func a() -> A {
+		    internal var a: A {
 		        makeA()
 		    }
 		}
@@ -203,10 +203,10 @@ func circularDependencyRegressionIsolatesGraphs() {
 				id: .init(domain: "Cradle", id: "circularDependency"),
 				message: "`a → a` 순환 의존성이 있습니다.",
 				line: line,
-				column: 21,
-				highlights: ["a"],
+				column: 24,
+				highlights: ["A"],
 				notes: [NoteSpec(
-					message: "`makeA` Factory의 등록입니다. 생성 접근자는 `a`입니다.", line: line - 1, column: 2
+					message: "`makeA` Factory의 등록입니다. 생성 프로퍼티는 `a`입니다.", line: line - 1, column: 2
 				)]
 			)
 		},
@@ -236,11 +236,11 @@ func circularDependencyRegressionDoesNotInferBodyOrAliasEdges() {
 			private func makeFirst(second: Second) -> First { first() }
 			private func makeSecond() -> Second { Service() }
 
-		    internal func first() -> First {
-		        makeFirst(second: second())
+		    internal var first: First {
+		        makeFirst(second: second)
 		    }
 
-		    internal func second() -> Second {
+		    internal var second: Second {
 		        makeSecond()
 		    }
 		}

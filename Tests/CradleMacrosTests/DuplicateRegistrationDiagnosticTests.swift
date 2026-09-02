@@ -23,13 +23,11 @@ func duplicateRegistrationKeepsMessageIdentifiersStable(name: String) {
 
 // 타입·프로토콜·말단 이름·백틱 중복의 원본 위치와 후속 누락 진단 생략 확인
 @Test(arguments: [
-	("Service", "Service", "service"),
-	("any Repository", "any Repository", "repository"),
-	("First.Service", "Second.Service", "service"),
-	("any First.Repository", "any Second.Repository", "repository"),
-	("dependency", "`dependency`", "dependency")
+	("Service", "Service", "`Service` 등록 타입이 중복됩니다."),
+	("First.Service", "Second.Service", "`service` 생성 프로퍼티를 만드는 등록이 중복됩니다."),
+	("dependency", "`dependency`", "`dependency` 등록 타입이 중복됩니다.")
 ])
-func duplicateRegistrationReportsBothProviderLocations(first: String, second: String, accessor: String) {
+func duplicateRegistrationReportsBothProviderLocations(first: String, second: String, message: String) {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
@@ -49,13 +47,13 @@ func duplicateRegistrationReportsBothProviderLocations(first: String, second: St
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "duplicateAccessor"),
-				message: "`\(accessor)` 생성 접근자를 만드는 등록이 중복됩니다.",
+				message: message,
 				line: 4,
 				column: 46,
 				highlights: [first],
 				notes: [
-					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `\(first)`입니다.", line: 3, column: 2),
-					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 반환 타입은 `\(second)`입니다.", line: 5, column: 2)
+					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 등록 타입은 `\(first)`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 등록 타입은 `\(second)`입니다.", line: 5, column: 2)
 				]
 			)
 		],
@@ -71,33 +69,31 @@ func duplicateRegistrationHighlightsOriginalReturnType() {
 		@DependencyGraph
 		final class Graph {
 			@Provide
-			private func `makeFirst`() ->
-				/* result */ any Domain.`repository` { fatalError() }
+			private func `makeFirst`() -> any Domain.`repository` { fatalError() }
 			@Provide
 			private func makeSecond() -> any repository { fatalError() }
 		}
 		""",
 		expandedSource: """
 		final class Graph {
-			private func `makeFirst`() ->
-				/* result */ any Domain.`repository` { fatalError() }
+			private func `makeFirst`() -> any Domain.`repository` { fatalError() }
 			private func makeSecond() -> any repository { fatalError() }
 		}
 		""",
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "duplicateAccessor"),
-				message: "`repository` 생성 접근자를 만드는 등록이 중복됩니다.",
-				line: 5,
-				column: 16,
+				message: "`repository` 생성 프로퍼티를 만드는 등록이 중복됩니다.",
+				line: 4,
+				column: 32,
 				highlights: ["any Domain.`repository`"],
 				notes: [
 					NoteSpec(
-						message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `any Domain.`repository``입니다.",
+						message: "`makeFirst` Factory의 등록입니다. 등록 타입은 `any Domain.`repository``입니다.",
 						line: 3,
 						column: 2
 					),
-					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 반환 타입은 `any repository`입니다.", line: 6, column: 2)
+					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 등록 타입은 `any repository`입니다.", line: 5, column: 2)
 				]
 			)
 		],
@@ -195,11 +191,11 @@ func duplicateRegistrationPreservesDistinctAliasAccessors() {
 			private func makeFirst() -> FirstAlias { .init() }
 			private func makeSecond() -> SecondAlias { .init() }
 
-		    internal func firstAlias() -> FirstAlias {
+		    internal var firstAlias: FirstAlias {
 		        makeFirst()
 		    }
 
-		    internal func secondAlias() -> SecondAlias {
+		    internal var secondAlias: SecondAlias {
 		        makeSecond()
 		    }
 		}
@@ -226,11 +222,11 @@ func duplicateRegistrationPreservesEscapedUppercaseAccessor() {
 			private func makeFirst() -> any Domain.`Repository` { fatalError() }
 			private func makeSecond() -> any Repository { fatalError() }
 
-		    internal func `Repository`() -> any Domain.`Repository` {
+		    internal var `Repository`: any Domain.`Repository` {
 		        makeFirst()
 		    }
 
-		    internal func repository() -> any Repository {
+		    internal var repository: any Repository {
 		        makeSecond()
 		    }
 		}
@@ -244,25 +240,25 @@ private func interleavedGroupDiagnostics() -> [DiagnosticSpec] {
 	[
 		DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "duplicateAccessor"),
-			message: "`zeta` 생성 접근자를 만드는 등록이 중복됩니다.",
+			message: "`Zeta` 등록 타입이 중복됩니다.",
 			line: 4,
 			column: 30,
 			highlights: ["Zeta"],
 			notes: [
-				NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `Zeta`입니다.", line: 3, column: 2),
-				NoteSpec(message: "`makeThird` Factory의 등록입니다. 반환 타입은 `Zeta`입니다.", line: 7, column: 2),
-				NoteSpec(message: "`makeFifth` Factory의 등록입니다. 반환 타입은 `Zeta`입니다.", line: 11, column: 2)
+				NoteSpec(message: "`makeFirst` Factory의 등록입니다. 등록 타입은 `Zeta`입니다.", line: 3, column: 2),
+				NoteSpec(message: "`makeThird` Factory의 등록입니다. 등록 타입은 `Zeta`입니다.", line: 7, column: 2),
+				NoteSpec(message: "`makeFifth` Factory의 등록입니다. 등록 타입은 `Zeta`입니다.", line: 11, column: 2)
 			]
 		),
 		DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "duplicateAccessor"),
-			message: "`alpha` 생성 접근자를 만드는 등록이 중복됩니다.",
+			message: "`Alpha` 등록 타입이 중복됩니다.",
 			line: 6,
 			column: 31,
 			highlights: ["Alpha"],
 			notes: [
-				NoteSpec(message: "`makeSecond` Factory의 등록입니다. 반환 타입은 `Alpha`입니다.", line: 5, column: 2),
-				NoteSpec(message: "`makeFourth` Factory의 등록입니다. 반환 타입은 `Alpha`입니다.", line: 9, column: 2)
+				NoteSpec(message: "`makeSecond` Factory의 등록입니다. 등록 타입은 `Alpha`입니다.", line: 5, column: 2),
+				NoteSpec(message: "`makeFourth` Factory의 등록입니다. 등록 타입은 `Alpha`입니다.", line: 9, column: 2)
 			]
 		)
 	]
@@ -273,31 +269,30 @@ private func validationOrderDiagnostics() -> [DiagnosticSpec] {
 	[
 		DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "invalidProviderParameter"),
-			message: "`@Provide` factory 매개변수는 지원 형식이어야 하며 지역 이름이 "
-				+ "등록 생성 접근자와 일치해야 합니다.",
+			message: "`@Provide` Factory 매개변수는 지원하는 형식이어야 합니다.",
 			line: 8,
 			column: 2
 		),
 		DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "duplicateAccessor"),
-			message: "`service` 생성 접근자를 만드는 등록이 중복됩니다.",
+			message: "`Service` 등록 타입이 중복됩니다.",
 			line: 5,
 			column: 46,
 			highlights: ["Service"],
 			notes: [
-				NoteSpec(message: "`makeFirst` Factory의 등록입니다. 반환 타입은 `Service`입니다.", line: 4, column: 2),
-				NoteSpec(message: "`makeSecond` Factory의 등록입니다. 반환 타입은 `Service`입니다.", line: 6, column: 2)
+				NoteSpec(message: "`makeFirst` Factory의 등록입니다. 등록 타입은 `Service`입니다.", line: 4, column: 2),
+				NoteSpec(message: "`makeSecond` Factory의 등록입니다. 등록 타입은 `Service`입니다.", line: 6, column: 2)
 			]
 		),
 		DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "existingMemberCollision"),
-			message: "생성 접근자 이름이 기존 instance member와 충돌합니다.",
+			message: "생성 프로퍼티 이름이 기존 인스턴스 멤버와 충돌합니다.",
 			line: 4,
 			column: 2
 		),
 		DiagnosticSpec(
 			id: .init(domain: "Cradle", id: "existingMemberCollision"),
-			message: "생성 접근자 이름이 기존 instance member와 충돌합니다.",
+			message: "생성 프로퍼티 이름이 기존 인스턴스 멤버와 충돌합니다.",
 			line: 6,
 			column: 2
 		)

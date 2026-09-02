@@ -44,12 +44,6 @@ struct BindingRoot {
 	let bindingConsumer: BindingConsumer
 }
 
-// 기존 G2의 Optional 매개변수 변환 확인용 소비자
-struct OptionalBindingConsumer {
-	// 비Optional 등록에서 전달될 프로토콜 값
-	let bindingService: (any BindingService)?
-}
-
 // 사용자 Factory 호출과 프로토콜 연결을 확인할 그래프
 @DependencyGraph
 final class ProtocolBindingGraph {
@@ -87,11 +81,6 @@ final class ProtocolBindingGraph {
 		return BindingRoot(bindingConsumer: bindingConsumer)
 	}
 
-	// 등록 타입의 Optional 매개변수 변환을 컴파일러에 위임
-	@Provide
-	private func makeOptionalBindingConsumer(bindingService: (any BindingService)?) -> OptionalBindingConsumer {
-		OptionalBindingConsumer(bindingService: bindingService)
-	}
 }
 
 // 선언 순서를 뒤집은 동일한 프로토콜 연결 그래프
@@ -122,6 +111,36 @@ final class ReversedProtocolBindingGraph {
 	}
 }
 
+// 상위 클래스 타입으로 등록할 구현
+class RepositorySuperclass {}
+
+// 상위 클래스에 연결할 하위 구현
+final class LiveRepositorySubclass: RepositorySuperclass {}
+
+// 상위 클래스 타입만 아는 소비자
+struct SuperclassBindingConsumer {
+	// Factory에서 전달한 상위 클래스 타입 의존성
+	let repository: RepositorySuperclass
+}
+
+// 상위 클래스 반환 타입의 연결을 확인할 graph
+@DependencyGraph
+final class SuperclassBindingGraph {
+	// 하위 구현을 상위 클래스 등록 타입으로 노출하는 Factory
+	@Provide
+	private func makeRepositorySuperclass() -> RepositorySuperclass {
+		LiveRepositorySubclass()
+	}
+
+	// 상위 클래스 타입을 요구하는 소비자 Factory
+	@Provide
+	private func makeSuperclassBindingConsumer(
+		repository: RepositorySuperclass
+	) -> SuperclassBindingConsumer {
+		SuperclassBindingConsumer(repository: repository)
+	}
+}
+
 // class·struct·actor를 같은 프로토콜로 전달하고 반복 호출 확인
 @Test
 func protocolBindingDeliversImplementationsWithoutCaching() {
@@ -133,8 +152,8 @@ func protocolBindingDeliversImplementationsWithoutCaching() {
 	for (create, token) in zip(factories, [11, 22, 33]) {
 		// 구현별 독립 그래프
 		let graph = ProtocolBindingGraph(create: create)
-		#expect(graph.bindingConsumer().bindingService.token == token)
-		#expect(graph.bindingConsumer().bindingService.token == token)
+		#expect(graph.bindingConsumer.bindingService.token == token)
+		#expect(graph.bindingConsumer.bindingService.token == token)
 		#expect(graph.calls == 2)
 	}
 }
@@ -145,9 +164,9 @@ func protocolBindingPreservesFactoryIdentityPolicy() throws {
 	// 매번 새 값을 반환할 그래프
 	let graph = ProtocolBindingGraph(create: { BindingReference() })
 	// 첫 번째 결과
-	let first = try #require(graph.bindingService() as? BindingReference)
+	let first = try #require(graph.bindingService as? BindingReference)
 	// 두 번째 결과
-	let second = try #require(graph.bindingService() as? BindingReference)
+	let second = try #require(graph.bindingService as? BindingReference)
 	#expect(first !== second)
 	#expect(graph.calls == 2)
 
@@ -155,8 +174,8 @@ func protocolBindingPreservesFactoryIdentityPolicy() throws {
 	let shared = BindingReference()
 	// 저장된 값을 반환할 그래프
 	let sharedGraph = ProtocolBindingGraph(create: { shared })
-	#expect(try #require(sharedGraph.bindingService() as? BindingReference) === shared)
-	#expect(try #require(sharedGraph.bindingService() as? BindingReference) === shared)
+	#expect(try #require(sharedGraph.bindingService as? BindingReference) === shared)
+	#expect(try #require(sharedGraph.bindingService as? BindingReference) === shared)
 	#expect(sharedGraph.calls == 2)
 }
 
@@ -165,18 +184,9 @@ func protocolBindingPreservesFactoryIdentityPolicy() throws {
 func protocolBindingBuildsMultipleSteps() {
 	// 다단계 연결을 확인할 그래프
 	let graph = ProtocolBindingGraph(create: { BindingValue() })
-	#expect(graph.bindingRoot().bindingConsumer.bindingService.token == 11)
+	#expect(graph.bindingRoot.bindingConsumer.bindingService.token == 11)
 	#expect(graph.calls == 1)
 	#expect(graph.invocations == ["service", "consumer", "root"])
-}
-
-// 기존 G2의 Optional 매개변수 변환을 실제 컴파일과 결과로 확인
-@Test
-func protocolBindingPreservesOptionalParameters() {
-	// 비Optional 프로토콜을 반환할 그래프
-	let graph = ProtocolBindingGraph(create: { BindingValue() })
-	#expect(graph.optionalBindingConsumer().bindingService?.token == 11)
-	#expect(graph.calls == 1)
 }
 
 // Factory 선언 순서를 바꿔도 전달 결과와 호출 순서가 같은지 확인
@@ -187,10 +197,18 @@ func protocolBindingIgnoresDeclarationOrder() {
 	// 의존 순서를 뒤집은 그래프
 	let reversed = ReversedProtocolBindingGraph()
 	// 의존 순서대로 생성한 결과
-	let root = graph.bindingRoot()
+	let root = graph.bindingRoot
 	// 역순 선언에서 생성한 결과
-	let reversedRoot = reversed.bindingRoot()
+	let reversedRoot = reversed.bindingRoot
 	#expect(root.bindingConsumer.bindingService.token == reversedRoot.bindingConsumer.bindingService.token)
 	#expect(graph.invocations == ["service", "consumer", "root"])
 	#expect(reversed.invocations == graph.invocations)
+}
+
+// 상위 클래스 반환 타입이 생성 프로퍼티와 소비자에 유지되는지 확인
+@Test
+func superclassBindingDeliversSubclassImplementation() {
+	let graph = SuperclassBindingGraph()
+	#expect(graph.repositorySuperclass is LiveRepositorySubclass)
+	#expect(graph.superclassBindingConsumer.repository is LiveRepositorySubclass)
 }

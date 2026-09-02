@@ -7,9 +7,9 @@
 
 import SwiftDiagnostics
 
-// 생성 접근자 사이의 닫힌 순환 경로 안내
+// 생성 프로퍼티 사이의 닫힌 순환 경로 안내
 struct CircularDependencyDiagnostic: DiagnosticMessage {
-	// 첫 등록을 끝에 다시 포함한 접근자 식별자 경로
+	// 첫 등록을 끝에 다시 포함한 프로퍼티 식별자 경로
 	let accessorIdentifiers: [String]
 
 	// 순환 경로에 영향을 받지 않는 오류 식별자
@@ -30,7 +30,7 @@ struct CircularDependencyDiagnostic: DiagnosticMessage {
 struct CircularDependencyProviderNote: NoteMessage {
 	// 원본 등록에 선언된 Factory 이름
 	let factoryName: String
-	// 백틱을 제외한 생성 접근자 식별자
+	// 백틱을 제외한 생성 프로퍼티 식별자
 	let accessorIdentifier: String
 
 	// Factory 이름에 영향을 받지 않는 보조 설명 식별자
@@ -46,6 +46,6 @@ struct CircularDependencyProviderNote: NoteMessage {
 		} else {
 			"`\(factoryName)`"
 		}
-		return "\(name) Factory의 등록입니다. 생성 접근자는 `\(accessorIdentifier)`입니다."
+		return "\(name) Factory의 등록입니다. 생성 프로퍼티는 `\(accessorIdentifier)`입니다."
 	}
 }

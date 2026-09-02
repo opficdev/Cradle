@@ -153,7 +153,7 @@ func providerDependencyConnectionBuildsDirectEdgesInParameterOrder() {
 	// 직접 연결을 생성할 graph
 	let graph = ProviderDependencyConnectionGraph(token: token)
 	// 외부 레이블이 다른 두 인자를 받는 결과
-	let connection = graph.directConnection()
+	let connection = graph.directConnection
 
 	#expect(connection.connectedReference.token == token)
 	#expect(connection.connectedValue.connectedReference.token == token)
@@ -169,9 +169,9 @@ func providerDependencyConnectionCreatesTransientMultiStepValues() {
 	// 다단계 연결을 생성할 graph
 	let graph = ProviderDependencyConnectionGraph(token: token)
 	// 첫 번째 생성 경로
-	let first = graph.connectedRoot()
+	let first = graph.connectedRoot
 	// 두 번째 생성 경로
-	let second = graph.connectedRoot()
+	let second = graph.connectedRoot
 	// actor까지 전달된 첫 번째 struct 의존성
 	let firstValue = first.connectedActor.connectedValue
 	// actor까지 전달된 두 번째 struct 의존성
@@ -194,9 +194,9 @@ func providerDependencyConnectionIgnoresDeclarationOrder() {
 	// 의존 순서를 뒤집은 graph
 	let reversedGraph = ReversedDependencyConnectionGraph(token: token)
 	// 정상 선언 graph의 다단계 결과
-	let root = graph.connectedRoot()
+	let root = graph.connectedRoot
 	// 역순 선언 graph의 다단계 결과
-	let reversedRoot = reversedGraph.connectedRoot()
+	let reversedRoot = reversedGraph.connectedRoot
 	// 정상 graph의 actor까지 전달된 값
 	let value = root.connectedActor.connectedValue
 	// 역순 graph의 actor까지 전달된 값

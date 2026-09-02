@@ -34,22 +34,22 @@ func circularDependencyDiagnosticFindsFirstClosedPath() {
 	)
 }
 
-// Optional 프로토콜 매개변수도 즉시 생성하는 연결로 검사하는지 확인
+// protocol 매개변수의 순환 연결 확인
 @Test
-func circularDependencyDiagnosticIncludesOptionalProtocolParameters() {
+func circularDependencyDiagnosticIncludesProtocolParameters() {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
 		final class Graph {
 			@Provide
-			private func makeA(b: (any B)?) -> any A { fatalError() }
+			private func makeA(b: any B) -> any A { fatalError() }
 			@Provide
 			private func makeB(a: any A) -> any B { fatalError() }
 		}
 		""",
 		expandedSource: """
 		final class Graph {
-			private func makeA(b: (any B)?) -> any A { fatalError() }
+			private func makeA(b: any B) -> any A { fatalError() }
 			private func makeB(a: any A) -> any B { fatalError() }
 		}
 		""",
@@ -58,11 +58,11 @@ func circularDependencyDiagnosticIncludesOptionalProtocolParameters() {
 				id: .init(domain: "Cradle", id: "circularDependency"),
 				message: "`a → b → a` 순환 의존성이 있습니다.",
 				line: 6,
-				column: 21,
-				highlights: ["a"],
+				column: 24,
+				highlights: ["any A"],
 				notes: [
-					NoteSpec(message: "`makeA` Factory의 등록입니다. 생성 접근자는 `a`입니다.", line: 3, column: 2),
-					NoteSpec(message: "`makeB` Factory의 등록입니다. 생성 접근자는 `b`입니다.", line: 5, column: 2)
+					NoteSpec(message: "`makeA` Factory의 등록입니다. 생성 프로퍼티는 `a`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeB` Factory의 등록입니다. 생성 프로퍼티는 `b`입니다.", line: 5, column: 2)
 				]
 			)
 		],
@@ -102,11 +102,11 @@ func circularDependencyDiagnosticPreservesOriginalLocations() {
 				id: .init(domain: "Cradle", id: "circularDependency"),
 				message: "`a → b → a` 순환 의존성이 있습니다.",
 				line: 9,
-				column: 17,
-				highlights: ["`a`"],
+				column: 22,
+				highlights: ["any A"],
 				notes: [
-					NoteSpec(message: "`makeA` Factory의 등록입니다. 생성 접근자는 `a`입니다.", line: 3, column: 2),
-					NoteSpec(message: "`makeB` Factory의 등록입니다. 생성 접근자는 `b`입니다.", line: 7, column: 2)
+					NoteSpec(message: "`makeA` Factory의 등록입니다. 생성 프로퍼티는 `a`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeB` Factory의 등록입니다. 생성 프로퍼티는 `b`입니다.", line: 7, column: 2)
 				]
 			)
 		],
@@ -125,7 +125,7 @@ func circularDependencyDiagnosticKeepsIdentifiersStable(factoryName: String) {
 	#expect(diagnostic.severity == .error)
 	#expect(diagnostic.message == "`a → a` 순환 의존성이 있습니다.")
 	#expect(note.noteID == .init(domain: "Cradle", id: "circularDependencyProvider"))
-	#expect(note.message == "`makeA` Factory의 등록입니다. 생성 접근자는 `a`입니다.")
+	#expect(note.message == "`makeA` Factory의 등록입니다. 생성 프로퍼티는 `a`입니다.")
 }
 
 // 명시한 연결과 기대 경로로 선언·매개변수 순서의 첫 순환 검증
@@ -135,9 +135,10 @@ private func assertCircularDependency(
 	closing: Int
 ) {
 	// 각 등록의 단순 Factory 선언
+	let types = Dictionary(uniqueKeysWithValues: nodes.map { ($0.name.lowercased(), $0.name) })
 	let methods = nodes.map { node in
 		// 연결 대상 이름을 매개변수로 배치한 선언
-		let parameters = node.dependencies.map { "\($0): Any" }.joined(separator: ", ")
+		let parameters = node.dependencies.map { "\($0): \(types[$0]!)" }.joined(separator: ", ")
 		return "\tprivate func make\(node.name)(\(parameters)) -> \(node.name) { fatalError() }"
 	}
 	// 원본 @Provide를 포함한 입력 클래스
@@ -147,13 +148,14 @@ private func assertCircularDependency(
 	let expanded = "final class Graph {\n" + methods.joined(separator: "\n") + "\n}"
 	// 탐색 결과에서 계산하지 않고 호출자가 지정한 기대 경로
 	let names = path.map { nodes[$0].name.lowercased() }
-	// 닫는 연결의 첫 매개변수 토큰 시작 위치
-	let column = "\tprivate func make\(nodes[closing].name)(".count + 1
+	// 닫는 연결의 첫 매개변수 타입 시작 위치
+	let dependency = nodes[closing].dependencies[0]
+	let column = "\tprivate func make\(nodes[closing].name)(\(dependency): ".count + 1
 	// 기대 경로의 각 원본 등록에 표시할 보조 설명
 	let notes = path.map { index in
 		NoteSpec(
 			message: "`make\(nodes[index].name)` Factory의 등록입니다. "
-				+ "생성 접근자는 `\(nodes[index].name.lowercased())`입니다.",
+				+ "생성 프로퍼티는 `\(nodes[index].name.lowercased())`입니다.",
 			line: 3 + index * 2,
 			column: 2
 		)
@@ -167,7 +169,7 @@ private func assertCircularDependency(
 				message: "`\((names + [names[0]]).joined(separator: " → "))` 순환 의존성이 있습니다.",
 				line: 4 + closing * 2,
 				column: column,
-				highlights: [names[0]],
+				highlights: [nodes[path[0]].name],
 				notes: notes
 			)
 		],

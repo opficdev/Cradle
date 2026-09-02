@@ -33,7 +33,7 @@ func protocolBindingPreservesReturnTypesAndAccessorNames() {
 			final class Graph {
 				private func makeValue() -> \(type) { LiveRepository() }
 
-			    internal func \(name)() -> \(type) {
+			    internal var \(name): \(type) {
 			        makeValue()
 			    }
 			}
@@ -48,10 +48,10 @@ func protocolBindingPreservesReturnTypesAndAccessorNames() {
 func protocolBindingPreservesParameterLabels() {
 	// 매개변수 문법과 기대 호출 인자
 	let cases = [
-		("repository: any Repository", "repository: repository()"),
-		("client repository: any Repository", "client: repository()"),
-		("_ repository: any Repository", "repository()"),
-		("`default` repository: any Repository", "`default`: repository()")
+		("repository: any Repository", "repository: repository"),
+		("client repository: any Repository", "client: repository"),
+		("_ repository: any Repository", "repository"),
+		("`default` repository: any Repository", "`default`: repository")
 	]
 
 	for (parameter, argument) in cases {
@@ -70,11 +70,11 @@ func protocolBindingPreservesParameterLabels() {
 				private func makeConsumer(\(parameter)) -> Consumer { Consumer() }
 				private func makeRepository() -> any Repository { LiveRepository() }
 
-			    internal func consumer() -> Consumer {
+			    internal var consumer: Consumer {
 			        makeConsumer(\(argument))
 			    }
 
-			    internal func repository() -> any Repository {
+			    internal var repository: any Repository {
 			        makeRepository()
 			    }
 			}
@@ -84,29 +84,60 @@ func protocolBindingPreservesParameterLabels() {
 	}
 }
 
-// 반환 문법 제한을 기존 Optional 매개변수에 적용하지 않는지 확인
+// `any`와 바깥 괄호 표기가 달라도 같은 등록 타입으로 연결하는지 확인
 @Test
-func protocolBindingPreservesOptionalParameterConversion() {
+func protocolBindingConnectsEquivalentExistentialTypes() {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
 		final class Graph {
 			@Provide
-			private func makeConsumer(repository: (any Repository)?) -> Consumer { Consumer() }
+			private func makeConsumer(repository: any Repository) -> Consumer { Consumer() }
 			@Provide
-			private func makeRepository() -> any Repository { LiveRepository() }
+			private func makeRepository() -> (any Repository) { LiveRepository() }
 		}
 		""",
 		expandedSource: """
 		final class Graph {
-			private func makeConsumer(repository: (any Repository)?) -> Consumer { Consumer() }
-			private func makeRepository() -> any Repository { LiveRepository() }
+			private func makeConsumer(repository: any Repository) -> Consumer { Consumer() }
+			private func makeRepository() -> (any Repository) { LiveRepository() }
 
-		    internal func consumer() -> Consumer {
-		        makeConsumer(repository: repository())
+		    internal var consumer: Consumer {
+		        makeConsumer(repository: repository)
 		    }
 
-		    internal func repository() -> any Repository {
+		    internal var repository: (any Repository) {
+		        makeRepository()
+		    }
+		}
+		""",
+		macros: testMacros
+	)
+}
+
+// bare protocol과 `any` 표기가 달라도 같은 등록 타입으로 연결하는지 확인
+@Test
+func protocolBindingConnectsBareAndExistentialTypes() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide
+			private func makeConsumer(repository: any Repository) -> Consumer { Consumer() }
+			@Provide
+			private func makeRepository() -> Repository { LiveRepository() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeConsumer(repository: any Repository) -> Consumer { Consumer() }
+			private func makeRepository() -> Repository { LiveRepository() }
+
+		    internal var consumer: Consumer {
+		        makeConsumer(repository: repository)
+		    }
+
+		    internal var repository: Repository {
 		        makeRepository()
 		    }
 		}
@@ -140,15 +171,15 @@ func protocolBindingPreservesLabelsAndOrder() {
 			private func makeLogger() -> any Logger { LiveLogger() }
 			private func makeRepository() -> any Repository { LiveRepository() }
 
-		    internal func consumer() -> Consumer {
-		        makeConsumer(client: repository(), logger())
+		    internal var consumer: Consumer {
+		        makeConsumer(client: repository, logger)
 		    }
 
-		    internal func logger() -> any Logger {
+		    internal var logger: any Logger {
 		        makeLogger()
 		    }
 
-		    internal func repository() -> any Repository {
+		    internal var repository: any Repository {
 		        makeRepository()
 		    }
 		}
@@ -175,11 +206,11 @@ func protocolBindingPreservesEscapedNames() {
 			private func makeConsumer(client repository: any Module.repository) -> Consumer { Consumer() }
 			private func makeRepository() -> any Module.`repository` { LiveRepository() }
 
-		    internal func consumer() -> Consumer {
-		        makeConsumer(client: `repository`())
+		    internal var consumer: Consumer {
+		        makeConsumer(client: `repository`)
 		    }
 
-		    internal func `repository`() -> any Module.`repository` {
+		    internal var `repository`: any Module.`repository` {
 		        makeRepository()
 		    }
 		}
@@ -203,7 +234,7 @@ func protocolBindingPreservesGraphAccessLevel() {
 		public final class Graph {
 			private func makeRepository() -> any Repository { InternalRepository() }
 
-		    public func repository() -> any Repository {
+		    public var repository: any Repository {
 		        makeRepository()
 		    }
 		}

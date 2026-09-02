@@ -5,14 +5,14 @@
 //  Created by opfic on 8/29/26.
 //
 
+import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxBuilder
-import SwiftDiagnostics
 import SwiftSyntaxMacros
 
-// `@Provide` factory를 호출하는 기본 `internal` 생성 접근자 추가
+// `@Provide` Factory를 호출하는 반환 타입 기반 생성 프로퍼티 추가
 struct DependencyGraphMacro: MemberMacro {
-	// graph 본체의 유효한 factory별 transient 접근자 생성
+	// graph 본체의 유효한 Factory별 transient 생성 프로퍼티 생성
 	static func expansion(
 		of node: AttributeSyntax,
 		providingMembersOf declaration: some DeclGroupSyntax,
@@ -27,29 +27,30 @@ struct DependencyGraphMacro: MemberMacro {
 			return []
 		}
 
-		// graph 본체에서 읽은 provider 검증 결과
 		let providerResult = providers(in: graph, context: context)
-		// 생성 접근자에 적용할 graph 접근 수준
 		let graphAccess = accessLevel(of: graph)
-		// 기존 instance member 이름
 		let memberNames = instanceMemberNames(in: graph)
-		// 생성 접근자 이름 충돌 검증 결과
-		let hasAccessorError = diagnoseAccessorNameErrors(
+		let hasPropertyError = diagnosePropertyNameErrors(
 			in: providerResult.descriptors,
 			memberNames: memberNames,
 			context: context
 		)
 
-		guard !providerResult.hasError, !hasAccessorError else {
+		guard !providerResult.hasError, !hasPropertyError else {
 			return []
 		}
-		// 중복 검증을 통과한 식별자와 생성 접근자 원문 표기 연결
-		let accessorNames = Dictionary(uniqueKeysWithValues: providerResult.descriptors.map { provider in
-			(provider.accessorIdentifier, provider.accessorName)
+		let propertyNames = Dictionary(uniqueKeysWithValues: providerResult.descriptors.map { provider in
+			(provider.registrationIdentity, provider.propertyName)
 		})
 		guard !diagnoseProviderParameterErrors(
 			in: providerResult.descriptors,
-			accessorNames: accessorNames,
+			propertyNames: propertyNames,
+			context: context
+		) else {
+			return []
+		}
+		guard !diagnoseSharedProviderReferenceErrors(
+			in: providerResult.descriptors,
 			context: context
 		) else {
 			return []
@@ -57,23 +58,19 @@ struct DependencyGraphMacro: MemberMacro {
 		guard !diagnoseCircularDependency(in: providerResult.descriptors, context: context) else {
 			return []
 		}
+		let storage = sharedStorage(
+			for: providerResult.descriptors,
+			graphName: graph.name,
+			propertyNames: propertyNames,
+			in: context
+		)
 
-		return providerResult.descriptors.map { provider in
-			// graph 접근 수준을 포함한 생성 접근자 선언부
-			let accessorSignature = "\(graphAccess.rawValue) func \(provider.accessorName)()"
-			// 연결 검증을 통과한 접근자로 선언 순서와 외부 레이블을 보존한 factory 인자 생성
-			let arguments = provider.parameters.map { parameter in
-				parameter.factoryArgument(accessorName: accessorNames[parameter.localName]!)
-			}.joined(separator: ", ")
-
-			return DeclSyntax(
-				"""
-				\(raw: accessorSignature) -> \(raw: provider.returnType.trimmedDescription) {
-				    \(raw: provider.factoryName)(\(raw: arguments))
-				}
-				"""
-			)
-		}
+		return propertyDeclarations(
+			for: providerResult.descriptors,
+			accessLevel: graphAccess,
+			propertyNames: propertyNames,
+			storage: storage
+		)
 	}
 
 	// 첫 순환의 닫는 매개변수와 경로에 포함된 원본 등록 위치 진단
@@ -84,21 +81,19 @@ struct DependencyGraphMacro: MemberMacro {
 		guard let cycle = firstCircularDependency(in: providers) else {
 			return false
 		}
-		// 순환 진입 전 등록과 끝의 반복 등록을 제외한 경로
-		let path = cycle.providerIndices.map { providers[$0].accessorIdentifier }
-		// 각 순환 등록의 원본 위치를 경로 순서대로 연결
+		let path = cycle.providerIndices.map { providers[$0].propertyIdentifier }
 		let notes = cycle.providerIndices.map { index in
 			Note(
 				node: Syntax(providers[index].attribute),
 				message: CircularDependencyProviderNote(
 					factoryName: providers[index].factoryName,
-					accessorIdentifier: providers[index].accessorIdentifier
+					accessorIdentifier: providers[index].propertyIdentifier
 				)
 			)
 		}
 		context.diagnose(
 			Diagnostic(
-				node: cycle.closingParameter.localNameToken,
+				node: cycle.closingParameter.type,
 				message: CircularDependencyDiagnostic(accessorIdentifiers: path + [path[0]]),
 				notes: notes
 			)
@@ -106,7 +101,7 @@ struct DependencyGraphMacro: MemberMacro {
 		return true
 	}
 
-	// graph 본체의 `@Provide` factory 검증과 수집
+	// graph 본체의 `@Provide` Factory 검증과 수집
 	private static func providers(
 		in graph: ClassDeclSyntax,
 		context: some MacroExpansionContext
@@ -123,40 +118,45 @@ struct DependencyGraphMacro: MemberMacro {
 				hasError = true
 				continue
 			}
-
-			guard let provider = providerDescriptor(
-				from: function,
-				attribute: attribute,
-				in: context
-			) else {
+			guard let provider = providerDescriptor(from: function, attribute: attribute, in: context) else {
 				hasError = true
 				continue
 			}
-
 			descriptors.append(provider)
 		}
 
 		return (descriptors, hasError)
 	}
 
-	// 생성 접근자 이름 중복과 기존 member 충돌 진단
-	private static func diagnoseAccessorNameErrors(
+	// 등록 타입 중복·생성 프로퍼티 이름·기존 member 충돌 진단
+	private static func diagnosePropertyNameErrors(
 		in providers: [ProviderDescriptor],
 		memberNames: Set<String>,
 		context: some MacroExpansionContext
 	) -> Bool {
-		// 같은 생성 접근자의 원본 등록을 선언 순서대로 보관
-		let groups = Dictionary(grouping: providers, by: \.accessorIdentifier)
-		// 이미 오류를 표시한 중복 그룹의 식별자
-		var reported = Set<String>()
-		// 중복 등록 또는 기존 멤버 충돌 포함 여부
+		let registrationGroups = Dictionary(grouping: providers, by: \.registrationIdentity)
+		let propertyGroups = Dictionary(grouping: providers, by: \.propertyIdentifier)
+		var reportedRegistrations = Set<RegisteredTypeIdentity>()
+		var reportedProperties = Set<String>()
 		var hasError = false
+
 		for provider in providers {
-			// 현재 등록의 백틱 정규화 접근자 식별자
-			let identifier = provider.accessorIdentifier
-			// 중복 그룹의 첫 등록에서만 원본 반환 타입 오류 발행
-			if let group = groups[identifier], 1 < group.count, reported.insert(identifier).inserted {
-				// 대표를 포함한 모든 충돌 Factory의 등록 위치 연결
+			let identifier = provider.propertyIdentifier
+			let registrationGroup = registrationGroups[provider.registrationIdentity] ?? []
+			let propertyGroup = propertyGroups[identifier] ?? []
+			let group: [ProviderDescriptor]
+			let diagnostic: DuplicateRegistrationDiagnostic
+			let shouldReport: Bool
+			if 1 < registrationGroup.count {
+				group = registrationGroup
+				diagnostic = DuplicateRegistrationDiagnostic(registrationType: provider.returnType.trimmedDescription)
+				shouldReport = reportedRegistrations.insert(provider.registrationIdentity).inserted
+			} else {
+				group = propertyGroup
+				diagnostic = DuplicateRegistrationDiagnostic(accessorIdentifier: identifier)
+				shouldReport = 1 < propertyGroup.count && reportedProperties.insert(identifier).inserted
+			}
+			if shouldReport {
 				let notes = group.map { registration in
 					Note(
 						node: Syntax(registration.attribute),
@@ -169,13 +169,13 @@ struct DependencyGraphMacro: MemberMacro {
 				context.diagnose(
 					Diagnostic(
 						node: provider.returnType,
-						message: DuplicateRegistrationDiagnostic(accessorIdentifier: identifier),
+						message: diagnostic,
 						notes: notes
 					)
 				)
 				hasError = true
 			}
-			if memberNames.contains(provider.accessorName) {
+			if memberNames.contains(provider.propertyIdentifier) {
 				context.diagnose(Diagnostic(node: provider.attribute, message: CradleMacroDiagnostic.existingMemberCollision))
 				hasError = true
 			}
@@ -184,23 +184,22 @@ struct DependencyGraphMacro: MemberMacro {
 		return hasError
 	}
 
-	// provider 생성 접근자 집합에 없는 매개변수 연결 진단
+	// 등록 타입 집합에 없는 Factory 매개변수 연결 진단
 	private static func diagnoseProviderParameterErrors(
 		in providers: [ProviderDescriptor],
-		accessorNames: [String: String],
+		propertyNames: [RegisteredTypeIdentity: String],
 		context: some MacroExpansionContext
 	) -> Bool {
-		// provider 매개변수 연결 오류 포함 여부
 		var hasError = false
 
 		for provider in providers {
-			for parameter in provider.parameters where accessorNames[parameter.localName] == nil {
+			for parameter in provider.parameters where propertyNames[parameter.typeIdentity] == nil {
 				context.diagnose(
 					Diagnostic(
-						node: parameter.localNameToken,
+						node: parameter.type,
 						message: MissingRegistrationDiagnostic(
 							factoryName: provider.factoryName,
-							localName: parameter.localName
+							registrationType: parameter.type.trimmedDescription
 						),
 						notes: [
 							Note(
@@ -217,50 +216,33 @@ struct DependencyGraphMacro: MemberMacro {
 		return hasError
 	}
 
-	// 정상 provider 문법을 접근자 생성 정보로 변환
-	private static func providerDescriptor(
-		from function: FunctionDeclSyntax,
-		attribute: AttributeSyntax,
-		in context: some MacroExpansionContext
-	) -> ProviderDescriptor? {
-		guard isPrivate(function) else {
-			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderDeclaration))
-			return nil
-		}
-		guard !isTypeMember(function),
-			function.genericParameterClause == nil,
-			function.genericWhereClause == nil,
-			function.signature.effectSpecifiers == nil else {
-			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderSignature))
-			return nil
-		}
-		guard let parameters = providerParameterDescriptors(
-			from: function.signature.parameterClause.parameters
-		) else {
-			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderParameter))
-			return nil
-		}
-		guard let returnClause = function.signature.returnClause,
-			function.body != nil else {
-			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.missingProviderResultOrBody))
-			return nil
-		}
-		guard let accessorName = accessorName(for: returnClause.type) else {
-			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.unsupportedProviderResult))
-			return nil
-		}
-		guard isValidAccessorName(accessorName) else {
-			context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidAccessorName))
-			return nil
+	// shared Factory가 graph 초기화 뒤에 만들어지는 transient 등록을 요구하는지 확인
+	private static func diagnoseSharedProviderReferenceErrors(
+		in providers: [ProviderDescriptor],
+		context: some MacroExpansionContext
+	) -> Bool {
+		let registrations = Dictionary(uniqueKeysWithValues: providers.map { provider in
+			(provider.registrationIdentity, provider)
+		})
+		var hasError = false
+
+		for provider in providers where provider.lifetime == .shared {
+			for parameter in provider.parameters {
+				guard let dependency = registrations[parameter.typeIdentity],
+					dependency.lifetime == .transient else {
+					continue
+				}
+				context.diagnose(
+					Diagnostic(
+						node: parameter.type,
+						message: InvalidSharedProviderReferenceDiagnostic()
+					)
+				)
+				hasError = true
+			}
 		}
 
-		return ProviderDescriptor(
-			attribute: attribute,
-			factoryName: function.name.text,
-			returnType: returnClause.type,
-			accessorName: accessorName,
-			parameters: parameters
-		)
+		return hasError
 	}
 
 	// final class graph 판별
@@ -269,18 +251,56 @@ struct DependencyGraphMacro: MemberMacro {
 			modifier.name.tokenKind == .keyword(.final)
 		}
 	}
+}
 
-	// private provider 판별
-	private static func isPrivate(_ function: FunctionDeclSyntax) -> Bool {
-		function.modifiers.contains { modifier in
-			modifier.name.tokenKind == .keyword(.private)
-		}
+// shared 등록이 있을 때만 graph 전용 저장소 생성
+private func sharedStorage(
+	for providers: [ProviderDescriptor],
+	graphName: TokenSyntax,
+	propertyNames: [RegisteredTypeIdentity: String],
+	in context: some MacroExpansionContext
+) -> SharedGraphStorage? {
+	let sharedProviders = providers.filter { $0.lifetime == .shared }
+	guard !sharedProviders.isEmpty else {
+		return nil
 	}
+	return SharedGraphStorage(
+		graphName: graphName,
+		providers: sharedProviders,
+		propertyNames: propertyNames,
+		in: context
+	)
+}
 
-	// static 또는 class provider 판별
-	private static func isTypeMember(_ function: FunctionDeclSyntax) -> Bool {
-		function.modifiers.contains { modifier in
-			modifier.name.tokenKind == .keyword(.static) || modifier.name.tokenKind == .keyword(.class)
+// shared 저장소와 transient Factory 호출을 구분한 생성 프로퍼티 선언 생성
+private func propertyDeclarations(
+	for providers: [ProviderDescriptor],
+	accessLevel: AccessLevel,
+	propertyNames: [RegisteredTypeIdentity: String],
+	storage: SharedGraphStorage?
+) -> [DeclSyntax] {
+	let properties = providers.map { provider in
+		let propertySignature = "\(accessLevel.rawValue) var \(provider.propertyName)"
+		if provider.lifetime == .shared, let storage {
+			return DeclSyntax(
+				"""
+				\(raw: propertySignature): \(raw: provider.returnType.trimmedDescription) {
+				    \(raw: storage.valueReference(for: provider))
+				}
+				"""
+			)
 		}
+		let arguments = provider.parameters.map { parameter in
+			parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity]!)
+		}.joined(separator: ", ")
+
+		return DeclSyntax(
+			"""
+			\(raw: propertySignature): \(raw: provider.returnType.trimmedDescription) {
+			    \(raw: provider.factoryName)(\(raw: arguments))
+			}
+			"""
+		)
 	}
+	return (storage?.declarations() ?? []) + properties
 }

@@ -10,9 +10,8 @@ import Testing
 
 // 명목 타입과 단일 프로토콜 외 반환 문법 거부 확인
 @Test(arguments: [
-	"some Service", "Service?", "[Service]", "(Service, Service)", "() -> Service",
-	"any Service & OtherService", "any Service<Value>", "any Domain<Value>.Service",
-	"(any Service)?", "[any Service]", "any Service.Type", "(any Service).Type"
+	"some Service", "[Service]", "(Service, Service)", "() -> Service",
+	"any Service & OtherService", "[any Service]", "any Service.Type", "(any Service).Type"
 ])
 func dependencyGraphRejectsRemainingUnsupportedProviderReturnTypes(returnType: String) {
 	// Macro 확장 입력 source
@@ -36,7 +35,7 @@ func dependencyGraphRejectsRemainingUnsupportedProviderReturnTypes(returnType: S
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "unsupportedProviderResult"),
-				message: "`@Provide` 반환 타입은 제네릭 인자가 없는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다.",
+				message: "`@Provide` 반환 타입은 프로퍼티 이름을 만들 수 있는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다.",
 				line: 3,
 				column: 2
 			)
@@ -64,34 +63,7 @@ func dependencyGraphRejectsProtocolCompositionReturnType() {
 		diagnostics: [
 			DiagnosticSpec(
 				id: .init(domain: "Cradle", id: "unsupportedProviderResult"),
-				message: "`@Provide` 반환 타입은 제네릭 인자가 없는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다.",
-				line: 3,
-				column: 2
-			)
-		],
-		macros: testMacros
-	)
-}
-
-// 본문 없는 provider 거부 확인
-@Test
-func dependencyGraphRejectsProviderWithoutBody() {
-	assertMacroExpansion(
-		"""
-		@DependencyGraph
-		final class Graph {
-			@Provide
-			private func makeService() -> Service
-		}
-		""",
-		expandedSource: """
-		final class Graph {
-			private func makeService() -> Service
-		}
-		""",
-		diagnostics: [
-			DiagnosticSpec(
-				message: "`@Provide` factory는 명시적 반환 타입과 본문이 필요합니다.",
+				message: "`@Provide` 반환 타입은 프로퍼티 이름을 만들 수 있는 명목 타입 또는 `any`로 표시한 단일 프로토콜 타입이어야 합니다.",
 				line: 3,
 				column: 2
 			)
