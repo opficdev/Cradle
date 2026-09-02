@@ -12,7 +12,7 @@
 // provider 매개변수의 지역 이름을 등록 생성 접근자와 연결
 // `final class` 전용 적용과 initializer·stored property 미변경
 @attached(member, names: arbitrary)
-public macro DependencyGraph() = #externalMacro(
+public macro DependencyGraph(sources: [Any.Type] = []) = #externalMacro(
 	module: "CradleMacros",
 	type: "DependencyGraphMacro"
 )

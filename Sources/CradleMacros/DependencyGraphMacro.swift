@@ -27,16 +27,27 @@ struct DependencyGraphMacro: MemberMacro {
 			return []
 		}
 
+		let sourceResult = sourceGraphResult(from: node, in: context)
 		let providerResult = providers(in: graph, context: context)
 		let graphAccess = accessLevel(of: graph)
 		let memberNames = instanceMemberNames(in: graph)
+		let sourceError = diagnoseSourceGraphErrors(
+			in: graph,
+			sources: sourceResult.descriptors,
+			providerNames: Set(providerResult.descriptors.map(\.propertyIdentifier)),
+			memberNames: memberNames,
+			context: context
+		)
 		let hasPropertyError = diagnosePropertyNameErrors(
 			in: providerResult.descriptors,
 			memberNames: memberNames,
 			context: context
 		)
 
-		guard !providerResult.hasError, !hasPropertyError else {
+		guard !sourceResult.hasError,
+			!sourceError,
+			!providerResult.hasError,
+			!hasPropertyError else {
 			return []
 		}
 		let propertyNames = Dictionary(uniqueKeysWithValues: providerResult.descriptors.map { provider in
@@ -65,7 +76,10 @@ struct DependencyGraphMacro: MemberMacro {
 			in: context
 		)
 
-		return propertyDeclarations(
+		return sourceGraphDeclarations(
+			for: sourceResult.descriptors,
+			accessLevel: graphAccess
+		) + propertyDeclarations(
 			for: providerResult.descriptors,
 			accessLevel: graphAccess,
 			propertyNames: propertyNames,
