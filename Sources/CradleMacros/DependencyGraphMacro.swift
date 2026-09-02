@@ -19,32 +19,30 @@ struct DependencyGraphMacro: MemberMacro {
 		conformingTo protocols: [TypeSyntax],
 		in context: some MacroExpansionContext
 	) throws -> [DeclSyntax] {
-		guard let graph = declaration.as(ClassDeclSyntax.self),
-			isFinal(graph),
-			graph.genericParameterClause == nil,
-			graph.genericWhereClause == nil else {
+		guard let graph = DependencyGraphDeclaration(from: declaration) else {
 			context.diagnose(Diagnostic(node: node, message: CradleMacroDiagnostic.invalidGraph))
 			return []
 		}
 
 		let sourceResult = sourceGraphResult(from: node, in: context)
-		let providerResult = providers(in: graph, context: context)
-		let graphAccess = accessLevel(of: graph)
+		guard let sources = acceptedSourceDescriptors(for: graph, from: node, result: sourceResult, in: context) else {
+			return []
+		}
+
+		let providerResult = providers(in: graph.memberBlock.members, context: context)
+		let graphAccess = accessLevel(of: graph.modifiers)
 		let hasDeclarationError = hasInitialDeclarationError(
-			in: graph,
-			sources: sourceResult.descriptors,
+			in: graph.memberBlock.members,
+			sources: sources,
 			providers: providerResult.descriptors,
 			context: context
 		)
 
-		guard !sourceResult.hasError,
-			!providerResult.hasError,
+		guard !providerResult.hasError,
 			!hasDeclarationError else {
 			return []
 		}
-		let propertyNames = Dictionary(uniqueKeysWithValues: providerResult.descriptors.map { provider in
-			(provider.registrationIdentity, provider.propertyName)
-		})
+		let propertyNames = propertyNames(for: providerResult.descriptors)
 		guard providerConnectionsAreValid(
 			in: providerResult.descriptors,
 			propertyNames: propertyNames,
@@ -55,16 +53,17 @@ struct DependencyGraphMacro: MemberMacro {
 		let storage = sharedStorage(
 			for: providerResult.descriptors,
 			graphName: graph.name,
-			sources: sourceResult.descriptors,
+			sources: sources,
 			propertyNames: propertyNames,
 			in: context
 		)
 
-		return sourceGraphDeclarations(
-			for: sourceResult.descriptors,
+		let sourceDeclarations = graph.allowsSources ? sourceGraphDeclarations(
+			for: sources,
 			accessLevel: graphAccess,
 			storage: storage
-		) + propertyDeclarations(
+		) : []
+		return sourceDeclarations + propertyDeclarations(
 			for: providerResult.descriptors,
 			accessLevel: graphAccess,
 			propertyNames: propertyNames,
@@ -72,16 +71,38 @@ struct DependencyGraphMacro: MemberMacro {
 		)
 	}
 
+	// class source 조합과 actor source 금지 규칙을 반영한 source descriptor 반환
+	private static func acceptedSourceDescriptors(
+		for graph: DependencyGraphDeclaration,
+		from attribute: AttributeSyntax,
+		result: SourceGraphResult,
+		in context: some MacroExpansionContext
+	) -> [SourceGraphDescriptor]? {
+		guard !result.hasError else {
+			return nil
+		}
+		guard graph.allowsSources || result.descriptors.isEmpty else {
+			guard let sources = sourceGraphArgumentExpression(in: attribute) else {
+				return nil
+			}
+			context.diagnose(
+				Diagnostic(node: sources, message: ActorGraphDiagnostic.sourcesUnsupported)
+			)
+			return nil
+		}
+		return result.descriptors
+	}
+
 	// source 선언과 Factory 생성 프로퍼티 선언 충돌 진단
 	private static func hasInitialDeclarationError(
-		in graph: ClassDeclSyntax,
+		in members: MemberBlockItemListSyntax,
 		sources: [SourceGraphDescriptor],
 		providers: [ProviderDescriptor],
 		context: some MacroExpansionContext
 	) -> Bool {
-		let memberNames = instanceMemberNames(in: graph)
+		let memberNames = instanceMemberNames(in: members)
 		let sourceError = diagnoseSourceGraphErrors(
-			in: graph,
+			in: members,
 			sources: sources,
 			providerNames: Set(providers.map(\.propertyIdentifier)),
 			memberNames: memberNames,
@@ -258,24 +279,22 @@ struct DependencyGraphMacro: MemberMacro {
 
 		return hasError
 	}
+}
 
-	// final class graph 판별
-	private static func isFinal(_ graph: ClassDeclSyntax) -> Bool {
-		graph.modifiers.contains { modifier in
-			modifier.name.tokenKind == .keyword(.final)
-		}
-	}
+// 등록 타입 identity와 생성 접근자 이름 연결 생성
+private func propertyNames(for providers: [ProviderDescriptor]) -> [RegisteredTypeIdentity: String] {
+	Dictionary(uniqueKeysWithValues: providers.map { ($0.registrationIdentity, $0.propertyName) })
 }
 
 // graph 본체의 `@Provide` Factory 검증과 수집
 private func providers(
-	in graph: ClassDeclSyntax,
+	in members: MemberBlockItemListSyntax,
 	context: some MacroExpansionContext
 ) -> (descriptors: [ProviderDescriptor], hasError: Bool) {
 	var hasError = false
 	var descriptors: [ProviderDescriptor] = []
 
-	for member in graph.memberBlock.members {
+	for member in members {
 		guard let attribute = provideAttribute(in: member.decl) else {
 			continue
 		}
