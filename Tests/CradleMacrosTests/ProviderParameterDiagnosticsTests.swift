@@ -148,3 +148,36 @@ func providerParameterDiagnosticsConnectByType() {
 		macros: testMacros
 	)
 }
+
+// 제네릭 인자 철자가 다른 등록 타입을 연결하지 않는지 확인
+@Test
+func providerParameterDiagnosticsDistinguishesGenericArguments() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide
+			private func makeConsumer(box: Box<Int>) -> Consumer { Consumer() }
+			@Provide
+			private func makeBox() -> Box<String> { Box() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeConsumer(box: Box<Int>) -> Consumer { Consumer() }
+			private func makeBox() -> Box<String> { Box() }
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "missingRegistration"),
+				message: "`makeConsumer`의 매개변수 타입 `Box<Int>`에 대응하는 등록이 없습니다.",
+				line: 4,
+				column: 33,
+				highlights: ["Box<Int>"],
+				notes: [NoteSpec(message: "`makeConsumer` Factory가 이 의존성을 요구합니다.", line: 3, column: 2)]
+			)
+		],
+		macros: testMacros
+	)
+}

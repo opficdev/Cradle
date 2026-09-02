@@ -111,6 +111,36 @@ final class ReversedProtocolBindingGraph {
 	}
 }
 
+// 상위 클래스 타입으로 등록할 구현
+class RepositorySuperclass {}
+
+// 상위 클래스에 연결할 하위 구현
+final class LiveRepositorySubclass: RepositorySuperclass {}
+
+// 상위 클래스 타입만 아는 소비자
+struct SuperclassBindingConsumer {
+	// Factory에서 전달한 상위 클래스 타입 의존성
+	let repository: RepositorySuperclass
+}
+
+// 상위 클래스 반환 타입의 연결을 확인할 graph
+@DependencyGraph
+final class SuperclassBindingGraph {
+	// 하위 구현을 상위 클래스 등록 타입으로 노출하는 Factory
+	@Provide
+	private func makeRepositorySuperclass() -> RepositorySuperclass {
+		LiveRepositorySubclass()
+	}
+
+	// 상위 클래스 타입을 요구하는 소비자 Factory
+	@Provide
+	private func makeSuperclassBindingConsumer(
+		repository: RepositorySuperclass
+	) -> SuperclassBindingConsumer {
+		SuperclassBindingConsumer(repository: repository)
+	}
+}
+
 // class·struct·actor를 같은 프로토콜로 전달하고 반복 호출 확인
 @Test
 func protocolBindingDeliversImplementationsWithoutCaching() {
@@ -173,4 +203,12 @@ func protocolBindingIgnoresDeclarationOrder() {
 	#expect(root.bindingConsumer.bindingService.token == reversedRoot.bindingConsumer.bindingService.token)
 	#expect(graph.invocations == ["service", "consumer", "root"])
 	#expect(reversed.invocations == graph.invocations)
+}
+
+// 상위 클래스 반환 타입이 생성 프로퍼티와 소비자에 유지되는지 확인
+@Test
+func superclassBindingDeliversSubclassImplementation() {
+	let graph = SuperclassBindingGraph()
+	#expect(graph.repositorySuperclass is LiveRepositorySubclass)
+	#expect(graph.superclassBindingConsumer.repository is LiveRepositorySubclass)
 }

@@ -79,6 +79,42 @@ func protocolBindingRejectsDuplicateAccessors() {
 	)
 }
 
+// bare protocol과 `any` 표기의 같은 등록 타입을 중복으로 거부하는지 확인
+@Test
+func protocolBindingRejectsEquivalentBareAndExistentialRegistrations() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide
+			private func makeFirst() -> Repository { LiveRepository() }
+			@Provide
+			private func makeSecond() -> any Repository { OtherRepository() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeFirst() -> Repository { LiveRepository() }
+			private func makeSecond() -> any Repository { OtherRepository() }
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "duplicateAccessor"),
+				message: "`Repository` 등록 타입이 중복됩니다.",
+				line: 4,
+				column: 30,
+				highlights: ["Repository"],
+				notes: [
+					NoteSpec(message: "`makeFirst` Factory의 등록입니다. 등록 타입은 `Repository`입니다.", line: 3, column: 2),
+					NoteSpec(message: "`makeSecond` Factory의 등록입니다. 등록 타입은 `any Repository`입니다.", line: 5, column: 2)
+				]
+			)
+		],
+		macros: testMacros
+	)
+}
+
 // 기존 인스턴스 멤버와 프로토콜 접근자 이름의 충돌 확인
 @Test
 func protocolBindingRejectsMemberCollision() {

@@ -115,6 +115,37 @@ func protocolBindingConnectsEquivalentExistentialTypes() {
 	)
 }
 
+// bare protocol과 `any` 표기가 달라도 같은 등록 타입으로 연결하는지 확인
+@Test
+func protocolBindingConnectsBareAndExistentialTypes() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide
+			private func makeConsumer(repository: any Repository) -> Consumer { Consumer() }
+			@Provide
+			private func makeRepository() -> Repository { LiveRepository() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeConsumer(repository: any Repository) -> Consumer { Consumer() }
+			private func makeRepository() -> Repository { LiveRepository() }
+
+		    internal var consumer: Consumer {
+		        makeConsumer(repository: repository)
+		    }
+
+		    internal var repository: Repository {
+		        makeRepository()
+		    }
+		}
+		""",
+		macros: testMacros
+	)
+}
+
 // 선언 순서와 다른 매개변수 순서로 프로토콜 의존성을 획득하는지 확인
 @Test
 func protocolBindingPreservesLabelsAndOrder() {
