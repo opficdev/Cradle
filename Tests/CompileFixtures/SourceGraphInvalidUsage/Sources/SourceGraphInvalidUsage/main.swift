@@ -60,3 +60,12 @@ final class SourceGraphTypeMismatchGraph {
 		sourceGraphGetterSource.sourceGraphActualFeature
 	}
 }
+
+// shared Factory가 읽는 존재하지 않는 source 접근자 오류 확인용 조합 graph
+@DependencyGraph(sources: [SourceGraphGetterSource.self])
+final class SourceGraphSharedMissingGetterGraph {
+	@Provide
+	private func makeSourceGraphSharedMissingFeature() -> SourceGraphMissingFeature {
+		sourceGraphGetterSource.sharedMissingFeature
+	}
+}
