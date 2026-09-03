@@ -10,6 +10,10 @@ let package = Package(
 		.library(
 			name: "Cradle",
 			targets: ["Cradle"]
+		),
+		.library(
+			name: "CradleTesting",
+			targets: ["CradleTesting"]
 		)
 	],
 	dependencies: [
@@ -30,6 +34,7 @@ let package = Package(
 			]
 		),
 		.target(name: "Cradle", dependencies: ["CradleMacros"]),
+		.target(name: "CradleTesting", dependencies: ["Cradle"]),
 		.target(
 			name: "CradleConsumerFixture",
 			dependencies: ["Cradle"],
@@ -37,7 +42,11 @@ let package = Package(
 		),
 		.testTarget(
 			name: "CradleTests",
-			dependencies: ["Cradle", "CradleConsumerFixture"]
+			dependencies: ["Cradle", "CradleConsumerFixture", "CradleTesting"]
+		),
+		.testTarget(
+			name: "CradleTestingXCTests",
+			dependencies: ["CradleConsumerFixture", "CradleTesting"]
 		),
 		.testTarget(
 			name: "CradleMacrosTests",
