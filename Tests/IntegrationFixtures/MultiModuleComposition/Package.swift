@@ -16,6 +16,12 @@ let package = Package(
 			dependencies: [
 				.product(name: "Cradle", package: "Cradle")
 			]
+		),
+		.target(
+			name: "Infra",
+			dependencies: [
+				.product(name: "Cradle", package: "Cradle")
+			]
 		)
 	],
 	swiftLanguageModes: [.v6]
