@@ -63,16 +63,13 @@ func typedOverrideDeclarations(
 		in: context
 	)
 	return overrides.map(selectionDeclaration)
-			+ [
-			builderDeclaration(
-				named: builderName,
-				graph: graph,
-				providers: overrides,
-				sources: sources,
-				accessLevel: accessLevel
-				)
-			]
-		+ [overrideEntryPoint(named: builderName, providers: overrides, accessLevel: accessLevel)]
+		+ typedOverrideBuilderDeclarations(
+			for: graph,
+			builderName: builderName,
+			providers: overrides,
+			sources: sources,
+			accessLevel: accessLevel
+		)
 		+ graphInitializers(
 			graphName: graph.name,
 			builderName: builderName,
@@ -90,6 +87,31 @@ func typedOverrideDeclarations(
 			propertyNames: propertyNames,
 			storage: sharedStorage
 		)
+}
+
+// graph 생성 전 상태를 보관할 builder와 static 진입점 선언 생성
+private func typedOverrideBuilderDeclarations(
+	for graph: DependencyGraphDeclaration,
+	builderName: TokenSyntax,
+	providers: [TypedOverrideProvider],
+	sources: [SourceGraphDescriptor],
+	accessLevel: AccessLevel
+) -> [DeclSyntax] {
+	[
+		builderDeclaration(
+			named: builderName,
+			graph: graph,
+			providers: providers,
+			sources: sources,
+			accessLevel: accessLevel
+		),
+		overrideEntryPoint(
+			named: builderName,
+			graph: graph,
+			providers: providers,
+			accessLevel: accessLevel
+		)
+	]
 }
 
 // Macro가 소유하는 생성 경로와 충돌하는 사용자 선언 진단
@@ -240,6 +262,7 @@ private func builderDeclaration(
 	accessLevel: AccessLevel
 ) -> DeclSyntax {
 	let sendable = graph.isActor ? ": Sendable" : ""
+	let mainActor = graph.isMainActor ? "@MainActor\n" : ""
 	let fields = providers.map { override in
 		"fileprivate let \(override.storageName): \(override.stateName)"
 	}.joined(separator: "\n")
@@ -259,15 +282,15 @@ private func builderDeclaration(
 	let buildArguments = (["overrides: self"] + (sourceArguments.isEmpty ? [] : [sourceArguments])).joined(separator: ", ")
 	return DeclSyntax(
 		"""
-		\(raw: accessLevel.rawValue) struct \(builderName)\(raw: sendable) {
+		\(raw: mainActor)\(raw: accessLevel.rawValue) struct \(builderName)\(raw: sendable) {
 		    \(raw: fields)
 
 		    fileprivate init(\(raw: parameters)) {
 		        \(raw: assignments)
 		    }
 
-		\(raw: accessLevel.rawValue) func build(\(raw: buildParameters)) -> \(graph.name) {
-		    \(graph.name)(\(raw: buildArguments))
+		    \(raw: accessLevel.rawValue) func build(\(raw: buildParameters)) -> \(graph.name) {
+		        \(graph.name)(\(raw: buildArguments))
 		    }
 		}
 		"""
@@ -277,9 +300,11 @@ private func builderDeclaration(
 // 등록별 default `.original`을 가진 static override 진입점 선언
 private func overrideEntryPoint(
 	named builderName: TokenSyntax,
+	graph: DependencyGraphDeclaration,
 	providers: [TypedOverrideProvider],
 	accessLevel: AccessLevel
 ) -> DeclSyntax {
+	let mainActor = graph.isMainActor ? "@MainActor\n" : ""
 	let parameters = providers.map { override in
 		"\(override.provider.propertyName): DependencyOverride<\(override.factoryType)> = .original"
 	}.joined(separator: ", ")
@@ -288,7 +313,7 @@ private func overrideEntryPoint(
 	}.joined(separator: ", ")
 	return DeclSyntax(
 		"""
-		\(raw: accessLevel.rawValue) static func `override`(\(raw: parameters)) -> \(builderName) {
+		\(raw: mainActor)\(raw: accessLevel.rawValue) static func `override`(\(raw: parameters)) -> \(builderName) {
 		    \(builderName)(\(raw: arguments))
 		}
 		"""

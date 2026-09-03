@@ -35,7 +35,7 @@ struct DependencyGraphDeclaration {
 			memberBlock = graph.memberBlock
 			allowsSources = true
 			isActor = false
-			isMainActor = containsAttribute(named: "MainActor", in: graph.attributes)
+			isMainActor = containsMainActorAttribute(in: graph.attributes)
 			return
 		}
 
@@ -49,7 +49,7 @@ struct DependencyGraphDeclaration {
 			memberBlock = graph.memberBlock
 			allowsSources = false
 			isActor = true
-			isMainActor = containsAttribute(named: "MainActor", in: graph.attributes)
+			isMainActor = containsMainActorAttribute(in: graph.attributes)
 			return
 		}
 
@@ -62,6 +62,31 @@ private func dependencyGraphIsFinal(_ graph: ClassDeclSyntax) -> Bool {
 	graph.modifiers.contains { modifier in
 		modifier.name.tokenKind == .keyword(.final)
 	}
+}
+
+// 표준·모듈 한정 MainActor attribute를 같은 전역 격리로 판단
+private func containsMainActorAttribute(in attributes: AttributeListSyntax) -> Bool {
+	attributes.compactMap { element in
+		element.as(AttributeSyntax.self)
+	}.contains(where: isMainActorAttribute)
+}
+
+// `MainActor`와 `_Concurrency.MainActor` attribute 이름을 구문 구조로 판별
+private func isMainActorAttribute(_ attribute: AttributeSyntax) -> Bool {
+	if let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) {
+		return attributeIdentifierName(identifier.name) == "MainActor"
+	}
+	guard let member = attribute.attributeName.as(MemberTypeSyntax.self),
+		let module = member.baseType.as(IdentifierTypeSyntax.self) else {
+		return false
+	}
+	return attributeIdentifierName(module.name) == "_Concurrency"
+		&& attributeIdentifierName(member.name) == "MainActor"
+}
+
+// attribute identifier의 백틱 표기를 제외한 이름 반환
+private func attributeIdentifierName(_ token: TokenSyntax) -> String {
+	token.identifier?.name ?? token.text
 }
 
 // `@Provide`의 직접 lexical parent가 지원하는 graph 선언인지 확인
