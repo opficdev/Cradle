@@ -103,3 +103,83 @@ public final class CradleTestingMockGraph {
 		CradleTestingOriginalService(token: 4)
 	}
 }
+
+// mock Factory의 graph별 수명을 확인할 shared 참조 값
+public final class CradleTestingSharedService {
+	// shared Factory의 검증값
+	public let token: Int
+
+	// shared 참조 값 생성
+	public init(token: Int) {
+		self.token = token
+	}
+}
+
+// shared 의존성을 받는 transient 결과
+public struct CradleTestingTransientService {
+	// transient 결과에 주입한 shared 참조 값
+	public let shared: CradleTestingSharedService
+
+	// transient 결과 생성
+	public init(shared: CradleTestingSharedService) {
+		self.shared = shared
+	}
+}
+
+// shared·transient mock Factory의 평가 시점을 확인할 graph
+@DependencyGraph(overrides: true)
+public final class CradleTestingLifetimeGraph {
+	// shared 결과의 원본 Factory
+	@Provide
+	private func makeCradleTestingSharedService() -> CradleTestingSharedService {
+		CradleTestingSharedService(token: 5)
+	}
+
+	// transient 결과의 원본 Factory
+	@Provide(.transient)
+	private func makeCradleTestingTransientService(
+		shared: CradleTestingSharedService
+	) -> CradleTestingTransientService {
+		CradleTestingTransientService(shared: shared)
+	}
+}
+
+// 병렬 actor graph의 graph별 shared 참조 값
+public actor CradleTestingActorSharedService {
+	// actor shared Factory의 검증값
+	public let token: Int
+
+	// actor shared 참조 값 생성
+	public init(token: Int) {
+		self.token = token
+	}
+}
+
+// actor graph가 생성할 transient 결과
+public struct CradleTestingActorTransientService: Sendable {
+	// actor graph가 보관한 shared 참조 값
+	public let shared: CradleTestingActorSharedService
+
+	// actor transient 결과 생성
+	public init(shared: CradleTestingActorSharedService) {
+		self.shared = shared
+	}
+}
+
+// 병렬 mock 구성을 확인할 actor graph
+@DependencyGraph(overrides: true)
+public actor CradleTestingActorMockGraph {
+	// actor shared 결과의 원본 Factory
+	@Provide
+	private func makeCradleTestingActorSharedService() -> CradleTestingActorSharedService {
+		CradleTestingActorSharedService(token: 6)
+	}
+
+	// actor transient 결과의 원본 Factory
+	@Provide(.transient)
+	private func makeCradleTestingActorTransientService(
+		shared: CradleTestingActorSharedService
+	) -> CradleTestingActorTransientService {
+		CradleTestingActorTransientService(shared: shared)
+	}
+}
