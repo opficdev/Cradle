@@ -42,7 +42,11 @@ let package = Package(
 		),
 		.testTarget(
 			name: "CradleTests",
-			dependencies: ["Cradle", "CradleConsumerFixture"]
+			dependencies: ["Cradle", "CradleConsumerFixture", "CradleTesting"]
+		),
+		.testTarget(
+			name: "CradleTestingXCTests",
+			dependencies: ["CradleConsumerFixture", "CradleTesting"]
 		),
 		.testTarget(
 			name: "CradleMacrosTests",
