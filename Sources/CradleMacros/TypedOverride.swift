@@ -238,14 +238,14 @@ private func selectionDeclaration(for override: TypedOverrideProvider) -> DeclSy
 		"""
 		fileprivate enum \(override.stateName)\(raw: sendable) {
 		    case original
-		    case factory(\(raw: override.factoryType))
+		    case replace(\(raw: override.factoryType))
 
 		    init(_ selection: DependencyOverride<\(raw: override.factoryType)>) {
 		        switch selection {
 		        case .original:
 		            self = .original
-		        case let .factory(factory):
-		            self = .factory(factory)
+		        case let .replace(factory):
+		            self = .replace(factory)
 		        }
 		    }
 		}
@@ -404,7 +404,7 @@ private func typedOverridePropertyDeclarations(
 		    switch \(override.storageName) {
 		    case .original:
 		        \(raw: provider.factoryName)(\(raw: originalArguments))
-		    case let .factory(factory):
+		    case let .replace(factory):
 		        factory(\(raw: overrideArguments))
 		    }
 		}
@@ -595,7 +595,7 @@ private struct TypedOverrideSharedStorage {
 		\t= switch overrides.\(override.storageName) {
 		\tcase .original:
 		\t\t\(helper)(\(originalCallArguments))
-		\tcase let .factory(factory):
+		\tcase let .replace(factory):
 		\t\tfactory(\(overrideArguments))
 		\t}
 		"""

@@ -36,22 +36,22 @@ final class TypedOverrideFixtureCollisionGraph {
 }
 
 let duplicateLabelGraph = TypedOverrideFixtureGraph.override(
-	typedOverrideFixtureService: .factory {
+	typedOverrideFixtureService: .replace {
 		TypedOverrideFixtureService()
 	},
-	typedOverrideFixtureService: .factory {
+	typedOverrideFixtureService: .replace {
 		TypedOverrideFixtureService()
 	}
 ).build()
 
 let wrongParameterGraph = TypedOverrideFixtureGraph.override(
-	typedOverrideFixtureService: .factory { (_: TypedOverrideFixtureInput) in
+	typedOverrideFixtureService: .replace { (_: TypedOverrideFixtureInput) in
 		TypedOverrideFixtureService()
 	}
 ).build()
 
 let wrongResultGraph = TypedOverrideFixtureGraph.override(
-	typedOverrideFixtureService: .factory {
+	typedOverrideFixtureService: .replace {
 		0
 	}
 ).build()
@@ -59,7 +59,7 @@ let wrongResultGraph = TypedOverrideFixtureGraph.override(
 func makeActorCaptureGraph() {
 	let capture = TypedOverrideNonSendableCapture()
 	_ = TypedOverrideFixtureActorGraph.override(
-		typedOverrideFixtureService: .factory {
+		typedOverrideFixtureService: .replace {
 			_ = capture
 			return TypedOverrideFixtureService()
 		}
@@ -83,7 +83,7 @@ final class TypedOverrideFixtureParameterizedGraph {
 }
 
 let wrongParameterTypeGraph = TypedOverrideFixtureParameterizedGraph.override(
-	typedOverrideFixtureService: .factory { (_: Int) in
+	typedOverrideFixtureService: .replace { (_: Int) in
 		TypedOverrideFixtureService()
 	}
 ).build()

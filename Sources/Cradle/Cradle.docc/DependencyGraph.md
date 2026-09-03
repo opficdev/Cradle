@@ -67,7 +67,7 @@ final class AppGraph {
 }
 
 let graph = AppGraph.override(
-	userRepository: .factory {
+	userRepository: .replace {
 		StubUserRepository()
 	}
 ).build()
@@ -77,7 +77,7 @@ let graph = AppGraph.override(
 
 builder를 보관하는 동안에는 builder가 선택한 모든 교체 Factory와 capture를 보관합니다. `.build()` 뒤 graph는 transient 교체 Factory와 그 capture만 graph가 해제될 때까지 보관합니다. shared 교체 Factory는 결과를 만든 뒤 graph에 보관하지 않습니다. 따라서 Factory가 graph 또는 builder를 capture하면 참조 순환이 생기지 않도록 수명을 직접 확인해야 합니다.
 
-`.factory` closure의 매개변수 타입·순서·반환 타입은 원래 `@Provide` Factory와 같습니다. 잘못된 매개변수 또는 반환 타입, 존재하지 않거나 중복한 argument label은 Swift 컴파일러가 closure 또는 호출 원본 위치에서 오류를 표시합니다. `Optional`, `Any`, 문자열 key, 전역 등록소는 교체 경로에 사용하지 않습니다.
+`.replace` closure의 매개변수 타입·순서·반환 타입은 원래 `@Provide` Factory와 같습니다. 잘못된 매개변수 또는 반환 타입, 존재하지 않거나 중복한 argument label은 Swift 컴파일러가 closure 또는 호출 원본 위치에서 오류를 표시합니다. `Optional`, `Any`, 문자열 key, 전역 등록소는 교체 경로에 사용하지 않습니다.
 
 `sources` graph에서는 조합 graph가 직접 선언한 등록만 교체합니다. source graph 내부 등록은 전파해 교체하지 않으며 `.build(...)`에 source graph를 전달합니다. source graph를 함께 교체해야 하면 그 graph의 `override`를 별도로 호출합니다.
 
@@ -164,7 +164,7 @@ final class FeatureGraph {
 }
 
 let graph = FeatureGraph.override(
-	feature: .factory {
+	feature: .replace {
 		Feature(repository: Repository(), session: Session())
 	}
 ).build(appGraph: AppGraph(), sessionGraph: SessionGraph())

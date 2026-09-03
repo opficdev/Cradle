@@ -136,7 +136,7 @@ final class TypedOverrideClassGraph {
 @Test
 func typedOverrideClassGraphUsesReplacementAndOriginalDependencies() {
 	let graph = TypedOverrideClassGraph.override(
-		typedOverrideSharedService: .factory {
+		typedOverrideSharedService: .replace {
 			TypedOverrideSharedService(value: 2)
 		}
 	).build()
@@ -152,11 +152,11 @@ func typedOverrideClassGraphUsesReplacementAndOriginalDependencies() {
 func typedOverrideClassGraphDefersFactoryEvaluationUntilBuild() {
 	let probe = TypedOverrideFactoryProbe()
 	let builder = TypedOverrideClassGraph.override(
-		typedOverrideSharedService: .factory {
+		typedOverrideSharedService: .replace {
 			probe.sharedCount += 1
 			return TypedOverrideSharedService(value: 3)
 		},
-		typedOverrideTransientService: .factory { shared in
+		typedOverrideTransientService: .replace { shared in
 			probe.transientCount += 1
 			return TypedOverrideTransientService(shared: shared)
 		}
@@ -179,7 +179,7 @@ func typedOverrideClassGraphDefersFactoryEvaluationUntilBuild() {
 @Test
 func typedOverrideSourceGraphBuildsWithSourceArguments() {
 	let graph = TypedOverrideFeatureGraph.override(
-		typedOverrideFeatureValue: .factory {
+		typedOverrideFeatureValue: .replace {
 			TypedOverrideFeatureValue(value: 8)
 		}
 	).build(typedOverrideSourceGraph: TypedOverrideSourceGraph())
@@ -200,10 +200,10 @@ func typedOverrideSourceGraphBuildsSharedFactoryFromSource() {
 @Test
 func typedOverrideActorGraphBuildsWithSendableFactory() async {
 	let graph = TypedOverrideActorGraph.override(
-		typedOverrideActorValue: .factory {
+		typedOverrideActorValue: .replace {
 			TypedOverrideActorValue(value: 21)
 		},
-		typedOverrideActorSharedService: .factory {
+		typedOverrideActorSharedService: .replace {
 			TypedOverrideActorSharedService(value: 55)
 		}
 	).build()

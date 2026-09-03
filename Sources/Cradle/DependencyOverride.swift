@@ -10,7 +10,7 @@ public enum DependencyOverride<Factory> {
 	// graph 선언에 작성한 기본 Factory 선택
 	case original
 	// graph 인스턴스에만 적용할 타입 지정 교체 Factory 선택
-	case factory(Factory)
+	case replace(Factory)
 }
 
 // Sendable Factory 상태의 actor 경계 전달

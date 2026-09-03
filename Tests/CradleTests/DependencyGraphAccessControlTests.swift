@@ -22,7 +22,7 @@ func anotherModuleCanUsePublicGraphAccessor() {
 @Test
 func anotherModuleCanBuildPublicTypedOverrideGraph() {
 	let graph = PublicTypedOverrideGraph.override(
-		publicTypedOverrideService: .factory {
+		publicTypedOverrideService: .replace {
 			PublicTypedOverrideService(value: 11)
 		}
 	).build()
@@ -34,7 +34,7 @@ func anotherModuleCanBuildPublicTypedOverrideGraph() {
 @Test
 func anotherModuleCanBuildPublicTypedOverrideSourceGraph() {
 	let graph = PublicTypedOverrideSourceGraph.override(
-		publicSourceService: .factory {
+		publicSourceService: .replace {
 			PublicSourceService(token: 17)
 		}
 	).build(publicSourceGraph: PublicSourceGraph())
@@ -47,7 +47,7 @@ func anotherModuleCanBuildPublicTypedOverrideSourceGraph() {
 @MainActor
 func anotherModuleCanBuildPublicMainActorTypedOverrideGraph() {
 	let graph = PublicMainActorTypedOverrideGraph.override(
-		publicTypedOverrideService: .factory {
+		publicTypedOverrideService: .replace {
 			PublicTypedOverrideService(value: 19)
 		}
 	).build()
@@ -69,7 +69,7 @@ func anotherModuleCanAwaitPublicActorGraphAccessor() async {
 @Test
 func anotherModuleCanBuildPublicTypedOverrideActorGraph() async {
 	let graph = PublicTypedOverrideActorGraph.override(
-		publicTypedOverrideActorService: .factory {
+		publicTypedOverrideActorService: .replace {
 			PublicTypedOverrideActorService(value: 14)
 		}
 	).build()

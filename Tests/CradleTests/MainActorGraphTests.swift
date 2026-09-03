@@ -73,7 +73,7 @@ func mainActorGraphPreservesClassGraphLifetimes() {
 @MainActor
 func mainActorTypedOverrideGraphBuildsOnMainActor() {
 	let graph = MainActorTypedOverrideGraph.override(
-		mainActorTypedOverrideService: .factory {
+		mainActorTypedOverrideService: .replace {
 			MainActorTypedOverrideService(value: 15)
 		}
 	).build()
