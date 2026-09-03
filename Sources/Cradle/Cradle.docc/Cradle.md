@@ -14,9 +14,11 @@ Factory가 `any UserRepository`를 반환하면 graph의 `userRepository`도 같
 
 actor graph의 생성 프로퍼티는 actor 격리를 따릅니다. actor 밖에서는 `await`로 읽으며, 반환 값이 actor 경계를 통과할 수 있는지는 Swift 컴파일러가 `Sendable` 규칙으로 검사합니다.
 
+`@DependencyGraph(overrides: true)`를 지정하면 등록별 기본값이 `.original`인 static `override`와 `OverrideBuilder.build()`를 사용할 수 있습니다. builder는 교체 선택만 보관하고 `.build()`에서 graph와 shared 등록을 만듭니다. actor 교체 Factory는 `@Sendable`이어야 하며, `@MainActor` graph의 builder는 같은 격리를 따릅니다.
+
 class graph는 동시 접근을 조정하지 않습니다. 여러 Task에서 공유해야 하면 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다.
 
-매크로는 그래프에 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. 그래프를 외부 모듈에서 생성해야 한다면 필요한 생성자를 직접 선언합니다.
+`sources`와 `overrides: true`를 모두 지정하지 않은 graph에서는 매크로가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. `sources` 또는 `overrides: true` graph는 생성 경로를 Macro가 소유합니다.
 
 ## Topics
 
@@ -26,7 +28,8 @@ class graph는 동시 접근을 조정하지 않습니다. 여러 Task에서 공
 
 ### 매크로
 
-- ``DependencyGraph(sources:)``
+- ``DependencyGraph(sources:overrides:)``
+- ``DependencyOverride``
 - ``Provide()``
 - ``Provide(_:)``
 - ``DependencyLifetime``
