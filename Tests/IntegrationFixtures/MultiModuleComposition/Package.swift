@@ -41,6 +41,13 @@ let package = Package(
 				"Persistence",
 				"Infra"
 			]
+		),
+		.testTarget(
+			name: "MultiModuleCompositionTests",
+			dependencies: [
+				"AppComposition",
+				"Domain"
+			]
 		)
 	],
 	swiftLanguageModes: [.v6]
