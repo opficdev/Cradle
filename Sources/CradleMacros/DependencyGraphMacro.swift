@@ -1,4 +1,3 @@
-// swiftlint:disable file_length
 //
 //  DependencyGraphMacro.swift
 //  CradleMacros
@@ -32,15 +31,6 @@ struct DependencyGraphMacro: MemberMacro {
 
 		let sourceResult = sourceGraphResult(from: node, in: context)
 		guard let sources = acceptedSourceDescriptors(for: graph, from: node, result: sourceResult, in: context) else {
-			return []
-		}
-		guard typedOverrideIsSupported(
-			overrideConfiguration,
-			for: graph,
-			sources: sources,
-			in: context,
-			node: node
-		) else {
 			return []
 		}
 		if overrideConfiguration.isEnabled,
@@ -107,24 +97,6 @@ struct DependencyGraphMacro: MemberMacro {
 			storage: storage,
 			in: context
 		)
-	}
-
-	// 첫 구현 커밋에서 지원하는 class graph override 범위 판정
-	private static func typedOverrideIsSupported(
-		_ configuration: TypedOverrideConfiguration,
-		for graph: DependencyGraphDeclaration,
-		sources: [SourceGraphDescriptor],
-		in context: some MacroExpansionContext,
-		node: AttributeSyntax
-	) -> Bool {
-		guard configuration.isEnabled else {
-			return true
-		}
-		if accessLevel(of: graph.modifiers) == .public {
-			context.diagnose(Diagnostic(node: node, message: TypedOverrideDiagnostic.publicGraphUnsupported))
-			return false
-		}
-		return true
 	}
 
 	// class source 조합과 actor source 금지 규칙을 반영한 source descriptor 반환

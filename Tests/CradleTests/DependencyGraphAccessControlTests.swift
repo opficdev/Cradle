@@ -18,6 +18,43 @@ func anotherModuleCanUsePublicGraphAccessor() {
 	_ = graph.publicService
 }
 
+// 별도 module의 public override builder와 build 호출 확인
+@Test
+func anotherModuleCanBuildPublicTypedOverrideGraph() {
+	let graph = PublicTypedOverrideGraph.override(
+		publicTypedOverrideService: .factory {
+			PublicTypedOverrideService(value: 11)
+		}
+	).build()
+
+	#expect(graph.publicTypedOverrideService.value == 11)
+}
+
+// 별도 module의 public source graph override builder와 build 인자 호출 확인
+@Test
+func anotherModuleCanBuildPublicTypedOverrideSourceGraph() {
+	let graph = PublicTypedOverrideSourceGraph.override(
+		publicSourceService: .factory {
+			PublicSourceService(token: 17)
+		}
+	).build(publicSourceGraph: PublicSourceGraph())
+
+	#expect(graph.publicSourceService.token == 17)
+}
+
+// 별도 module의 public MainActor override builder와 build 호출 확인
+@Test
+@MainActor
+func anotherModuleCanBuildPublicMainActorTypedOverrideGraph() {
+	let graph = PublicMainActorTypedOverrideGraph.override(
+		publicTypedOverrideService: .factory {
+			PublicTypedOverrideService(value: 19)
+		}
+	).build()
+
+	#expect(graph.publicTypedOverrideService.value == 19)
+}
+
 // 별도 module의 public actor graph 접근자 await 호출 확인
 @Test
 func anotherModuleCanAwaitPublicActorGraphAccessor() async {
@@ -26,6 +63,19 @@ func anotherModuleCanAwaitPublicActorGraphAccessor() async {
 	let token = await service.token()
 
 	#expect(token == 21)
+}
+
+// 별도 module의 public actor override builder와 Sendable build 호출 확인
+@Test
+func anotherModuleCanBuildPublicTypedOverrideActorGraph() async {
+	let graph = PublicTypedOverrideActorGraph.override(
+		publicTypedOverrideActorService: .factory {
+			PublicTypedOverrideActorService(value: 14)
+		}
+	).build()
+	let service = await graph.publicTypedOverrideActorService
+
+	#expect(await service.token() == 14)
 }
 
 // public 접근자가 internal 반환 타입을 노출하는지 확인

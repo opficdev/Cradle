@@ -11,14 +11,6 @@ import SwiftDiagnostics
 enum TypedOverrideDiagnostic: DiagnosticMessage {
 	// `overrides` 인자의 정적 Bool literal 제약
 	case invalidConfiguration
-	// source graph override의 단계별 차단
-	case sourceGraphUnsupported
-	// actor graph override의 단계별 차단
-	case actorGraphUnsupported
-	// MainActor graph override의 단계별 차단
-	case mainActorGraphUnsupported
-	// public graph override의 단계별 차단
-	case publicGraphUnsupported
 	// override 생성 경로와 충돌하는 사용자 initializer
 	case userInitializer
 	// override 생성 경로가 초기화할 수 없는 저장 프로퍼티
@@ -31,14 +23,6 @@ enum TypedOverrideDiagnostic: DiagnosticMessage {
 		switch self {
 		case .invalidConfiguration:
 			MessageID(domain: "Cradle", id: "invalidOverrideConfiguration")
-		case .sourceGraphUnsupported:
-			MessageID(domain: "Cradle", id: "overrideSourceGraphUnsupported")
-		case .actorGraphUnsupported:
-			MessageID(domain: "Cradle", id: "overrideActorGraphUnsupported")
-		case .mainActorGraphUnsupported:
-			MessageID(domain: "Cradle", id: "overrideMainActorGraphUnsupported")
-		case .publicGraphUnsupported:
-			MessageID(domain: "Cradle", id: "overridePublicGraphUnsupported")
 		case .userInitializer:
 			MessageID(domain: "Cradle", id: "overrideUserInitializer")
 		case .uninitializedStoredProperty:
@@ -53,14 +37,6 @@ enum TypedOverrideDiagnostic: DiagnosticMessage {
 		switch self {
 		case .invalidConfiguration:
 			"`overrides`는 직접 작성한 `true` 또는 `false`여야 합니다."
-		case .sourceGraphUnsupported:
-			"`sources` graph의 타입 지정 override는 아직 지원하지 않습니다."
-		case .actorGraphUnsupported:
-			"actor graph의 타입 지정 override는 아직 지원하지 않습니다."
-		case .mainActorGraphUnsupported:
-			"@MainActor graph의 타입 지정 override는 아직 지원하지 않습니다."
-		case .publicGraphUnsupported:
-			"public graph의 타입 지정 override는 아직 지원하지 않습니다."
 		case .userInitializer:
 			"`overrides: true` graph는 initializer를 직접 선언할 수 없습니다."
 		case .uninitializedStoredProperty:
