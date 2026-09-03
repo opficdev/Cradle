@@ -333,7 +333,7 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `overrides: true` graph는 `override`, `OverrideBuilder`, `build()`도 graph와 같은 접근 수준으로 생성합니다. `public` graph에서 교체 Factory의 매개변수·반환 타입과 source graph 인자는 외부 모듈에서 접근할 수 있어야 합니다.
 
-`sources`와 `overrides: true`를 모두 지정하지 않은 graph에서는 Macro가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티를 바꾸지 않습니다. `sources` graph와 `overrides: true` graph는 Macro가 생성 경로를 소유합니다. 이 graph에서는 사용자가 initializer를 직접 선언하거나 초기값 없는 인스턴스 저장 프로퍼티를 선언하면 오류를 냅니다.
+`sources`와 `overrides: true`를 모두 지정하지 않은 graph에서는 Macro가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티를 바꾸지 않습니다. `sources` graph와 `overrides: true` graph는 Macro가 생성 경로를 소유합니다. 이 graph에서는 사용자가 initializer를 직접 선언하거나 Swift가 자동 초기화하지 않는 인스턴스 저장 프로퍼티를 선언하면 오류를 냅니다. Optional `var`와 기본 initializer가 있는 property wrapper 저장 프로퍼티는 Swift의 자동 초기화를 사용합니다.
 
 `sources` graph가 protocol만 채택하면 생성 initializer가 그대로 protocol 채택을 유지합니다. superclass를 상속한 `sources` graph에는 Macro가 `super.init()`을 생성하지 않습니다. superclass initializer 호출이 필요하면 Swift 컴파일러가 생성 initializer에서 오류를 표시합니다.
 

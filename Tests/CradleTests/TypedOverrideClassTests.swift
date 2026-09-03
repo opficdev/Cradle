@@ -32,6 +32,35 @@ final class TypedOverrideFactoryProbe {
 	var transientCount = 0
 }
 
+// 자동 초기화 graph가 보관할 약한 참조 계약
+protocol TypedOverrideAutomaticDelegate: AnyObject {}
+
+// 기본 initializer를 제공하는 override graph property wrapper
+@propertyWrapper
+struct TypedOverrideDefaultValue<Value> {
+	var wrappedValue: Value
+
+	init() where Value == Int {
+		wrappedValue = 0
+	}
+}
+
+// 자동 초기화 graph가 노출할 등록
+struct TypedOverrideAutomaticService {}
+
+// Optional var와 property wrapper를 보유한 override graph
+@DependencyGraph(overrides: true)
+final class TypedOverrideAutomaticInitializerGraph {
+	weak var delegate: (any TypedOverrideAutomaticDelegate)?
+	var cache: TypedOverrideAutomaticService?
+	@TypedOverrideDefaultValue var count: Int
+
+	@Provide
+	private func makeTypedOverrideAutomaticService() -> TypedOverrideAutomaticService {
+		TypedOverrideAutomaticService()
+	}
+}
+
 // 조합 graph에 전달할 source graph 값
 @DependencyGraph
 final class TypedOverrideSourceGraph {
@@ -213,4 +242,18 @@ func typedOverrideActorGraphBuildsWithSendableFactory() async {
 	#expect(await graph.typedOverrideActorValue.value == 21)
 	#expect(first.shared === second.shared)
 	#expect(first.shared.value == 55)
+}
+
+// 자동 초기화 저장 프로퍼티가 기본·override 생성 경로에서 유지되는지 확인
+@Test
+func typedOverrideGraphPreservesAutomaticStoredPropertyInitialization() {
+	let original = TypedOverrideAutomaticInitializerGraph()
+	let override = TypedOverrideAutomaticInitializerGraph.override().build()
+
+	#expect(original.delegate == nil)
+	#expect(override.delegate == nil)
+	#expect(original.cache == nil)
+	#expect(override.cache == nil)
+	#expect(original.count == 0)
+	#expect(override.count == 0)
 }

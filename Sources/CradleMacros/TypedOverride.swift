@@ -129,29 +129,15 @@ func diagnoseTypedOverrideInitializationErrors(
 			!typedOverrideHasTypeMemberModifier(variable.modifiers) else {
 			continue
 		}
-		for binding in variable.bindings where typedOverrideRequiresInitialization(binding) {
+		for binding in variable.bindings where requiresStoredPropertyInitialization(
+			binding,
+			in: variable
+		) {
 			context.diagnose(Diagnostic(node: binding.pattern, message: TypedOverrideDiagnostic.uninitializedStoredProperty))
 			hasError = true
 		}
 	}
 	return hasError
-}
-
-// initializer가 값을 대입해야 하는 저장 프로퍼티 판별
-private func typedOverrideRequiresInitialization(_ binding: PatternBindingSyntax) -> Bool {
-	guard binding.initializer == nil else {
-		return false
-	}
-	guard let accessorBlock = binding.accessorBlock else {
-		return true
-	}
-	guard case let .accessors(accessors) = accessorBlock.accessors else {
-		return false
-	}
-	return accessors.allSatisfy { accessor in
-		let name = accessor.accessorSpecifier.text
-		return name == "willSet" || name == "didSet"
-	}
 }
 
 // generated override 이름과 사용자 member의 충돌 진단
