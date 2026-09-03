@@ -31,6 +31,16 @@ let package = Package(
 				"Persistence",
 				"Infra"
 			]
+		),
+		.target(
+			name: "AppComposition",
+			dependencies: [
+				.product(name: "Cradle", package: "Cradle"),
+				"Domain",
+				"Data",
+				"Persistence",
+				"Infra"
+			]
 		)
 	],
 	swiftLanguageModes: [.v6]
