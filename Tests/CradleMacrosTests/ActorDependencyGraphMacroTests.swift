@@ -69,3 +69,35 @@ func actorDependencyGraphCreatesIsolatedSharedAccessor() throws {
 	#expect(source.contains("internal var service: Service"))
 	#expect(!source.contains("nonisolated"))
 }
+
+// actor graph의 교체 Factory와 builder Sendable 선언 확인
+@Test
+func actorDependencyGraphCreatesSendableOverrideBuilder() throws {
+	let file = Parser.parse(
+		source: """
+		@DependencyGraph(overrides: true)
+		actor Graph {
+			@Provide
+			private func makeService() -> Service { Service() }
+		}
+		"""
+	)
+	let graph = try #require(file.statements.first?.item.as(ActorDeclSyntax.self))
+	let attribute = try #require(graph.attributes.first?.as(AttributeSyntax.self))
+	let context = BasicMacroExpansionContext(sourceFiles: [
+		file: .init(moduleName: "Fixture", fullFilePath: "/Fixture.swift")
+	])
+	let declarations = try DependencyGraphMacro.expansion(
+		of: attribute,
+		providingMembersOf: graph,
+		conformingTo: [],
+		in: context
+	)
+	let source = declarations.map(\.trimmedDescription).joined(separator: "\n")
+
+	#expect(context.diagnostics.isEmpty)
+	#expect(source.contains("@Sendable () -> Service"))
+	#expect(source.contains("struct OverrideBuilder: Sendable"))
+	#expect(source.contains("enum __macro_local_"))
+	#expect(source.contains(": Sendable"))
+}

@@ -19,13 +19,16 @@ private struct TypedOverrideProvider {
 	let stateName: TokenSyntax
 	// builder와 graph 저장소가 공유할 선택 상태 이름
 	let storageName: TokenSyntax
+	// actor graph의 교체 Factory 동시성 경계 여부
+	let requiresSendableFactory: Bool
 
 	// Factory 함수 값 형식
 	var factoryType: String {
 		let parameters = provider.parameters.map { parameter in
 			parameter.type.trimmedDescription
 		}.joined(separator: ", ")
-		return "(\(parameters)) -> \(provider.returnType.trimmedDescription)"
+		let sendable = requiresSendableFactory ? "@Sendable " : ""
+		return "\(sendable)(\(parameters)) -> \(provider.returnType.trimmedDescription)"
 	}
 }
 
@@ -44,7 +47,8 @@ func typedOverrideDeclarations(
 		TypedOverrideProvider(
 			provider: provider,
 			stateName: typedOverrideUniqueName("TypedOverrideState", in: context),
-			storageName: typedOverrideUniqueName("typedOverrideState", in: context)
+			storageName: typedOverrideUniqueName("typedOverrideState", in: context),
+			requiresSendableFactory: graph.isActor
 		)
 	}
 	let builderName = TokenSyntax.identifier("OverrideBuilder")
@@ -60,12 +64,12 @@ func typedOverrideDeclarations(
 	)
 	return overrides.map(selectionDeclaration)
 			+ [
-				builderDeclaration(
-					named: builderName,
-					graph: graph.name,
-					providers: overrides,
-					sources: sources,
-					accessLevel: accessLevel
+			builderDeclaration(
+				named: builderName,
+				graph: graph,
+				providers: overrides,
+				sources: sources,
+				accessLevel: accessLevel
 				)
 			]
 		+ [overrideEntryPoint(named: builderName, providers: overrides, accessLevel: accessLevel)]
@@ -76,7 +80,8 @@ func typedOverrideDeclarations(
 			sources: sources,
 			transient: transient,
 			storage: sharedStorage,
-			accessLevel: accessLevel
+			accessLevel: accessLevel,
+			isActor: graph.isActor
 		)
 		+ typedOverridePropertyDeclarations(
 			providers: overrides,
@@ -206,9 +211,10 @@ private func typedOverrideHasTypeMemberModifier(_ modifiers: DeclModifierListSyn
 
 // `DependencyOverride`를 graph 내부 선택 상태로 변환하는 enum 선언
 private func selectionDeclaration(for override: TypedOverrideProvider) -> DeclSyntax {
-	DeclSyntax(
+	let sendable = override.requiresSendableFactory ? ": Sendable" : ""
+	return DeclSyntax(
 		"""
-		fileprivate enum \(override.stateName) {
+		fileprivate enum \(override.stateName)\(raw: sendable) {
 		    case original
 		    case factory(\(raw: override.factoryType))
 
@@ -228,11 +234,12 @@ private func selectionDeclaration(for override: TypedOverrideProvider) -> DeclSy
 // graph 생성 전 override 상태만 보관하는 nested builder 선언
 private func builderDeclaration(
 	named builderName: TokenSyntax,
-	graph: TokenSyntax,
+	graph: DependencyGraphDeclaration,
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
 	accessLevel: AccessLevel
 ) -> DeclSyntax {
+	let sendable = graph.isActor ? ": Sendable" : ""
 	let fields = providers.map { override in
 		"fileprivate let \(override.storageName): \(override.stateName)"
 	}.joined(separator: "\n")
@@ -252,15 +259,15 @@ private func builderDeclaration(
 	let buildArguments = (["overrides: self"] + (sourceArguments.isEmpty ? [] : [sourceArguments])).joined(separator: ", ")
 	return DeclSyntax(
 		"""
-		\(raw: accessLevel.rawValue) struct \(builderName) {
+		\(raw: accessLevel.rawValue) struct \(builderName)\(raw: sendable) {
 		    \(raw: fields)
 
 		    fileprivate init(\(raw: parameters)) {
 		        \(raw: assignments)
 		    }
 
-		    \(raw: accessLevel.rawValue) func build(\(raw: buildParameters)) -> \(graph) {
-		        \(graph)(\(raw: buildArguments))
+		\(raw: accessLevel.rawValue) func build(\(raw: buildParameters)) -> \(graph.name) {
+		    \(graph.name)(\(raw: buildArguments))
 		    }
 		}
 		"""
@@ -297,7 +304,8 @@ private func graphInitializers(
 	sources: [SourceGraphDescriptor],
 	transient: [TypedOverrideProvider],
 	storage: TypedOverrideSharedStorage,
-	accessLevel: AccessLevel
+	accessLevel: AccessLevel,
+	isActor: Bool
 ) -> [DeclSyntax] {
 	let transientAssignments = transient.map { override in
 		"self.\(override.storageName) = overrides.\(override.storageName)"
@@ -309,12 +317,13 @@ private func graphInitializers(
 	let sourceArguments = sources.map { source in
 		"\(source.propertyName): \(source.propertyName)"
 	}.joined(separator: ", ")
-		let originalValues = ["overrides: Self.override()"]
-			+ (sourceArguments.isEmpty ? [] : [sourceArguments])
-		let originalArguments = originalValues.joined(separator: ", ")
+	let originalValues = ["overrides: Self.override()"]
+		+ (sourceArguments.isEmpty ? [] : [sourceArguments])
+	let originalArguments = originalValues.joined(separator: ", ")
+	let initializerModifier = isActor ? "" : "convenience "
 	let originalInit = DeclSyntax(
 		"""
-		\(raw: accessLevel.rawValue) convenience init(\(raw: sourceParameters)) {
+		\(raw: accessLevel.rawValue) \(raw: initializerModifier)init(\(raw: sourceParameters)) {
 		    self.init(\(raw: originalArguments))
 		}
 		"""

@@ -120,10 +120,6 @@ struct DependencyGraphMacro: MemberMacro {
 		guard configuration.isEnabled else {
 			return true
 		}
-		if graph.isActor {
-			context.diagnose(Diagnostic(node: node, message: TypedOverrideDiagnostic.actorGraphUnsupported))
-			return false
-		}
 		if graph.isMainActor {
 			context.diagnose(Diagnostic(node: node, message: TypedOverrideDiagnostic.mainActorGraphUnsupported))
 			return false

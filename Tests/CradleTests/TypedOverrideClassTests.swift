@@ -62,6 +62,49 @@ struct TypedOverrideFeatureValue {
 	let value: Int
 }
 
+// actor graph 교체 결과 확인용 Sendable 값
+struct TypedOverrideActorValue: Sendable {
+	// 교체 결과 검증값
+	let value: Int
+}
+
+// shared 수명과 identity 확인용 actor 의존성
+actor TypedOverrideActorSharedService {
+	// 교체 결과 검증값
+	let value: Int
+
+	init(value: Int) {
+		self.value = value
+	}
+}
+
+// actor graph가 매번 만들 transient 결과
+struct TypedOverrideActorTransientValue: Sendable {
+	// actor graph가 보관한 shared 의존성
+	let shared: TypedOverrideActorSharedService
+}
+
+// Sendable 교체 Factory를 받는 actor graph
+@DependencyGraph(overrides: true)
+actor TypedOverrideActorGraph {
+	@Provide
+	private func makeTypedOverrideActorValue() -> TypedOverrideActorValue {
+		TypedOverrideActorValue(value: 13)
+	}
+
+	@Provide
+	private func makeTypedOverrideActorSharedService() -> TypedOverrideActorSharedService {
+		TypedOverrideActorSharedService(value: 34)
+	}
+
+	@Provide(.transient)
+	private func makeTypedOverrideActorTransientValue(
+		shared: TypedOverrideActorSharedService
+	) -> TypedOverrideActorTransientValue {
+		TypedOverrideActorTransientValue(shared: shared)
+	}
+}
+
 // source 참조 shared Factory 재작성을 확인할 조합 graph
 @DependencyGraph(sources: [TypedOverrideSourceGraph.self], overrides: true)
 final class TypedOverrideSharedFeatureGraph {
@@ -151,4 +194,23 @@ func typedOverrideSourceGraphBuildsSharedFactoryFromSource() {
 		.build(typedOverrideSourceGraph: TypedOverrideSourceGraph())
 
 	#expect(graph.typedOverrideFeatureValue.value == 5)
+}
+
+// actor graph가 Sendable 교체 Factory를 보관하고 actor 격리 접근자로 반환하는지 확인
+@Test
+func typedOverrideActorGraphBuildsWithSendableFactory() async {
+	let graph = TypedOverrideActorGraph.override(
+		typedOverrideActorValue: .factory {
+			TypedOverrideActorValue(value: 21)
+		},
+		typedOverrideActorSharedService: .factory {
+			TypedOverrideActorSharedService(value: 55)
+		}
+	).build()
+	let first = await graph.typedOverrideActorTransientValue
+	let second = await graph.typedOverrideActorTransientValue
+
+	#expect(await graph.typedOverrideActorValue.value == 21)
+	#expect(first.shared === second.shared)
+	#expect(first.shared.value == 55)
 }
