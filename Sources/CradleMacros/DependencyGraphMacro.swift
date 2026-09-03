@@ -101,6 +101,7 @@ struct DependencyGraphMacro: MemberMacro {
 		return typedOverrideDeclarations(
 			for: graph,
 			providers: providerResult.descriptors,
+			sources: sources,
 			accessLevel: graphAccess,
 			propertyNames: propertyNames,
 			storage: storage,
@@ -118,10 +119,6 @@ struct DependencyGraphMacro: MemberMacro {
 	) -> Bool {
 		guard configuration.isEnabled else {
 			return true
-		}
-		if !sources.isEmpty {
-			context.diagnose(Diagnostic(node: node, message: TypedOverrideDiagnostic.sourceGraphUnsupported))
-			return false
 		}
 		if graph.isActor {
 			context.diagnose(Diagnostic(node: node, message: TypedOverrideDiagnostic.actorGraphUnsupported))
