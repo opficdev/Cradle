@@ -275,6 +275,44 @@ func isDirectOptionalType(_ type: TypeSyntax) -> Bool {
 	return false
 }
 
+// 생성 initializer가 값을 대입해야 하는 저장 프로퍼티 판별
+func requiresStoredPropertyInitialization(
+	_ binding: PatternBindingSyntax,
+	in variable: VariableDeclSyntax
+) -> Bool {
+	guard binding.initializer == nil else {
+		return false
+	}
+	guard !hasAutomaticStoredPropertyInitialization(binding, in: variable) else {
+		return false
+	}
+	guard let accessorBlock = binding.accessorBlock else {
+		return true
+	}
+	guard case let .accessors(accessors) = accessorBlock.accessors else {
+		return false
+	}
+	return accessors.allSatisfy { accessor in
+		let name = accessor.accessorSpecifier.text
+		return name == "willSet" || name == "didSet"
+	}
+}
+
+// Optional var와 property wrapper 선언의 Swift 자동 초기화 판별
+private func hasAutomaticStoredPropertyInitialization(
+	_ binding: PatternBindingSyntax,
+	in variable: VariableDeclSyntax
+) -> Bool {
+	guard variable.attributes.isEmpty else {
+		return true
+	}
+	guard variable.bindingSpecifier.tokenKind == .keyword(.var),
+		let type = binding.typeAnnotation?.type else {
+		return false
+	}
+	return isDirectOptionalType(type)
+}
+
 // 앞 대문자 묶음을 보존하는 lowerCamelCase 접근자 이름 생성
 private func lowerCamelCase(_ name: String) -> String {
 	let characters = Array(name)

@@ -10,9 +10,11 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
+// swiftlint:disable type_body_length
 // `@Provide` Factory를 호출하는 반환 타입 기반 생성 프로퍼티 추가
 struct DependencyGraphMacro: MemberMacro {
 	// graph 본체의 유효한 Factory별 transient 생성 프로퍼티 생성
+	// swiftlint:disable:next function_body_length
 	static func expansion(
 		of node: AttributeSyntax,
 		providingMembersOf declaration: some DeclGroupSyntax,
@@ -23,9 +25,16 @@ struct DependencyGraphMacro: MemberMacro {
 			context.diagnose(Diagnostic(node: node, message: CradleMacroDiagnostic.invalidGraph))
 			return []
 		}
+		guard let overrideConfiguration = typedOverrideConfiguration(from: node, in: context) else {
+			return []
+		}
 
 		let sourceResult = sourceGraphResult(from: node, in: context)
 		guard let sources = acceptedSourceDescriptors(for: graph, from: node, result: sourceResult, in: context) else {
+			return []
+		}
+		if overrideConfiguration.isEnabled,
+			diagnoseTypedOverrideInitializationErrors(in: graph.memberBlock.members, context: context) {
 			return []
 		}
 
@@ -40,6 +49,13 @@ struct DependencyGraphMacro: MemberMacro {
 
 		guard !providerResult.hasError,
 			!hasDeclarationError else {
+			return []
+		}
+		if overrideConfiguration.isEnabled,
+			diagnoseTypedOverrideNameCollisions(
+				in: graph.memberBlock.members,
+				context: context
+			) {
 			return []
 		}
 		let propertyNames = propertyNames(for: providerResult.descriptors)
@@ -63,11 +79,23 @@ struct DependencyGraphMacro: MemberMacro {
 			accessLevel: graphAccess,
 			storage: storage
 		) : []
-		return sourceDeclarations + propertyDeclarations(
+		let properties = propertyDeclarations(
 			for: providerResult.descriptors,
 			accessLevel: graphAccess,
 			propertyNames: propertyNames,
 			storage: storage
+		)
+		guard overrideConfiguration.isEnabled else {
+			return sourceDeclarations + properties
+		}
+		return typedOverrideDeclarations(
+			for: graph,
+			providers: providerResult.descriptors,
+			sources: sources,
+			accessLevel: graphAccess,
+			propertyNames: propertyNames,
+			storage: storage,
+			in: context
 		)
 	}
 
@@ -280,6 +308,7 @@ struct DependencyGraphMacro: MemberMacro {
 		return hasError
 	}
 }
+// swiftlint:enable type_body_length
 
 // 등록 타입 identity와 생성 접근자 이름 연결 생성
 private func propertyNames(for providers: [ProviderDescriptor]) -> [RegisteredTypeIdentity: String] {

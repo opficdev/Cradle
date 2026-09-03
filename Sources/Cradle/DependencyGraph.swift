@@ -11,9 +11,10 @@
 //
 // provider 매개변수의 지역 이름을 등록 생성 접근자와 연결
 // final class `sources` source graph 저장 프로퍼티와 생성 initializer 추가
-// source 없는 graph의 initializer·stored property 미변경
+// `overrides: true` graph의 인스턴스별 Factory 선택 builder와 생성 경로 추가
+// source·override가 없는 graph의 initializer·stored property 미변경
 @attached(member, names: arbitrary)
-public macro DependencyGraph(sources: [Any.Type] = []) = #externalMacro(
+public macro DependencyGraph(sources: [Any.Type] = [], overrides: Bool = false) = #externalMacro(
 	module: "CradleMacros",
 	type: "DependencyGraphMacro"
 )

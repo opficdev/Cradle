@@ -17,6 +17,10 @@ struct DependencyGraphDeclaration {
 	let memberBlock: MemberBlockSyntax
 	// source graph 조합 지원 여부
 	let allowsSources: Bool
+	// actor 격리 graph 여부
+	let isActor: Bool
+	// MainActor 전역 격리 graph 여부
+	let isMainActor: Bool
 
 	// 지원하는 비 generic class·actor 선언을 공통 정보로 변환
 	init?(from declaration: some DeclGroupSyntax) {
@@ -30,6 +34,8 @@ struct DependencyGraphDeclaration {
 			modifiers = graph.modifiers
 			memberBlock = graph.memberBlock
 			allowsSources = true
+			isActor = false
+			isMainActor = containsMainActorAttribute(in: graph.attributes)
 			return
 		}
 
@@ -42,6 +48,8 @@ struct DependencyGraphDeclaration {
 			modifiers = graph.modifiers
 			memberBlock = graph.memberBlock
 			allowsSources = false
+			isActor = true
+			isMainActor = containsMainActorAttribute(in: graph.attributes)
 			return
 		}
 
@@ -54,6 +62,31 @@ private func dependencyGraphIsFinal(_ graph: ClassDeclSyntax) -> Bool {
 	graph.modifiers.contains { modifier in
 		modifier.name.tokenKind == .keyword(.final)
 	}
+}
+
+// 표준·모듈 한정 MainActor attribute를 같은 전역 격리로 판단
+private func containsMainActorAttribute(in attributes: AttributeListSyntax) -> Bool {
+	attributes.compactMap { element in
+		element.as(AttributeSyntax.self)
+	}.contains(where: isMainActorAttribute)
+}
+
+// `MainActor`와 `_Concurrency.MainActor` attribute 이름을 구문 구조로 판별
+private func isMainActorAttribute(_ attribute: AttributeSyntax) -> Bool {
+	if let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) {
+		return attributeIdentifierName(identifier.name) == "MainActor"
+	}
+	guard let member = attribute.attributeName.as(MemberTypeSyntax.self),
+		let module = member.baseType.as(IdentifierTypeSyntax.self) else {
+		return false
+	}
+	return attributeIdentifierName(module.name) == "_Concurrency"
+		&& attributeIdentifierName(member.name) == "MainActor"
+}
+
+// attribute identifier의 백틱 표기를 제외한 이름 반환
+private func attributeIdentifierName(_ token: TokenSyntax) -> String {
+	token.identifier?.name ?? token.text
 }
 
 // `@Provide`의 직접 lexical parent가 지원하는 graph 선언인지 확인

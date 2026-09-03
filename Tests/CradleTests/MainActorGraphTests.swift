@@ -11,6 +11,16 @@ import Testing
 // MainActor graph가 공유할 참조 값
 final class MainActorSharedService {}
 
+// MainActor override 결과 확인용 참조 값
+final class MainActorTypedOverrideService {
+	// 교체 결과 검증값
+	let value: Int
+
+	init(value: Int) {
+		self.value = value
+	}
+}
+
 // MainActor graph가 매번 새로 만들 결과
 struct MainActorTransientService {
 	// shared 수명 보존 여부를 확인할 의존성
@@ -36,6 +46,16 @@ final class MainActorDependencyGraph {
 	}
 }
 
+// MainActor 격리 builder 생성 경로 확인용 graph
+@_Concurrency.`MainActor`
+@DependencyGraph(overrides: true)
+final class MainActorTypedOverrideGraph {
+	@Provide
+	private func makeMainActorTypedOverrideService() -> MainActorTypedOverrideService {
+		MainActorTypedOverrideService(value: 8)
+	}
+}
+
 // MainActor class graph의 shared와 transient 생성 계약 회귀 확인
 @Test
 @MainActor
@@ -46,4 +66,17 @@ func mainActorGraphPreservesClassGraphLifetimes() {
 
 	#expect(first.shared === second.shared)
 	#expect(first.shared === graph.mainActorSharedService)
+}
+
+// MainActor에서 override builder와 build를 함께 호출하는지 확인
+@Test
+@MainActor
+func mainActorTypedOverrideGraphBuildsOnMainActor() {
+	let graph = MainActorTypedOverrideGraph.override(
+		mainActorTypedOverrideService: .replace {
+			MainActorTypedOverrideService(value: 15)
+		}
+	).build()
+
+	#expect(graph.mainActorTypedOverrideService.value == 15)
 }

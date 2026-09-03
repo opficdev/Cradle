@@ -53,12 +53,23 @@ func sourceGraphResult(
 	if arguments.isEmpty {
 		return SourceGraphResult(descriptors: [], hasError: false)
 	}
-	guard arguments.count == 1,
-		let argument = arguments.first,
-		argument.label?.identifier?.name == "sources",
-		let array = argument.expression.as(ArrayExprSyntax.self),
-		!attribute.hasError else {
+	let sourceArguments = arguments.filter { argument in
+		argument.label?.identifier?.name == "sources"
+	}
+	guard sourceArguments.count <= 1,
+		arguments.allSatisfy({ argument in
+			let name = argument.label?.identifier?.name
+			return name == "sources" || name == "overrides"
+		}) else {
 		context.diagnose(Diagnostic(node: arguments, message: SourceGraphDiagnostic.invalidSources))
+		return SourceGraphResult(descriptors: [], hasError: true)
+	}
+	guard let argument = sourceArguments.first else {
+		return SourceGraphResult(descriptors: [], hasError: false)
+	}
+	guard let array = argument.expression.as(ArrayExprSyntax.self),
+		!attribute.hasError else {
+		context.diagnose(Diagnostic(node: argument.expression, message: SourceGraphDiagnostic.invalidSources))
 		return SourceGraphResult(descriptors: [], hasError: true)
 	}
 	guard !array.elements.isEmpty else {
@@ -85,8 +96,9 @@ func sourceGraphResult(
 // actor graph source 조합 진단에 사용할 원본 `sources` 배열 표현식 반환
 func sourceGraphArgumentExpression(in attribute: AttributeSyntax) -> ExprSyntax? {
 	guard case let .argumentList(arguments)? = attribute.arguments,
-		arguments.count == 1,
-		let argument = arguments.first,
+		let argument = arguments.first(where: { argument in
+			argument.label?.identifier?.name == "sources"
+		}),
 		argument.label?.identifier?.name == "sources" else {
 		return nil
 	}
@@ -260,7 +272,7 @@ private func diagnoseSourceGraphMemberErrors(
 			!sourceGraphHasTypeMemberModifier(variable.modifiers) else {
 			continue
 		}
-		for binding in variable.bindings where sourceGraphHasUninitializedStoredProperty(
+		for binding in variable.bindings where requiresStoredPropertyInitialization(
 			binding,
 			in: variable
 		) {
@@ -271,44 +283,6 @@ private func diagnoseSourceGraphMemberErrors(
 		}
 	}
 	return hasError
-}
-
-// 자동 초기화 여부를 반영한 저장 프로퍼티 초기화 필요 여부 판별
-private func sourceGraphHasUninitializedStoredProperty(
-	_ binding: PatternBindingSyntax,
-	in variable: VariableDeclSyntax
-) -> Bool {
-	guard binding.initializer == nil else {
-		return false
-	}
-	guard !sourceGraphHasAutomaticInitialization(binding, in: variable) else {
-		return false
-	}
-	guard let accessorBlock = binding.accessorBlock else {
-		return true
-	}
-	guard case let .accessors(accessors) = accessorBlock.accessors else {
-		return false
-	}
-	return accessors.allSatisfy { accessor in
-		let name = accessor.accessorSpecifier.text
-		return name == "willSet" || name == "didSet"
-	}
-}
-
-// Optional var와 property wrapper 선언의 Swift 자동 초기화 판별
-private func sourceGraphHasAutomaticInitialization(
-	_ binding: PatternBindingSyntax,
-	in variable: VariableDeclSyntax
-) -> Bool {
-	guard variable.attributes.isEmpty else {
-		return true
-	}
-	guard variable.bindingSpecifier.tokenKind == .keyword(.var),
-		let type = binding.typeAnnotation?.type else {
-		return false
-	}
-	return isDirectOptionalType(type)
 }
 
 // source graph 저장 프로퍼티 검사에서 제외할 type member 판별

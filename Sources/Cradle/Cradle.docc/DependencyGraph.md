@@ -39,6 +39,48 @@ let client = graph.httpClient
 | `SHA256` | `sha256` |
 | `HTTP2Client` | `http2Client` |
 
+## graph 인스턴스별 Factory 교체
+
+테스트, Preview, 기능별 조립처럼 graph 인스턴스마다 다른 구현이 필요하면 `overrides: true`를 지정합니다. Macro는 등록별 `DependencyOverride<Factory>` 매개변수를 가진 static `override`와 `OverrideBuilder`를 만듭니다. `override`에 전달하지 않은 등록은 모두 `.original`이므로 선언한 Factory를 그대로 사용합니다.
+
+```swift
+import Cradle
+
+protocol UserRepository {
+	func load() -> String
+}
+
+struct LiveUserRepository: UserRepository {
+	func load() -> String { "운영" }
+}
+
+struct StubUserRepository: UserRepository {
+	func load() -> String { "테스트" }
+}
+
+@DependencyGraph(overrides: true)
+final class AppGraph {
+	@Provide
+	private func makeUserRepository() -> any UserRepository {
+		LiveUserRepository()
+	}
+}
+
+let graph = AppGraph.override(
+	userRepository: .replace {
+		StubUserRepository()
+	}
+).build()
+```
+
+`OverrideBuilder`는 교체 Factory와 `.original` 선택만 보관합니다. graph와 shared 등록은 `.build()`를 호출할 때 처음 만들며, 같은 builder로 여러 번 `.build()`하면 서로 다른 graph와 shared 저장소를 얻습니다. shared 교체 Factory는 graph마다 한 번 실행하고, transient 교체 Factory는 생성 프로퍼티를 읽을 때마다 실행합니다.
+
+builder를 보관하는 동안에는 builder가 선택한 모든 교체 Factory와 capture를 보관합니다. `.build()` 뒤 graph는 transient 교체 Factory와 그 capture만 graph가 해제될 때까지 보관합니다. shared 교체 Factory는 결과를 만든 뒤 graph에 보관하지 않습니다. 따라서 Factory가 graph 또는 builder를 capture하면 참조 순환이 생기지 않도록 수명을 직접 확인해야 합니다.
+
+`.replace` closure의 매개변수 타입·순서·반환 타입은 원래 `@Provide` Factory와 같습니다. 잘못된 매개변수 또는 반환 타입, 존재하지 않거나 중복한 argument label은 Swift 컴파일러가 closure 또는 호출 원본 위치에서 오류를 표시합니다. `Optional`, `Any`, 문자열 key, 전역 등록소는 교체 경로에 사용하지 않습니다.
+
+`sources` graph에서는 조합 graph가 직접 선언한 등록만 교체합니다. source graph 내부 등록은 전파해 교체하지 않으며 `.build(...)`에 source graph를 전달합니다. source graph를 함께 교체해야 하면 그 graph의 `override`를 별도로 호출합니다.
+
 ## actor graph
 
 `@DependencyGraph`는 비 generic actor에도 적용할 수 있습니다. actor graph에서 만든 생성 프로퍼티는 actor-isolated 상태로 남으므로 actor 밖에서는 `await`로 읽습니다. shared 등록은 class graph와 마찬가지로 graph 인스턴스별 타입 지정 `let` 저장소에 한 번 만들고, transient 등록은 접근할 때마다 Factory를 다시 호출합니다.
@@ -67,6 +109,8 @@ func loadSession() async -> UserSession {
 actor 내부에서는 non-`Sendable` 등록을 사용할 수 있습니다. 반면 actor 밖에서 non-`Sendable` 생성 프로퍼티를 `await`로 읽으면 Swift 컴파일러가 그 소비 위치에서 오류를 표시합니다. Macro는 `Sendable` 준수나 actor 경계 통과 여부를 판단하지 않습니다.
 
 actor graph에는 `sources`를 지정할 수 없습니다. actor source graph 조합, `async`·`throws`·`rethrows` Factory, `nonisolated`, `nonisolated(unsafe)`, `@unchecked Sendable`, lock은 지원하지 않습니다.
+
+actor graph에 `overrides: true`를 지정하면 교체 Factory는 `@Sendable` closure여야 하고 `OverrideBuilder`도 `Sendable`을 준수합니다. non-`Sendable` 값을 capture하면 Swift 컴파일러가 closure 원본 위치에서 오류를 표시합니다. `@MainActor` graph의 `override`와 `OverrideBuilder.build()`는 `@MainActor` 격리를 유지합니다.
 
 ## class graph 동시성
 
@@ -108,7 +152,7 @@ final class SessionGraph {
 	}
 }
 
-@DependencyGraph(sources: [SessionGraph.self, AppGraph.self])
+@DependencyGraph(sources: [SessionGraph.self, AppGraph.self], overrides: true)
 final class FeatureGraph {
 	@Provide
 	private func makeFeature() -> Feature {
@@ -119,7 +163,11 @@ final class FeatureGraph {
 	}
 }
 
-let graph = FeatureGraph(appGraph: AppGraph(), sessionGraph: SessionGraph())
+let graph = FeatureGraph.override(
+	feature: .replace {
+		Feature(repository: Repository(), session: Session())
+	}
+).build(appGraph: AppGraph(), sessionGraph: SessionGraph())
 let feature = graph.feature
 ```
 
@@ -283,17 +331,17 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 ## 접근 수준과 초기화
 
-생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `sources`가 없는 `public` graph를 다른 모듈에서 만들려면 `public init()`을 직접 선언해야 합니다. `public` 생성 프로퍼티의 반환 타입도 외부 모듈에서 접근할 수 있어야 합니다.
+생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `overrides: true` graph는 `override`, `OverrideBuilder`, `build()`도 graph와 같은 접근 수준으로 생성합니다. `public` graph에서 교체 Factory의 매개변수·반환 타입과 source graph 인자는 외부 모듈에서 접근할 수 있어야 합니다.
 
-`sources`가 없는 graph에서는 Macro가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티를 바꾸지 않습니다. 반면 `sources` graph는 source 저장 프로퍼티를 초기화할 생성자를 Macro가 만듭니다. 이때 사용자가 initializer를 직접 선언하거나 초기값 없는 인스턴스 저장 프로퍼티를 선언하면 오류를 냅니다.
+`sources`와 `overrides: true`를 모두 지정하지 않은 graph에서는 Macro가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티를 바꾸지 않습니다. `sources` graph와 `overrides: true` graph는 Macro가 생성 경로를 소유합니다. 이 graph에서는 사용자가 initializer를 직접 선언하거나 Swift가 자동 초기화하지 않는 인스턴스 저장 프로퍼티를 선언하면 오류를 냅니다. Optional `var`와 기본 initializer가 있는 property wrapper 저장 프로퍼티는 Swift의 자동 초기화를 사용합니다.
 
 `sources` graph가 protocol만 채택하면 생성 initializer가 그대로 protocol 채택을 유지합니다. superclass를 상속한 `sources` graph에는 Macro가 `super.init()`을 생성하지 않습니다. superclass initializer 호출이 필요하면 Swift 컴파일러가 생성 initializer에서 오류를 표시합니다.
 
 ## 현재 지원 범위
 
-현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결과 transient·shared 수명만 지원합니다. 다음 기능은 아직 지원하지 않습니다.
+현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결, transient·shared 수명, graph 인스턴스별 Factory 교체를 지원합니다. 다음 기능은 아직 지원하지 않습니다.
 
-- 등록 재정의
+- graph 생성 뒤 등록 교체
 - source graph 생성 프로퍼티의 자동 주입
 - qualifier와 multibinding
 - graph 입력과 assisted factory
