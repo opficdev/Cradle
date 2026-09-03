@@ -13,7 +13,7 @@
 // final class `sources` source graph 저장 프로퍼티와 생성 initializer 추가
 // source 없는 graph의 initializer·stored property 미변경
 @attached(member, names: arbitrary)
-public macro DependencyGraph(sources: [Any.Type] = []) = #externalMacro(
+public macro DependencyGraph(sources: [Any.Type] = [], overrides: Bool = false) = #externalMacro(
 	module: "CradleMacros",
 	type: "DependencyGraphMacro"
 )

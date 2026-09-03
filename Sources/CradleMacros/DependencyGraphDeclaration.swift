@@ -17,6 +17,10 @@ struct DependencyGraphDeclaration {
 	let memberBlock: MemberBlockSyntax
 	// source graph 조합 지원 여부
 	let allowsSources: Bool
+	// actor 격리 graph 여부
+	let isActor: Bool
+	// MainActor 전역 격리 graph 여부
+	let isMainActor: Bool
 
 	// 지원하는 비 generic class·actor 선언을 공통 정보로 변환
 	init?(from declaration: some DeclGroupSyntax) {
@@ -30,6 +34,8 @@ struct DependencyGraphDeclaration {
 			modifiers = graph.modifiers
 			memberBlock = graph.memberBlock
 			allowsSources = true
+			isActor = false
+			isMainActor = containsAttribute(named: "MainActor", in: graph.attributes)
 			return
 		}
 
@@ -42,6 +48,8 @@ struct DependencyGraphDeclaration {
 			modifiers = graph.modifiers
 			memberBlock = graph.memberBlock
 			allowsSources = false
+			isActor = true
+			isMainActor = containsAttribute(named: "MainActor", in: graph.attributes)
 			return
 		}
 

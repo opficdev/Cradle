@@ -53,12 +53,23 @@ func sourceGraphResult(
 	if arguments.isEmpty {
 		return SourceGraphResult(descriptors: [], hasError: false)
 	}
-	guard arguments.count == 1,
-		let argument = arguments.first,
-		argument.label?.identifier?.name == "sources",
-		let array = argument.expression.as(ArrayExprSyntax.self),
-		!attribute.hasError else {
+	let sourceArguments = arguments.filter { argument in
+		argument.label?.identifier?.name == "sources"
+	}
+	guard sourceArguments.count <= 1,
+		arguments.allSatisfy({ argument in
+			let name = argument.label?.identifier?.name
+			return name == "sources" || name == "overrides"
+		}) else {
 		context.diagnose(Diagnostic(node: arguments, message: SourceGraphDiagnostic.invalidSources))
+		return SourceGraphResult(descriptors: [], hasError: true)
+	}
+	guard let argument = sourceArguments.first else {
+		return SourceGraphResult(descriptors: [], hasError: false)
+	}
+	guard let array = argument.expression.as(ArrayExprSyntax.self),
+		!attribute.hasError else {
+		context.diagnose(Diagnostic(node: argument.expression, message: SourceGraphDiagnostic.invalidSources))
 		return SourceGraphResult(descriptors: [], hasError: true)
 	}
 	guard !array.elements.isEmpty else {
@@ -85,8 +96,9 @@ func sourceGraphResult(
 // actor graph source 조합 진단에 사용할 원본 `sources` 배열 표현식 반환
 func sourceGraphArgumentExpression(in attribute: AttributeSyntax) -> ExprSyntax? {
 	guard case let .argumentList(arguments)? = attribute.arguments,
-		arguments.count == 1,
-		let argument = arguments.first,
+		let argument = arguments.first(where: { argument in
+			argument.label?.identifier?.name == "sources"
+		}),
 		argument.label?.identifier?.name == "sources" else {
 		return nil
 	}
