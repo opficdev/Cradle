@@ -136,7 +136,7 @@ struct ProviderParameterDescriptor {
 			guard let attribute = element.as(AttributeSyntax.self) else {
 				return true
 			}
-			return attribute.attributeName.trimmedDescription != "External"
+			return !isExternalAttribute(attribute)
 		}
 		parameter.trailingComma = nil
 		return parameter.trimmedDescription
@@ -168,7 +168,7 @@ func providerParameterDescriptors(
 		}
 		// 백틱 표기를 보존한 외부 인자 레이블
 		let label = parameter.firstName.trimmedDescription
-		let external = attribute(named: "External", in: parameter.attributes)
+		let external = externalAttribute(in: parameter.attributes)
 		descriptors.append(
 			ProviderParameterDescriptor(
 				parameter: parameter,

@@ -131,3 +131,27 @@ func externalProviderMethodQualifiesShadowedGraphMembers() {
 		macros: testMacros
 	)
 }
+
+// 모듈로 한정한 외부 입력 marker 인식과 생성 서명의 marker 제거 확인
+@Test
+func externalProviderMethodRecognizesQualifiedExternal() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide(.transient)
+			private func makeProfile(@Cradle.External id: Int) -> Profile { Profile() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeProfile(@Cradle.External id: Int) -> Profile { Profile() }
+
+		    internal func profile(id: Int) -> Profile {
+		        self.makeProfile(id: id)
+		    }
+		}
+		""",
+		macros: testMacros
+	)
+}

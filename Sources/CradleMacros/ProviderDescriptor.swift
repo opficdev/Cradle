@@ -117,7 +117,7 @@ private func validatedProviderParameters(
 		return nil
 	}
 	for parameter in function.signature.parameterClause.parameters
-	where containsAttribute(named: "External", in: parameter.attributes) {
+	where externalAttribute(in: parameter.attributes) != nil {
 		let name = parameter.secondName ?? parameter.firstName
 		let localName = name.identifier?.name ?? name.text
 		guard parameter.attributes.count == 1,

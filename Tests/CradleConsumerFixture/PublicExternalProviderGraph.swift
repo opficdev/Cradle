@@ -33,7 +33,7 @@ public final class PublicExternalProviderGraph {
 	// 호출자가 전달한 입력으로 공개 결과 생성
 	@Provide(.transient)
 	private func makePublicExternalProviderService(
-		@External input: PublicExternalProviderInput
+		@Cradle.External input: PublicExternalProviderInput
 	) -> PublicExternalProviderService {
 		PublicExternalProviderService(value: input.value)
 	}

@@ -230,7 +230,7 @@ let client = AppGraph().httpClient
 
 ## 호출 시점 외부 입력
 
-화면 식별자처럼 graph를 만들 때 정할 수 없는 값은 `@External`로 표시합니다. `@External`은 명시적인 `@Provide(.transient)` Factory 매개변수에서만 사용할 수 있습니다. Macro는 표시하지 않은 매개변수를 타입으로 graph 등록에 연결하고, 표시한 매개변수만 받는 생성 메서드를 만듭니다.
+화면 식별자처럼 graph를 만들 때 정할 수 없는 값은 `@External`로 표시합니다. 이름 충돌을 피해야 할 때는 `@Cradle.External`로 한정할 수 있습니다. 두 표기는 명시적인 `@Provide(.transient)` Factory 매개변수에서만 사용할 수 있습니다. Macro는 표시하지 않은 매개변수를 타입으로 graph 등록에 연결하고, 표시한 매개변수만 받는 생성 메서드를 만듭니다.
 
 ```swift
 import Cradle

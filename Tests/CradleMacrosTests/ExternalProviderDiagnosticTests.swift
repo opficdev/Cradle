@@ -99,19 +99,19 @@ func externalProviderDiagnosticRejectsUnsupportedParameter(parameter: String) {
 }
 
 // 외부 입력과 함께 선언한 다른 매개변수 attribute 거부 확인
-@Test
-func externalProviderDiagnosticRejectsAdditionalParameterAttribute() {
+@Test(arguments: ["@External", "@Cradle.External"])
+func externalProviderDiagnosticRejectsAdditionalParameterAttribute(marker: String) {
 	assertMacroExpansion(
 		"""
 		@DependencyGraph
 		final class Graph {
 			@Provide(.transient)
-			private func makeService(@External @OtherWrapper id: Int) -> Service { Service() }
+			private func makeService(\(marker) @OtherWrapper id: Int) -> Service { Service() }
 		}
 		""",
 		expandedSource: """
 		final class Graph {
-			private func makeService(@External @OtherWrapper id: Int) -> Service { Service() }
+			private func makeService(\(marker) @OtherWrapper id: Int) -> Service { Service() }
 		}
 		""",
 		diagnostics: [
@@ -120,7 +120,7 @@ func externalProviderDiagnosticRejectsAdditionalParameterAttribute() {
 				message: "`@External` 매개변수는 지원하는 형식이어야 합니다.",
 				line: 4,
 				column: 27,
-				highlights: ["@External @OtherWrapper id: Int"]
+				highlights: ["\(marker) @OtherWrapper id: Int"]
 			)
 		],
 		macros: testMacros
