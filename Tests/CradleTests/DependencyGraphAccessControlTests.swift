@@ -29,6 +29,29 @@ func externalProviderMethodIsAvailableFromAnotherModule() {
 	#expect(service.value == 29)
 }
 
+// 별도 module의 public actor 외부 입력 생성 메서드 await 호출 확인
+@Test
+func externalProviderActorMethodIsAvailableFromAnotherModule() async {
+	let graph = PublicExternalProviderActorGraph()
+	let service = await graph.publicExternalProviderService(
+		input: PublicExternalProviderInput(value: 30)
+	)
+
+	#expect(service.value == 30)
+}
+
+// 별도 module의 public MainActor 외부 입력 생성 메서드 호출 확인
+@Test
+@MainActor
+func externalProviderMainActorMethodIsAvailableFromAnotherModule() {
+	let graph = PublicExternalProviderMainActorGraph()
+	let service = graph.publicExternalProviderService(
+		input: PublicExternalProviderInput(value: 31)
+	)
+
+	#expect(service.value == 31)
+}
+
 // 별도 module의 public override builder와 build 호출 확인
 @Test
 func anotherModuleCanBuildPublicTypedOverrideGraph() {

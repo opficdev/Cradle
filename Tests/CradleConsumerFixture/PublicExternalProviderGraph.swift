@@ -38,3 +38,34 @@ public final class PublicExternalProviderGraph {
 		PublicExternalProviderService(value: input.value)
 	}
 }
+
+// 외부 모듈에서 `await`로 생성 메서드를 호출할 공개 actor graph
+@DependencyGraph
+public actor PublicExternalProviderActorGraph {
+	// 외부 모듈의 actor graph 생성 허용 initializer
+	public init() {}
+
+	// 호출자가 전달한 Sendable 입력으로 공개 결과 생성
+	@Provide(.transient)
+	private func makePublicExternalProviderService(
+		@External input: PublicExternalProviderInput
+	) -> PublicExternalProviderService {
+		PublicExternalProviderService(value: input.value)
+	}
+}
+
+// 외부 모듈에서 MainActor 생성 메서드를 호출할 공개 graph
+@MainActor
+@DependencyGraph
+public final class PublicExternalProviderMainActorGraph {
+	// 외부 모듈의 MainActor graph 생성 허용 initializer
+	public init() {}
+
+	// MainActor에서 호출자가 전달한 입력으로 공개 결과 생성
+	@Provide(.transient)
+	private func makePublicExternalProviderService(
+		@External input: PublicExternalProviderInput
+	) -> PublicExternalProviderService {
+		PublicExternalProviderService(value: input.value)
+	}
+}

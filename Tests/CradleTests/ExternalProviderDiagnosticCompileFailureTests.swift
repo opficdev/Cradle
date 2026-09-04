@@ -66,6 +66,44 @@ func externalProviderOverrideRejectsWrongFactorySignature() throws {
 	#expect(result.output.contains(error))
 }
 
+// 외부 입력 생성 메서드의 actor 컴파일 실패 검증 모음
+@Suite("ExternalProviderConcurrency")
+struct ExternalProviderConcurrencyTests {
+	// actor 외부 생성 메서드의 non-Sendable 입력과 결과를 compiler가 거부하는지 확인
+	@Test
+	func rejectsNonSendableBoundary() throws {
+		let fixture = externalProviderDiagnosticFixture(named: "ExternalProviderNonSendableBoundary")
+		let inputResult = try buildExternalProviderDiagnosticFixture(
+			at: fixture,
+			strictConcurrency: true,
+			target: "ExternalProviderNonSendableInputBoundary"
+		)
+		let resultResult = try buildExternalProviderDiagnosticFixture(
+			at: fixture,
+			strictConcurrency: true,
+			target: "ExternalProviderNonSendableResultBoundary"
+		)
+		let captureResult = try buildExternalProviderDiagnosticFixture(
+			at: fixture,
+			strictConcurrency: true,
+			target: "ExternalProviderNonSendableCapture"
+		)
+		let captureError = "capture of 'capture' with non-Sendable type "
+			+ "'ExternalProviderNonSendableCapture'"
+
+		#expect(inputResult.terminationReason == .exit)
+		#expect(inputResult.status != 0)
+		#expect(inputResult.output.contains("sending 'input' risks causing data races"))
+		#expect(resultResult.terminationReason == .exit)
+		#expect(resultResult.status != 0)
+		#expect(resultResult.output.contains("non-Sendable 'ExternalProviderNonSendableResult'-typed result"))
+		#expect(resultResult.output.contains("can not be returned from actor-isolated instance method"))
+		#expect(captureResult.terminationReason == .exit)
+		#expect(captureResult.status != 0)
+		#expect(captureResult.output.contains(captureError))
+	}
+}
+
 // 이름으로 선택한 외부 입력 compiler fixture 경로
 private func externalProviderDiagnosticFixture(named name: String) -> URL {
 	URL(fileURLWithPath: #filePath)
@@ -77,7 +115,9 @@ private func externalProviderDiagnosticFixture(named name: String) -> URL {
 
 // fixture 실행 없이 별도 scratch 경로에서 compiler 진단 수집
 private func buildExternalProviderDiagnosticFixture(
-	at fixture: URL
+	at fixture: URL,
+	strictConcurrency: Bool = false,
+	target: String? = nil
 ) throws -> ExternalProviderDiagnosticCompileResult {
 	let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
 	let scratch = temporary.appendingPathComponent("scratch")
@@ -101,6 +141,12 @@ private func buildExternalProviderDiagnosticFixture(
 		"--scratch-path", scratch.path,
 		"-Xswiftc", "-diagnostic-style", "-Xswiftc", "llvm"
 	]
+	if strictConcurrency {
+		process.arguments?.append(contentsOf: ["-Xswiftc", "-strict-concurrency=complete"])
+	}
+	if let target {
+		process.arguments?.append(contentsOf: ["--target", target])
+	}
 	process.standardOutput = handle
 	process.standardError = handle
 	try process.run()
