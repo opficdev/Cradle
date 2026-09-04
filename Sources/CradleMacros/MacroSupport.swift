@@ -104,8 +104,11 @@ struct ProviderParameterDescriptor {
 	var isExternal: Bool { externalAttribute != nil }
 
 	// 외부 인자 레이블을 보존한 원본 Factory 인자
-	func factoryArgument(propertyName: String?) -> String {
-		let value = factoryValue(propertyName: propertyName)
+	func factoryArgument(propertyName: String?, qualifyingGraphMember: Bool = false) -> String {
+		let value = factoryValue(
+			propertyName: propertyName,
+			qualifyingGraphMember: qualifyingGraphMember
+		)
 		guard let externalLabel else {
 			return value
 		}
@@ -113,8 +116,12 @@ struct ProviderParameterDescriptor {
 	}
 
 	// graph 의존성 또는 호출자 입력의 Factory 값 표현
-	func factoryValue(propertyName: String?) -> String {
-		isExternal ? localNameToken.trimmedDescription : propertyName!
+	func factoryValue(propertyName: String?, qualifyingGraphMember: Bool = false) -> String {
+		guard !isExternal else {
+			return localNameToken.trimmedDescription
+		}
+		let value = propertyName!
+		return qualifyingGraphMember ? "self.\(value)" : value
 	}
 
 	// `@External`을 제거하고 원래 선언을 보존한 생성 메서드 매개변수

@@ -398,16 +398,22 @@ private func typedOverrideExternalMethodDeclaration(
 		parameter.externalMethodParameter()
 	}.joined(separator: ", ")
 	let originalArguments = provider.parameters.map { parameter in
-		parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity])
+		parameter.factoryArgument(
+			propertyName: propertyNames[parameter.typeIdentity],
+			qualifyingGraphMember: true
+		)
 	}.joined(separator: ", ")
 	let overrideArguments = provider.parameters.map { parameter in
-		parameter.factoryValue(propertyName: propertyNames[parameter.typeIdentity])
+		parameter.factoryValue(
+			propertyName: propertyNames[parameter.typeIdentity],
+			qualifyingGraphMember: true
+		)
 	}.joined(separator: ", ")
 	return DeclSyntax("""
 	\(raw: accessLevel.rawValue) func \(raw: provider.propertyName)(\(raw: parameters)) -> \(raw: provider.returnType.trimmedDescription) {
-	    switch \(override.storageName) {
+	    switch self.\(override.storageName) {
 	    case .original:
-	        \(raw: provider.factoryName)(\(raw: originalArguments))
+	        self.\(raw: provider.factoryName)(\(raw: originalArguments))
 	    case let .replace(factory):
 	        factory(\(raw: overrideArguments))
 	    }

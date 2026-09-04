@@ -48,6 +48,16 @@ struct ExternalProviderBodylessResult {
 	let input: Int
 }
 
+// 외부 입력 지역 이름에 가려질 수 있는 graph 멤버 확인 결과
+struct ExternalProviderShadowedResult {
+	// graph가 전달한 의존성
+	let repository: ExternalProviderRepository
+	// graph 접근자와 같은 외부 입력 지역 값
+	let id: Int
+	// Factory와 같은 외부 입력 지역 값
+	let name: String
+}
+
 // graph 의존성과 외부 입력 생성 검증 graph
 @DependencyGraph
 final class ExternalProviderGraph {
@@ -94,6 +104,30 @@ final class ExternalProviderBodylessGraph {
 	) -> ExternalProviderBodylessResult
 }
 
+// 외부 입력과 이름이 같은 graph 멤버 참조 검증 graph
+@DependencyGraph
+final class ExternalProviderShadowedGraph {
+	// 외부 입력 지역 이름과 같은 graph 접근자 생성
+	@Provide(.transient)
+	private func makeExternalProviderRepository() -> ExternalProviderRepository {
+		ExternalProviderRepository()
+	}
+
+	// Factory와 graph 접근자를 가리는 외부 입력으로 결과 생성
+	@Provide(.transient)
+	private func makeResult(
+		service: ExternalProviderRepository,
+		@External id externalProviderRepository: Int,
+		@External makeResult: String
+	) -> ExternalProviderShadowedResult {
+		ExternalProviderShadowedResult(
+			repository: service,
+			id: externalProviderRepository,
+			name: makeResult
+		)
+	}
+}
+
 // 외부 입력만 노출하고 호출마다 원본 Factory를 실행하는지 확인
 @Test
 func externalProviderMethodCallsFactoryWithExternalValues() {
@@ -133,4 +167,17 @@ func externalProviderBodylessMethodCallsInitializer() {
 
 	#expect(result.dependency.value == 29)
 	#expect(result.input == 1)
+}
+
+// 외부 입력 지역 이름에 가려진 graph 멤버를 올바르게 호출하는지 확인
+@Test
+func externalProviderMethodUsesQualifiedGraphMembers() {
+	let graph = ExternalProviderShadowedGraph()
+	let result = graph.externalProviderShadowedResult(
+		id: 29,
+		makeResult: "shadowed"
+	)
+
+	#expect(result.id == 29)
+	#expect(result.name == "shadowed")
 }

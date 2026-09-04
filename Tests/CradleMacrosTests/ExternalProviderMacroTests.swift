@@ -44,7 +44,7 @@ func externalProviderMethodPreservesMixedParameterOrder() {
 			private func makeLogger() -> Logger { Logger() }
 
 		    internal func profile(_ id: UserID, locale code: LocaleID) -> Profile {
-		        makeProfile(id, repository: repository, locale: code, logger: logger)
+		        self.makeProfile(id, repository: self.repository, locale: code, logger: self.logger)
 		    }
 
 		    internal var repository: Repository {
@@ -81,7 +81,46 @@ func externalProviderMethodSupportsBodylessFactory() {
 			private func makeRepository() -> Repository { Repository() }
 
 		    internal func profile(id: UserID) -> Profile {
-		        makeProfile(repository: repository, id: id)
+		        self.makeProfile(repository: self.repository, id: id)
+		    }
+
+		    internal var repository: Repository {
+		        makeRepository()
+		    }
+		}
+		""",
+		macros: testMacros
+	)
+}
+
+// 외부 입력 지역 이름과 같은 Factory와 graph 접근자 참조 한정 확인
+@Test
+func externalProviderMethodQualifiesShadowedGraphMembers() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide(.transient)
+			private func makeProfile(
+				service: Repository,
+				@External id repository: Int,
+				@External makeProfile: String
+			) -> Profile { Profile() }
+			@Provide(.transient)
+			private func makeRepository() -> Repository { Repository() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeProfile(
+				service: Repository,
+				@External id repository: Int,
+				@External makeProfile: String
+			) -> Profile { Profile() }
+			private func makeRepository() -> Repository { Repository() }
+
+		    internal func profile(id repository: Int, makeProfile: String) -> Profile {
+		        self.makeProfile(service: self.repository, id: repository, makeProfile: makeProfile)
 		    }
 
 		    internal var repository: Repository {

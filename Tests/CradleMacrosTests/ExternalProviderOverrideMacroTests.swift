@@ -44,7 +44,8 @@ func externalProviderOverrideKeepsFactorySignature() throws {
 	#expect(context.diagnostics.isEmpty)
 	#expect(source.contains("profile: DependencyOverride<(Repository, Int) -> Profile> = .original"))
 	#expect(source.contains("internal func profile(id: Int) -> Profile"))
-	#expect(source.contains("makeProfile(repository: repository, id: id)"))
-	#expect(source.contains("factory(repository, id)"))
+	#expect(source.contains("switch self."))
+	#expect(source.contains("self.makeProfile(repository: self.repository, id: id)"))
+	#expect(source.contains("factory(self.repository, id)"))
 	#expect(!source.contains("External<Int>"))
 }

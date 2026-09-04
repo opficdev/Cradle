@@ -20,6 +20,12 @@ struct ExternalProviderOverrideResult {
 	let value: String
 }
 
+// 외부 입력과 이름이 같은 graph 멤버를 사용하는 override 결과
+struct ExternalProviderOverrideShadowedResult {
+	// 원본 또는 교체 Factory가 받은 값
+	let value: String
+}
+
 // 외부 입력 원본·교체 Factory 검증 graph
 @DependencyGraph(overrides: true)
 final class ExternalProviderOverrideGraph {
@@ -36,6 +42,28 @@ final class ExternalProviderOverrideGraph {
 		@External id: Int
 	) -> ExternalProviderOverrideResult {
 		ExternalProviderOverrideResult(value: "original-\(repository.value)-\(id)")
+	}
+}
+
+// 외부 입력에 가려진 graph 멤버의 원본·교체 경로 검증 graph
+@DependencyGraph(overrides: true)
+final class ExternalProviderOverrideShadowedGraph {
+	// 외부 입력 지역 이름과 같은 graph 접근자 생성
+	@Provide
+	private func makeExternalProviderOverrideRepository() -> ExternalProviderOverrideRepository {
+		ExternalProviderOverrideRepository()
+	}
+
+	// Factory와 graph 접근자를 가리는 외부 입력으로 원본 결과 생성
+	@Provide(.transient)
+	private func makeResult(
+		service: ExternalProviderOverrideRepository,
+		@External id externalProviderOverrideRepository: Int,
+		@External makeResult: String
+	) -> ExternalProviderOverrideShadowedResult {
+		ExternalProviderOverrideShadowedResult(
+			value: "original-\(service.value)-\(externalProviderOverrideRepository)-\(makeResult)"
+		)
 	}
 }
 
@@ -60,4 +88,25 @@ func externalProviderOverrideUsesReplacementFactory() {
 	let result = graph.externalProviderOverrideResult(id: 2)
 
 	#expect(result.value == "replacement-29-2")
+}
+
+// `.original`과 `.replace`가 가려진 graph 멤버를 올바르게 참조하는지 확인
+@Test(arguments: [false, true])
+func externalProviderOverrideUsesQualifiedGraphMembers(replaced: Bool) {
+	let builder = replaced
+		? ExternalProviderOverrideShadowedGraph.override(
+			externalProviderOverrideShadowedResult: .replace { repository, id, name in
+				ExternalProviderOverrideShadowedResult(
+					value: "replacement-\(repository.value)-\(id)-\(name)"
+				)
+			}
+		)
+		: ExternalProviderOverrideShadowedGraph.override()
+	let result = builder.build().externalProviderOverrideShadowedResult(
+		id: 30,
+		makeResult: "shadowed"
+	)
+
+	let prefix = replaced ? "replacement" : "original"
+	#expect(result.value == "\(prefix)-29-30-shadowed")
 }

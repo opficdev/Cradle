@@ -43,12 +43,15 @@ private func externalMethodDeclaration(
 		parameter.externalMethodParameter()
 	}.joined(separator: ", ")
 	let arguments = provider.parameters.map { parameter in
-		parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity])
+		parameter.factoryArgument(
+			propertyName: propertyNames[parameter.typeIdentity],
+			qualifyingGraphMember: true
+		)
 	}.joined(separator: ", ")
 	return DeclSyntax(
 		"""
 		\(raw: accessLevel.rawValue) func \(raw: provider.propertyName)(\(raw: parameters)) -> \(raw: provider.returnType.trimmedDescription) {
-		    \(raw: provider.factoryName)(\(raw: arguments))
+		    self.\(raw: provider.factoryName)(\(raw: arguments))
 		}
 		"""
 	)
