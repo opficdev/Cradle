@@ -54,6 +54,9 @@ jobs:
       - name: List ExampleApp Project
         run: xcodebuild -list -project Examples/ExampleApp/ExampleApp.xcodeproj
 
+      - name: Disable SwiftSyntax Prebuilts
+        run: defaults write com.apple.dt.Xcode IDEPackageEnablePrebuilts NO
+
       - name: Build ExampleApp
         shell: bash
         run: |
