@@ -98,6 +98,35 @@ func externalProviderDiagnosticRejectsUnsupportedParameter(parameter: String) {
 	)
 }
 
+// 외부 입력과 함께 선언한 다른 매개변수 attribute 거부 확인
+@Test
+func externalProviderDiagnosticRejectsAdditionalParameterAttribute() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide(.transient)
+			private func makeService(@External @OtherWrapper id: Int) -> Service { Service() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeService(@External @OtherWrapper id: Int) -> Service { Service() }
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "invalidExternalParameter"),
+				message: "`@External` 매개변수는 지원하는 형식이어야 합니다.",
+				line: 4,
+				column: 27,
+				highlights: ["@External @OtherWrapper id: Int"]
+			)
+		],
+		macros: testMacros
+	)
+}
+
 // 직접 작성한 Optional 외부 입력에 기존 타입 진단을 유지하는지 확인
 @Test(arguments: ["Int?", "Optional<Int>", "Swift.Optional<Int>"])
 func externalProviderDiagnosticRejectsOptionalParameter(type: String) {

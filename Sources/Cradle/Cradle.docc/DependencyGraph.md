@@ -293,7 +293,7 @@ let viewModel = graph.userProfileViewModel(id: UserID(rawValue: 30))
 
 actor graph의 생성 메서드는 actor 격리를 유지하므로 actor 밖에서 `await`로 호출합니다. 입력과 반환 값의 `Sendable` 경계, actor override Factory의 non-`Sendable` capture는 Swift 컴파일러가 검사합니다. `@MainActor` graph의 생성 메서드는 같은 `@MainActor` 격리를 따릅니다.
 
-`@External` 매개변수에는 직접 작성한 Optional, 기본값, 가변 인자, `inout`, `@autoclosure`, `some`, `_` 지역 이름을 사용할 수 없습니다. 생성 메서드 이름이 기존 인스턴스 프로퍼티·메서드 또는 다른 생성 멤버와 겹쳐도 오류가 발생합니다. `public` graph에서 입력과 반환 타입이 공개되지 않았다면 Swift 컴파일러가 생성 메서드 선언을 거부합니다.
+`@External` 매개변수에는 직접 작성한 Optional, 기본값, 가변 인자, `inout`, `@autoclosure`, `some`, `_` 지역 이름을 사용할 수 없습니다. 같은 매개변수에 다른 property wrapper를 함께 붙여도 오류가 발생합니다. 생성 메서드 이름이 기존 인스턴스 프로퍼티·메서드 또는 다른 생성 멤버와 겹쳐도 오류가 발생합니다. `public` graph에서 입력과 반환 타입이 공개되지 않았다면 Swift 컴파일러가 생성 메서드 선언을 거부합니다.
 
 ## 프로토콜과 superclass 반환 타입
 

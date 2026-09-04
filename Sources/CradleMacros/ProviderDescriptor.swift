@@ -120,7 +120,9 @@ private func validatedProviderParameters(
 	where containsAttribute(named: "External", in: parameter.attributes) {
 		let name = parameter.secondName ?? parameter.firstName
 		let localName = name.identifier?.name ?? name.text
-		guard providerParameterIsSupported(parameter), localName != "_" else {
+		guard parameter.attributes.count == 1,
+			providerParameterIsSupported(parameter),
+			localName != "_" else {
 			context.diagnose(Diagnostic(node: parameter, message: InvalidExternalParameterDiagnostic()))
 			return nil
 		}

@@ -27,7 +27,8 @@ func externalProviderDiagnosticCompileFailuresReportOriginalLocations() throws {
 	let errors = [
 		"\(source.path):11:3: error: `@External`은 명시적인 `@Provide(.transient)`에서만 사용할 수 있습니다.",
 		"\(source.path):28:12: error: `ExternalProviderInvalidProfile`은 `@External` 입력이 필요한 생성 결과이므로 graph 의존성으로 자동 연결할 수 없습니다.",
-		"\(source.path):43:7: error: `externalProviderInvalidService` 생성 메서드 이름이 기존 graph 멤버와 충돌합니다."
+		"\(source.path):43:7: error: `externalProviderInvalidService` 생성 메서드 이름이 기존 graph 멤버와 충돌합니다.",
+		"\(source.path):61:3: error: `@External` 매개변수는 지원하는 형식이어야 합니다."
 	]
 
 	#expect(result.terminationReason == .exit)
