@@ -66,6 +66,8 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 
 // provider factory 인자 생성용 매개변수 정보 보관
 struct ProviderParameterDescriptor {
+	// 원본 provider 매개변수
+	let parameter: FunctionParameterSyntax?
 	// 원래 provider의 외부 인자 레이블
 	let externalLabel: String?
 	// 의존 생성 접근자와 일치할 지역 이름
@@ -76,14 +78,56 @@ struct ProviderParameterDescriptor {
 	let type: TypeSyntax
 	// 타입 철자 비교용 정규형
 	let typeIdentity: RegisteredTypeIdentity
+	// graph 생성 메서드 호출자가 전달할 입력 표시
+	let externalAttribute: AttributeSyntax?
 
-	// 외부 인자 레이블을 보존한 생성 프로퍼티 참조
-	func factoryArgument(propertyName: String) -> String {
-		let dependency = propertyName
+	// 직접 생성하는 기존 테스트와 원본 구문을 함께 지원하는 초기화
+	init(
+		parameter: FunctionParameterSyntax? = nil,
+		externalLabel: String?,
+		localName: String,
+		localNameToken: TokenSyntax,
+		type: TypeSyntax,
+		typeIdentity: RegisteredTypeIdentity,
+		externalAttribute: AttributeSyntax? = nil
+	) {
+		self.parameter = parameter
+		self.externalLabel = externalLabel
+		self.localName = localName
+		self.localNameToken = localNameToken
+		self.type = type
+		self.typeIdentity = typeIdentity
+		self.externalAttribute = externalAttribute
+	}
+
+	// graph 등록 대신 호출자가 전달하는 매개변수 여부
+	var isExternal: Bool { externalAttribute != nil }
+
+	// 외부 인자 레이블을 보존한 원본 Factory 인자
+	func factoryArgument(propertyName: String?) -> String {
+		let value = isExternal ? localNameToken.trimmedDescription : propertyName!
 		guard let externalLabel else {
-			return dependency
+			return value
 		}
-		return "\(externalLabel): \(dependency)"
+		return "\(externalLabel): \(value)"
+	}
+
+	// `@External`을 제거하고 원래 선언을 보존한 생성 메서드 매개변수
+	func externalMethodParameter() -> String? {
+		guard isExternal else {
+			return nil
+		}
+		guard var parameter else {
+			return nil
+		}
+		parameter.attributes = parameter.attributes.filter { element in
+			guard let attribute = element.as(AttributeSyntax.self) else {
+				return true
+			}
+			return attribute.attributeName.trimmedDescription != "External"
+		}
+		parameter.trailingComma = nil
+		return parameter.trimmedDescription
 	}
 
 	// initializer에 전달할 원본 지역 이름
@@ -131,13 +175,16 @@ func providerParameterDescriptors(
 		}
 		// 백틱 표기를 보존한 외부 인자 레이블
 		let label = parameter.firstName.trimmedDescription
+		let external = attribute(named: "External", in: parameter.attributes)
 		descriptors.append(
 			ProviderParameterDescriptor(
+				parameter: parameter,
 				externalLabel: label == "_" ? nil : label,
 				localName: localName,
 				localNameToken: name,
 				type: parameter.type,
-				typeIdentity: registeredTypeIdentity(for: parameter.type)
+				typeIdentity: registeredTypeIdentity(for: parameter.type),
+				externalAttribute: external
 			)
 		)
 	}

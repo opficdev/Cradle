@@ -22,6 +22,21 @@ struct ProviderDescriptor {
 	// Factory 결과를 graph에 보관할지 결정하는 수명
 	let lifetime: ProviderLifetime
 
+	// graph 등록으로 연결할 Factory 매개변수
+	var graphParameters: [ProviderParameterDescriptor] {
+		parameters.filter { !$0.isExternal }
+	}
+
+	// 생성 메서드 호출자가 전달할 Factory 매개변수
+	var externalParameters: [ProviderParameterDescriptor] {
+		parameters.filter(\.isExternal)
+	}
+
+	// 일반 생성 프로퍼티 대신 생성 메서드가 필요한지 여부
+	var hasExternalParameters: Bool {
+		parameters.contains(where: \.isExternal)
+	}
+
 	// 진단과 호출에 사용할 Factory 이름
 	var factoryName: String { factory.name.text }
 

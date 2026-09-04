@@ -18,6 +18,17 @@ func anotherModuleCanUsePublicGraphAccessor() {
 	_ = graph.publicService
 }
 
+// 별도 module의 public `@External` 생성 메서드 호출 확인
+@Test
+func externalProviderMethodIsAvailableFromAnotherModule() {
+	let graph = PublicExternalProviderGraph()
+	let service = graph.publicExternalProviderService(
+		input: PublicExternalProviderInput(value: 29)
+	)
+
+	#expect(service.value == 29)
+}
+
 // 별도 module의 public override builder와 build 호출 확인
 @Test
 func anotherModuleCanBuildPublicTypedOverrideGraph() {
