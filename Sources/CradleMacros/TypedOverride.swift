@@ -85,7 +85,8 @@ func typedOverrideDeclarations(
 			sources: sources,
 			accessLevel: accessLevel,
 			propertyNames: propertyNames,
-			storage: sharedStorage
+			storage: sharedStorage,
+			in: context
 		)
 }
 
@@ -356,12 +357,14 @@ private func graphInitializers(
 }
 
 // shared 저장소 참조와 transient Factory 선택을 반영한 생성 프로퍼티 선언
+// swiftlint:disable:next function_parameter_count
 private func typedOverridePropertyDeclarations(
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
 	accessLevel: AccessLevel,
 	propertyNames: [RegisteredTypeIdentity: String],
-	storage: TypedOverrideSharedStorage
+	storage: TypedOverrideSharedStorage,
+	in context: some MacroExpansionContext
 ) -> [DeclSyntax] {
 	let sourceStorage = sources.map { source in
 		DeclSyntax("private let \(raw: source.propertyName): \(raw: source.type.trimmedDescription)")
@@ -374,7 +377,8 @@ private func typedOverridePropertyDeclarations(
 			return typedOverrideExternalMethodDeclaration(
 				for: override,
 				accessLevel: accessLevel,
-				propertyNames: propertyNames
+				propertyNames: propertyNames,
+				replacementFactoryName: typedOverrideUniqueName("replacementFactory", in: context)
 			)
 		}
 		return typedOverridePropertyDeclaration(
@@ -391,7 +395,8 @@ private func typedOverridePropertyDeclarations(
 private func typedOverrideExternalMethodDeclaration(
 	for override: TypedOverrideProvider,
 	accessLevel: AccessLevel,
-	propertyNames: [RegisteredTypeIdentity: String]
+	propertyNames: [RegisteredTypeIdentity: String],
+	replacementFactoryName: TokenSyntax
 ) -> DeclSyntax {
 	let provider = override.provider
 	let parameters = provider.externalParameters.compactMap { parameter in
@@ -414,8 +419,8 @@ private func typedOverrideExternalMethodDeclaration(
 	    switch self.\(override.storageName) {
 	    case .original:
 	        self.\(raw: provider.factoryName)(\(raw: originalArguments))
-	    case let .replace(factory):
-	        factory(\(raw: overrideArguments))
+	    case let .replace(\(replacementFactoryName)):
+	        \(replacementFactoryName)(\(raw: overrideArguments))
 	    }
 	}
 	""")

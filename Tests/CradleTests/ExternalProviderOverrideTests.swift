@@ -39,9 +39,9 @@ final class ExternalProviderOverrideGraph {
 	@Provide(.transient)
 	private func makeExternalProviderOverrideResult(
 		repository: ExternalProviderOverrideRepository,
-		@External id: Int
+		@External id factory: Int
 	) -> ExternalProviderOverrideResult {
-		ExternalProviderOverrideResult(value: "original-\(repository.value)-\(id)")
+		ExternalProviderOverrideResult(value: "original-\(repository.value)-\(factory)")
 	}
 }
 

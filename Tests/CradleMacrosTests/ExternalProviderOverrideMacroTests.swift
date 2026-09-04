@@ -23,7 +23,7 @@ func externalProviderOverrideKeepsFactorySignature() throws {
 			@Provide(.transient)
 			private func makeProfile(
 				repository: Repository,
-				@External id: Int
+				@External id factory: Int
 			) -> Profile { Profile() }
 		}
 		"""
@@ -43,9 +43,10 @@ func externalProviderOverrideKeepsFactorySignature() throws {
 
 	#expect(context.diagnostics.isEmpty)
 	#expect(source.contains("profile: DependencyOverride<(Repository, Int) -> Profile> = .original"))
-	#expect(source.contains("internal func profile(id: Int) -> Profile"))
+	#expect(source.contains("internal func profile(id factory: Int) -> Profile"))
 	#expect(source.contains("switch self."))
-	#expect(source.contains("self.makeProfile(repository: self.repository, id: id)"))
-	#expect(source.contains("factory(self.repository, id)"))
+	#expect(source.contains("self.makeProfile(repository: self.repository, id: factory)"))
+	#expect(source.contains("replacementFactory"))
+	#expect(source.contains("(self.repository, factory)"))
 	#expect(!source.contains("External<Int>"))
 }
