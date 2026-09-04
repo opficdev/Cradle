@@ -6,7 +6,6 @@
 //
 
 // leaf source graph부터 앱 graph까지 조립하고 소유하는 Composition Root
-@MainActor
 final class ExampleAppComposition {
 	// 조립한 계층 graph를 소유할 앱 graph
 	private let graph: AppGraph

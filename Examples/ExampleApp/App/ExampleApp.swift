@@ -9,7 +9,6 @@ import SwiftUI
 
 // Cradle 소비 예제의 앱 진입점
 @main
-@MainActor
 struct ExampleApp: App {
 	// 앱 수명 동안 graph를 보유할 Composition Root
 	private let composition: ExampleAppComposition

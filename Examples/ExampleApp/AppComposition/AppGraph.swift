@@ -7,8 +7,7 @@
 
 import Cradle
 
-// Data graph와 Presentation 생성을 연결하는 MainActor graph
-@MainActor
+// Data graph와 Presentation 생성을 연결하는 app graph
 @DependencyGraph(sources: [DataGraph.self])
 final class AppGraph {
 	// Data graph의 Domain 계약으로 상품 조회 use case 생성

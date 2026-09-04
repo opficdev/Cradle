@@ -8,14 +8,13 @@
 import SwiftUI
 
 // 주입받은 ViewModel의 수명을 소유하는 상품 상세 View
-@MainActor
 struct ProductDetailView: View {
 	// 화면 수명 동안 보관할 ViewModel
-	@StateObject private var viewModel: ProductDetailViewModel
+	@State private var viewModel: ProductDetailViewModel
 
-	// Optional이 아닌 ViewModel 주입과 StateObject 초기화
+	// Optional이 아닌 ViewModel 주입과 State 초기화
 	init(viewModel: ProductDetailViewModel) {
-		_viewModel = StateObject(wrappedValue: viewModel)
+		_viewModel = State(initialValue: viewModel)
 	}
 
 	// 상품 조회 상태에 따른 화면 구성

@@ -9,7 +9,7 @@ import Cradle
 import SwiftUI
 
 // 저장값이 없을 때 Infra 결과를 표시하는 Preview 구성
-@MainActor
+@MainActor @ViewBuilder
 private func infraProductDetailPreview() -> some View {
 	// 저장값이 없는 기본 Persistence graph
 	let persistenceGraph = PersistenceGraph()
@@ -27,11 +27,11 @@ private func infraProductDetailPreview() -> some View {
 		productID: ProductID(rawValue: "remote-product")
 	)
 
-	return ProductDetailView(viewModel: viewModel)
+	ProductDetailView(viewModel: viewModel)
 }
 
 // Persistence 등록을 교체한 Preview 구성
-@MainActor
+@MainActor @ViewBuilder
 private func persistenceProductDetailPreview() -> some View {
 	// 등록 소유 graph에 직접 적용한 저장 상품 교체
 	let persistenceGraph = PersistenceGraph.override(
@@ -59,7 +59,7 @@ private func persistenceProductDetailPreview() -> some View {
 		productID: ProductID(rawValue: "stored-product")
 	)
 
-	return ProductDetailView(viewModel: viewModel)
+	ProductDetailView(viewModel: viewModel)
 }
 
 #Preview("Infra 대체 조회") {
