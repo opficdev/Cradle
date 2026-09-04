@@ -12,6 +12,8 @@
 		A10000000000000000000023 /* Product.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Product.swift */; };
 		A10000000000000000000024 /* ProductRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* ProductRepository.swift */; };
 		A10000000000000000000025 /* LoadProductUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* LoadProductUseCase.swift */; };
+		A10000000000000000000028 /* ProductStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000026 /* ProductStore.swift */; };
+		A10000000000000000000029 /* PersistenceGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* PersistenceGraph.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +22,8 @@
 		A10000000000000000000020 /* Product.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Product.swift; sourceTree = "<group>"; };
 		A10000000000000000000021 /* ProductRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductRepository.swift; sourceTree = "<group>"; };
 		A10000000000000000000022 /* LoadProductUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadProductUseCase.swift; sourceTree = "<group>"; };
+		A10000000000000000000026 /* ProductStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000027 /* PersistenceGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceGraph.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +89,8 @@
 		A10000000000000000000013 /* Persistence */ = {
 			isa = PBXGroup;
 			children = (
+				A10000000000000000000026 /* ProductStore.swift */,
+				A10000000000000000000027 /* PersistenceGraph.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -204,6 +210,8 @@
 				A10000000000000000000023 /* Product.swift in Sources */,
 				A10000000000000000000024 /* ProductRepository.swift in Sources */,
 				A10000000000000000000025 /* LoadProductUseCase.swift in Sources */,
+				A10000000000000000000028 /* ProductStore.swift in Sources */,
+				A10000000000000000000029 /* PersistenceGraph.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
