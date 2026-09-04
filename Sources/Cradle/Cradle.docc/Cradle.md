@@ -6,7 +6,7 @@ Cradle은 Swift 매크로로 의존성의 생성과 연결에 필요한 코드�
 
 `@DependencyGraph`는 비 generic `final class` 또는 비 generic `actor`에 적용합니다. graph 안의 동기 `private` Factory에 `@Provide`를 붙이면 의존성을 등록할 수 있습니다. Factory의 반환 타입이 등록 타입과 graph가 노출하는 읽기 전용 프로퍼티 타입이 됩니다.
 
-Factory 매개변수는 이름이 아니라 타입으로 다른 등록과 연결합니다. 외부 인자 레이블과 매개변수 순서는 Factory 호출에 그대로 유지합니다.
+Factory 매개변수는 이름이 아니라 타입으로 다른 등록과 연결합니다. 외부 인자 레이블과 매개변수 순서는 Factory 호출에 그대로 유지합니다. 호출할 때 정해지는 값은 명시적인 `@Provide(.transient)` Factory 매개변수에 `@External`을 붙여 생성 메서드의 입력으로 분리할 수 있습니다.
 
 Factory가 `any UserRepository`를 반환하면 graph의 `userRepository`도 같은 프로토콜 타입을 노출합니다. 구현 타입의 프로토콜 적합성은 Swift 컴파일러가 검사합니다.
 
@@ -30,6 +30,7 @@ class graph는 동시 접근을 조정하지 않습니다. 여러 Task에서 공
 
 - ``DependencyGraph(sources:overrides:)``
 - ``DependencyOverride``
+- ``External``
 - ``Provide()``
 - ``Provide(_:)``
 - ``DependencyLifetime``

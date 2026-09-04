@@ -228,6 +228,73 @@ let client = AppGraph().httpClient
 
 등록이 없는 매개변수 타입은 원본 매개변수 타입 위치에서 오류로 진단합니다. 같은 등록 타입을 둘 이상 반환하거나 생성 프로퍼티 이름이 기존 멤버 또는 다른 등록과 겹치면 graph의 프로퍼티를 생성하지 않습니다.
 
+## 호출 시점 외부 입력
+
+화면 식별자처럼 graph를 만들 때 정할 수 없는 값은 `@External`로 표시합니다. `@External`은 명시적인 `@Provide(.transient)` Factory 매개변수에서만 사용할 수 있습니다. Macro는 표시하지 않은 매개변수를 타입으로 graph 등록에 연결하고, 표시한 매개변수만 받는 생성 메서드를 만듭니다.
+
+```swift
+import Cradle
+
+struct UserID {
+	let rawValue: Int
+}
+
+final class UserRepository {}
+
+final class UserProfileViewModel {
+	let repository: UserRepository
+	let id: UserID
+
+	init(repository: UserRepository, id: UserID) {
+		self.repository = repository
+		self.id = id
+	}
+}
+
+@DependencyGraph(overrides: true)
+final class AppGraph {
+	@Provide
+	private func makeUserRepository() -> UserRepository {
+		UserRepository()
+	}
+
+	@Provide(.transient)
+	private func makeUserProfileViewModel(
+		repository: UserRepository,
+		@External id: UserID
+	) -> UserProfileViewModel {
+		UserProfileViewModel(repository: repository, id: id)
+	}
+}
+
+let graph = AppGraph.override().build()
+let viewModel = graph.userProfileViewModel(id: UserID(rawValue: 29))
+```
+
+이 예시에서 `UserRepository`는 graph가 전달하고 `UserID`는 생성 메서드 호출자가 전달합니다. 생성 메서드 이름은 반환 타입을 lowerCamelCase로 바꾼 `userProfileViewModel`입니다. 외부 인자 레이블, 지역 이름, 타입과 선언 순서는 생성 메서드와 원본 Factory 호출에 유지됩니다. `@External _ id: UserID`처럼 `_` 외부 레이블도 사용할 수 있습니다.
+
+생성 메서드는 호출할 때마다 Factory를 실행하며 graph는 결과를 보관하지 않습니다. 같은 입력을 반복해서 전달해도 Factory가 같은 인스턴스나 값을 반환하는지는 보장하지 않습니다. `External<Value>` wrapper도 생성 메서드 서명이나 반환 결과에 노출하거나 저장하지 않습니다.
+
+본문 없는 Factory에서도 같은 규칙을 사용합니다. Macro는 graph 의존성과 외부 입력을 원래 선언 순서대로 반환 타입 initializer에 전달하고, 생성 메서드는 외부 입력만 받습니다.
+
+외부 입력이 있는 Factory의 반환 타입은 일반 graph 등록이 아닙니다. 따라서 생성 프로퍼티, shared 저장소, 자동 의존성 연결과 순환 검사 간선에 포함되지 않습니다. 다른 Factory가 이 반환 타입을 매개변수로 요구하면 Macro는 생성 메서드를 직접 호출해야 한다는 오류를 표시합니다. 등록이 빠진 매개변수를 외부 입력으로 추론하지도 않습니다.
+
+`overrides: true` graph에서 `.original`은 원본 Factory를 사용합니다. `.replace` Factory는 graph 의존성과 외부 입력을 포함한 원래 매개변수 타입과 순서를 모두 유지하며, 외부 입력은 생성 메서드를 호출할 때 전달합니다.
+
+```swift
+let graph = AppGraph.override(
+	userProfileViewModel: .replace { repository, id in
+		UserProfileViewModel(repository: repository, id: id)
+	}
+).build()
+
+let viewModel = graph.userProfileViewModel(id: UserID(rawValue: 30))
+```
+
+actor graph의 생성 메서드는 actor 격리를 유지하므로 actor 밖에서 `await`로 호출합니다. 입력과 반환 값의 `Sendable` 경계, actor override Factory의 non-`Sendable` capture는 Swift 컴파일러가 검사합니다. `@MainActor` graph의 생성 메서드는 같은 `@MainActor` 격리를 따릅니다.
+
+`@External` 매개변수에는 직접 작성한 Optional, 기본값, 가변 인자, `inout`, `@autoclosure`, `some`, `_` 지역 이름을 사용할 수 없습니다. 생성 메서드 이름이 기존 인스턴스 프로퍼티·메서드 또는 다른 생성 멤버와 겹쳐도 오류가 발생합니다. `public` graph에서 입력과 반환 타입이 공개되지 않았다면 Swift 컴파일러가 생성 메서드 선언을 거부합니다.
+
 ## 프로토콜과 superclass 반환 타입
 
 Factory는 protocol 또는 superclass를 반환 타입으로 선언할 수 있습니다. 생성 프로퍼티도 선언한 반환 타입을 그대로 노출하고, 구현 타입이 그 타입에 대입 가능한지는 Swift 컴파일러가 검사합니다.
@@ -339,12 +406,12 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 ## 현재 지원 범위
 
-현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결, transient·shared 수명, graph 인스턴스별 Factory 교체를 지원합니다. 다음 기능은 아직 지원하지 않습니다.
+현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결, transient·shared 수명, 호출 시점 외부 입력 생성 메서드, graph 인스턴스별 Factory 교체를 지원합니다. 다음 기능은 아직 지원하지 않습니다.
 
 - graph 생성 뒤 등록 교체
 - source graph 생성 프로퍼티의 자동 주입
 - qualifier와 multibinding
-- graph 입력과 assisted factory
+- graph 생성자 입력
 - actor graph의 `sources`와 actor source graph 조합
 - `async`, `throws`, `rethrows` Factory
 - `nonisolated`, `nonisolated(unsafe)`, `@unchecked Sendable`, lock

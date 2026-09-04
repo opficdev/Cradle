@@ -19,6 +19,25 @@ let graph = AppGraph.override(
 
 `.mock`에 전달하는 closure의 매개변수와 반환 타입은 등록한 `@Provide` Factory의 계약을 따릅니다. concrete 타입, `any Protocol`, superclass 반환 Factory는 Swift compiler가 같은 방식으로 검사합니다. 존재하지 않거나 중복된 등록 label, 맞지 않는 Factory 형식은 compiler가 호출 원본 위치에서 진단합니다.
 
+## 외부 입력 생성 메서드
+
+`@External` 입력이 있는 Factory도 `.mock`으로 교체할 수 있습니다. mock Factory는 graph 의존성과 외부 입력을 포함한 원래 Factory의 매개변수 타입과 순서를 모두 유지합니다. 생성 메서드 호출자는 외부 입력만 전달하며 graph 의존성은 graph가 mock Factory에 전달합니다.
+
+```swift
+import Cradle
+import CradleTesting
+
+let graph = AppGraph.override(
+	userProfileViewModel: .mock { repository, id in
+		UserProfileViewModel(repository: repository, id: id)
+	}
+).build()
+
+let viewModel = graph.userProfileViewModel(id: UserID(rawValue: 29))
+```
+
+외부 입력 생성 메서드는 호출할 때마다 mock Factory를 실행하고 결과를 graph에 보관하지 않습니다. `.mock`은 `@External` 입력을 미리 받거나 `External<Value>` wrapper를 저장하지 않으며 기존 `.replace` 선택 경로를 그대로 사용합니다.
+
 ## 원본 등록 유지
 
 테스트에서 mock을 지정하지 않은 등록은 오류가 아닙니다. `Graph.override(...)`의 생략한 매개변수는 `.original`이므로 선언한 Factory와 수명 정책을 그대로 사용합니다.
@@ -37,7 +56,7 @@ let graph = AppGraph.override(
 
 shared mock Factory는 builder를 만들 때 실행하지 않으며 각 `.build()`에서 한 번 실행합니다. 같은 graph는 그 결과를 재사용하고, 같은 builder로 만든 다른 graph는 별도의 shared 인스턴스를 소유합니다.
 
-transient mock Factory도 builder와 `.build()`에서 실행하지 않습니다. 생성 프로퍼티에 접근할 때마다 Factory를 호출하며, 필요한 shared 등록은 해당 graph가 보관한 값을 전달합니다.
+transient mock Factory도 builder와 `.build()`에서 실행하지 않습니다. 생성 프로퍼티에 접근하거나 외부 입력 생성 메서드를 호출할 때마다 Factory를 실행하며, 필요한 shared 등록은 해당 graph가 보관한 값을 전달합니다.
 
 `.mock`은 전역 registry나 실행 중 조회 API를 만들지 않습니다. override 선택과 shared 값은 모두 만든 graph 인스턴스에만 적용됩니다.
 
