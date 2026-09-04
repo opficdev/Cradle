@@ -9,11 +9,17 @@
 /* Begin PBXBuildFile section */
 		A1000000000000000000001A /* ExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* ExampleApp.swift */; };
 		A1000000000000000000001D /* Cradle in Frameworks */ = {isa = PBXBuildFile; productRef = A1000000000000000000001C /* Cradle */; };
+		A10000000000000000000023 /* Product.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Product.swift */; };
+		A10000000000000000000024 /* ProductRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* ProductRepository.swift */; };
+		A10000000000000000000025 /* LoadProductUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* LoadProductUseCase.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000005 /* ExampleApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ExampleApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000019 /* ExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleApp.swift; sourceTree = "<group>"; };
+		A10000000000000000000020 /* Product.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Product.swift; sourceTree = "<group>"; };
+		A10000000000000000000021 /* ProductRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductRepository.swift; sourceTree = "<group>"; };
+		A10000000000000000000022 /* LoadProductUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadProductUseCase.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +65,9 @@
 		A10000000000000000000011 /* Domain */ = {
 			isa = PBXGroup;
 			children = (
+				A10000000000000000000020 /* Product.swift */,
+				A10000000000000000000021 /* ProductRepository.swift */,
+				A10000000000000000000022 /* LoadProductUseCase.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -192,6 +201,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000000000000000000001A /* ExampleApp.swift in Sources */,
+				A10000000000000000000023 /* Product.swift in Sources */,
+				A10000000000000000000024 /* ProductRepository.swift in Sources */,
+				A10000000000000000000025 /* LoadProductUseCase.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
