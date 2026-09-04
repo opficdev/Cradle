@@ -51,6 +51,21 @@ func externalProviderDiagnosticRejectsPublicInternalTypes() throws {
 	#expect(result.output.contains("InternalExternalProviderResult"))
 }
 
+// 외부 입력 override Factory가 원본 전체 매개변수 형식을 요구하는지 확인
+@Test
+func externalProviderOverrideRejectsWrongFactorySignature() throws {
+	let fixture = externalProviderDiagnosticFixture(named: "ExternalProviderOverrideInvalidUsage")
+	let source = fixture.appendingPathComponent("Sources/ExternalProviderOverrideInvalidUsage/main.swift")
+	let result = try buildExternalProviderDiagnosticFixture(at: fixture)
+	let error = "\(source.path):23:45: error: contextual closure type "
+		+ "'(ExternalProviderOverrideRepository, Int) -> ExternalProviderOverrideResult' "
+		+ "expects 2 arguments, but 1 was used in closure body"
+
+	#expect(result.terminationReason == .exit)
+	#expect(result.status != 0)
+	#expect(result.output.contains(error))
+}
+
 // 이름으로 선택한 외부 입력 compiler fixture 경로
 private func externalProviderDiagnosticFixture(named name: String) -> URL {
 	URL(fileURLWithPath: #filePath)
