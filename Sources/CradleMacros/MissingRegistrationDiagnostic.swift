@@ -45,7 +45,7 @@ struct MissingRegistrationProviderNote: NoteMessage {
 }
 
 // 생성 호출용 이름을 바꾸지 않고 진단 문구에서 Factory 이름을 한 번만 인용
-private func quotedFactoryName(_ name: String) -> String {
+func quotedFactoryName(_ name: String) -> String {
 	if name.hasPrefix("`"), name.hasSuffix("`") {
 		return name
 	}

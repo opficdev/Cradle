@@ -70,7 +70,7 @@ struct ProviderParameterDescriptor {
 	let parameter: FunctionParameterSyntax?
 	// 원래 provider의 외부 인자 레이블
 	let externalLabel: String?
-	// 의존 생성 접근자와 일치할 지역 이름
+	// 원본 Factory 본문과 진단에 사용할 지역 이름
 	let localName: String
 	// 누락 오류를 표시할 원본 지역 이름 토큰
 	let localNameToken: TokenSyntax
@@ -151,26 +151,7 @@ func providerParameterDescriptors(
 		let name = parameter.secondName ?? parameter.firstName
 		// 백틱을 제외한 실제 연결 식별자
 		let localName = name.identifier?.name ?? name.text
-		// `inout` 또는 암시적 generic을 만드는 `some` 포함 여부
-		let hasUnsupportedSpecifier = parameter.type.tokens(viewMode: .sourceAccurate).contains { token in
-			token.tokenKind == .keyword(.inout) || token.tokenKind == .keyword(.some)
-		}
-		// 의존성 평가를 지연시키는 매개변수 type attribute
-		let attributes = parameter.type.as(AttributedTypeSyntax.self)?.attributes ?? []
-		// 입력 AST의 식별자로 백틱 표기까지 포함한 autoclosure 감지
-		let hasAutoclosure = attributes.contains { element in
-			guard let attribute = element.as(AttributeSyntax.self),
-				let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
-				return false
-			}
-			return identifier.name.identifier?.name == "autoclosure"
-		}
-		guard parameter.defaultValue == nil,
-			parameter.ellipsis == nil,
-			!hasUnsupportedSpecifier,
-			!hasAutoclosure,
-			!isDirectOptionalType(parameter.type),
-			localName != "_" else {
+		guard providerParameterIsSupported(parameter), localName != "_" else {
 			return nil
 		}
 		// 백틱 표기를 보존한 외부 인자 레이블
@@ -190,6 +171,26 @@ func providerParameterDescriptors(
 	}
 
 	return descriptors
+}
+
+// 기본 provider와 외부 입력에 공통으로 허용할 매개변수 형식 확인
+func providerParameterIsSupported(_ parameter: FunctionParameterSyntax) -> Bool {
+	let hasUnsupportedSpecifier = parameter.type.tokens(viewMode: .sourceAccurate).contains { token in
+		token.tokenKind == .keyword(.inout) || token.tokenKind == .keyword(.some)
+	}
+	let attributes = parameter.type.as(AttributedTypeSyntax.self)?.attributes ?? []
+	let hasAutoclosure = attributes.contains { element in
+		guard let attribute = element.as(AttributeSyntax.self),
+			let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
+			return false
+		}
+		return identifier.name.identifier?.name == "autoclosure"
+	}
+	return parameter.defaultValue == nil
+		&& parameter.ellipsis == nil
+		&& !hasUnsupportedSpecifier
+		&& !hasAutoclosure
+		&& !isDirectOptionalType(parameter.type)
 }
 
 // 지정한 이름 attribute의 선언 포함 여부 확인

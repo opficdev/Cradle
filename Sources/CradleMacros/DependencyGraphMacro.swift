@@ -131,19 +131,26 @@ struct DependencyGraphMacro: MemberMacro {
 		context: some MacroExpansionContext
 	) -> Bool {
 		let memberNames = instanceMemberNames(in: members)
+		let registeredProviders = providers.filter { !$0.hasExternalParameters }
 		let sourceError = diagnoseSourceGraphErrors(
 			in: members,
 			sources: sources,
-			providerNames: Set(providers.map(\.propertyIdentifier)),
+			providerNames: Set(registeredProviders.map(\.propertyIdentifier)),
 			memberNames: memberNames,
 			context: context
 		)
 		let propertyError = diagnosePropertyNameErrors(
-			in: providers,
+			in: registeredProviders,
 			memberNames: memberNames,
 			context: context
 		)
-		return sourceError || propertyError
+		let externalError = diagnoseExternalMethodNameCollisions(
+			in: providers,
+			sources: sources,
+			members: members,
+			context: context
+		)
+		return sourceError || propertyError || externalError
 	}
 
 	// Factory 매개변수·shared 참조·순환 연결 진단
@@ -257,9 +264,30 @@ struct DependencyGraphMacro: MemberMacro {
 		context: some MacroExpansionContext
 	) -> Bool {
 		var hasError = false
+		let externalProviders = Dictionary(grouping: providers.filter(\.hasExternalParameters)) { provider in
+			provider.registrationIdentity
+		}
 
 		for provider in providers {
 			for parameter in provider.graphParameters where propertyNames[parameter.typeIdentity] == nil {
+				if let external = externalProviders[parameter.typeIdentity]?.first {
+					context.diagnose(
+						Diagnostic(
+							node: parameter.type,
+							message: ExternalResultDependencyDiagnostic(
+								type: parameter.type.trimmedDescription
+							),
+							notes: [
+								Note(
+									node: Syntax(external.attribute),
+									message: ExternalResultProviderNote(factoryName: external.factoryName)
+								)
+							]
+						)
+					)
+					hasError = true
+					continue
+				}
 				context.diagnose(
 					Diagnostic(
 						node: parameter.type,

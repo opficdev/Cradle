@@ -70,13 +70,17 @@ func providerDescriptor(
 		let lifetime = providerLifetime(from: attribute, in: context) else {
 		return nil
 	}
-	return ProviderDescriptor(
+	let provider = ProviderDescriptor(
 		attribute: attribute,
 		factory: function,
 		registeredType: registeredType,
 		parameters: parameters,
 		lifetime: lifetime
 	)
+	guard validateExternalProviderLifetime(provider, context: context) else {
+		return nil
+	}
+	return provider
 }
 
 // Factory 선언과 효과 제약 검증
@@ -112,11 +116,48 @@ private func validatedProviderParameters(
 		context.diagnose(Diagnostic(node: parameter.type, message: InvalidProviderTypeDiagnostic()))
 		return nil
 	}
+	for parameter in function.signature.parameterClause.parameters
+	where containsAttribute(named: "External", in: parameter.attributes) {
+		let name = parameter.secondName ?? parameter.firstName
+		let localName = name.identifier?.name ?? name.text
+		guard providerParameterIsSupported(parameter), localName != "_" else {
+			context.diagnose(Diagnostic(node: parameter, message: InvalidExternalParameterDiagnostic()))
+			return nil
+		}
+	}
 	guard let parameters = providerParameterDescriptors(from: function.signature.parameterClause.parameters) else {
 		context.diagnose(Diagnostic(node: attribute, message: CradleMacroDiagnostic.invalidProviderParameter))
 		return nil
 	}
 	return parameters
+}
+
+// 외부 입력 Factory의 명시적 transient 수명 확인
+private func validateExternalProviderLifetime(
+	_ provider: ProviderDescriptor,
+	context: some MacroExpansionContext
+) -> Bool {
+	guard provider.hasExternalParameters, provider.lifetime != .transient else {
+		return true
+	}
+	for parameter in provider.externalParameters {
+		guard let external = parameter.externalAttribute else {
+			continue
+		}
+		context.diagnose(
+			Diagnostic(
+				node: external,
+				message: ExternalRequiresTransientDiagnostic(),
+				notes: [
+					Note(
+						node: Syntax(provider.attribute),
+						message: ExternalProviderLifetimeNote(factoryName: provider.factoryName)
+					)
+				]
+			)
+		)
+	}
+	return false
 }
 
 // 반환 타입을 등록·생성 프로퍼티 타입으로 검증
