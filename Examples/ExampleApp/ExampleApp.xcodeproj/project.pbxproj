@@ -19,6 +19,8 @@
 		A10000000000000000000031 /* DataGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* DataGraph.swift */; };
 		A10000000000000000000034 /* ProductDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000032 /* ProductDetailViewModel.swift */; };
 		A10000000000000000000035 /* ProductDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000033 /* ProductDetailView.swift */; };
+		A10000000000000000000038 /* AppGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000036 /* AppGraph.swift */; };
+		A10000000000000000000039 /* ExampleAppComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000037 /* ExampleAppComposition.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +36,8 @@
 		A1000000000000000000002F /* DataGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataGraph.swift; sourceTree = "<group>"; };
 		A10000000000000000000032 /* ProductDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailViewModel.swift; sourceTree = "<group>"; };
 		A10000000000000000000033 /* ProductDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailView.swift; sourceTree = "<group>"; };
+		A10000000000000000000036 /* AppGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGraph.swift; sourceTree = "<group>"; };
+		A10000000000000000000037 /* ExampleAppComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleAppComposition.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +138,8 @@
 		A10000000000000000000017 /* AppComposition */ = {
 			isa = PBXGroup;
 			children = (
+				A10000000000000000000036 /* AppGraph.swift */,
+				A10000000000000000000037 /* ExampleAppComposition.swift */,
 				A10000000000000000000018 /* Previews */,
 			);
 			path = AppComposition;
@@ -232,6 +238,8 @@
 				A10000000000000000000031 /* DataGraph.swift in Sources */,
 				A10000000000000000000034 /* ProductDetailViewModel.swift in Sources */,
 				A10000000000000000000035 /* ProductDetailView.swift in Sources */,
+				A10000000000000000000038 /* AppGraph.swift in Sources */,
+				A10000000000000000000039 /* ExampleAppComposition.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
