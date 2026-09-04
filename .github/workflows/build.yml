@@ -42,6 +42,46 @@ jobs:
           path: build.log
           if-no-files-found: ignore
 
+  example_app:
+    name: ExampleApp Build
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: List ExampleApp Workspace
+        run: xcodebuild -list -workspace Examples/ExampleApp/ExampleApp.xcworkspace
+
+      - name: Disable SwiftSyntax Prebuilts
+        run: defaults write com.apple.dt.Xcode IDEPackageEnablePrebuilts NO
+
+      - name: Build ExampleApp
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          set +e
+          xcodebuild \
+            -workspace Examples/ExampleApp/ExampleApp.xcworkspace \
+            -scheme ExampleApp \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee example-app-build.log
+          buildStatus=${PIPESTATUS[0]}
+          set -e
+          exit $buildStatus
+
+      - name: Upload ExampleApp build log artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: example-app-build-log
+          path: example-app-build.log
+          if-no-files-found: ignore
+
   test:
     name: Swift Test
     needs: build
