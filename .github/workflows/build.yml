@@ -51,8 +51,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: List ExampleApp Project
-        run: xcodebuild -list -project Examples/ExampleApp/ExampleApp.xcodeproj
+      - name: List ExampleApp Workspace
+        run: xcodebuild -list -workspace Examples/ExampleApp/ExampleApp.xcworkspace
 
       - name: Disable SwiftSyntax Prebuilts
         run: defaults write com.apple.dt.Xcode IDEPackageEnablePrebuilts NO
@@ -64,7 +64,7 @@ jobs:
           set -o pipefail
           set +e
           xcodebuild \
-            -project Examples/ExampleApp/ExampleApp.xcodeproj \
+            -workspace Examples/ExampleApp/ExampleApp.xcworkspace \
             -scheme ExampleApp \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
