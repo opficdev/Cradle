@@ -66,9 +66,11 @@ enum CradleMacroDiagnostic: DiagnosticMessage {
 
 // provider factory 인자 생성용 매개변수 정보 보관
 struct ProviderParameterDescriptor {
+	// 원본 provider 매개변수
+	let parameter: FunctionParameterSyntax?
 	// 원래 provider의 외부 인자 레이블
 	let externalLabel: String?
-	// 의존 생성 접근자와 일치할 지역 이름
+	// 원본 Factory 본문과 진단에 사용할 지역 이름
 	let localName: String
 	// 누락 오류를 표시할 원본 지역 이름 토큰
 	let localNameToken: TokenSyntax
@@ -76,14 +78,68 @@ struct ProviderParameterDescriptor {
 	let type: TypeSyntax
 	// 타입 철자 비교용 정규형
 	let typeIdentity: RegisteredTypeIdentity
+	// graph 생성 메서드 호출자가 전달할 입력 표시
+	let externalAttribute: AttributeSyntax?
 
-	// 외부 인자 레이블을 보존한 생성 프로퍼티 참조
-	func factoryArgument(propertyName: String) -> String {
-		let dependency = propertyName
+	// 직접 생성하는 기존 테스트와 원본 구문을 함께 지원하는 초기화
+	init(
+		parameter: FunctionParameterSyntax? = nil,
+		externalLabel: String?,
+		localName: String,
+		localNameToken: TokenSyntax,
+		type: TypeSyntax,
+		typeIdentity: RegisteredTypeIdentity,
+		externalAttribute: AttributeSyntax? = nil
+	) {
+		self.parameter = parameter
+		self.externalLabel = externalLabel
+		self.localName = localName
+		self.localNameToken = localNameToken
+		self.type = type
+		self.typeIdentity = typeIdentity
+		self.externalAttribute = externalAttribute
+	}
+
+	// graph 등록 대신 호출자가 전달하는 매개변수 여부
+	var isExternal: Bool { externalAttribute != nil }
+
+	// 외부 인자 레이블을 보존한 원본 Factory 인자
+	func factoryArgument(propertyName: String?, qualifyingGraphMember: Bool = false) -> String {
+		let value = factoryValue(
+			propertyName: propertyName,
+			qualifyingGraphMember: qualifyingGraphMember
+		)
 		guard let externalLabel else {
-			return dependency
+			return value
 		}
-		return "\(externalLabel): \(dependency)"
+		return "\(externalLabel): \(value)"
+	}
+
+	// graph 의존성 또는 호출자 입력의 Factory 값 표현
+	func factoryValue(propertyName: String?, qualifyingGraphMember: Bool = false) -> String {
+		guard !isExternal else {
+			return localNameToken.trimmedDescription
+		}
+		let value = propertyName!
+		return qualifyingGraphMember ? "self.\(value)" : value
+	}
+
+	// `@External`을 제거하고 원래 선언을 보존한 생성 메서드 매개변수
+	func externalMethodParameter() -> String? {
+		guard isExternal else {
+			return nil
+		}
+		guard var parameter else {
+			return nil
+		}
+		parameter.attributes = parameter.attributes.filter { element in
+			guard let attribute = element.as(AttributeSyntax.self) else {
+				return true
+			}
+			return !isExternalAttribute(attribute)
+		}
+		parameter.trailingComma = nil
+		return parameter.trimmedDescription
 	}
 
 	// initializer에 전달할 원본 지역 이름
@@ -107,42 +163,46 @@ func providerParameterDescriptors(
 		let name = parameter.secondName ?? parameter.firstName
 		// 백틱을 제외한 실제 연결 식별자
 		let localName = name.identifier?.name ?? name.text
-		// `inout` 또는 암시적 generic을 만드는 `some` 포함 여부
-		let hasUnsupportedSpecifier = parameter.type.tokens(viewMode: .sourceAccurate).contains { token in
-			token.tokenKind == .keyword(.inout) || token.tokenKind == .keyword(.some)
-		}
-		// 의존성 평가를 지연시키는 매개변수 type attribute
-		let attributes = parameter.type.as(AttributedTypeSyntax.self)?.attributes ?? []
-		// 입력 AST의 식별자로 백틱 표기까지 포함한 autoclosure 감지
-		let hasAutoclosure = attributes.contains { element in
-			guard let attribute = element.as(AttributeSyntax.self),
-				let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
-				return false
-			}
-			return identifier.name.identifier?.name == "autoclosure"
-		}
-		guard parameter.defaultValue == nil,
-			parameter.ellipsis == nil,
-			!hasUnsupportedSpecifier,
-			!hasAutoclosure,
-			!isDirectOptionalType(parameter.type),
-			localName != "_" else {
+		guard providerParameterIsSupported(parameter), localName != "_" else {
 			return nil
 		}
 		// 백틱 표기를 보존한 외부 인자 레이블
 		let label = parameter.firstName.trimmedDescription
+		let external = externalAttribute(in: parameter.attributes)
 		descriptors.append(
 			ProviderParameterDescriptor(
+				parameter: parameter,
 				externalLabel: label == "_" ? nil : label,
 				localName: localName,
 				localNameToken: name,
 				type: parameter.type,
-				typeIdentity: registeredTypeIdentity(for: parameter.type)
+				typeIdentity: registeredTypeIdentity(for: parameter.type),
+				externalAttribute: external
 			)
 		)
 	}
 
 	return descriptors
+}
+
+// 기본 provider와 외부 입력에 공통으로 허용할 매개변수 형식 확인
+func providerParameterIsSupported(_ parameter: FunctionParameterSyntax) -> Bool {
+	let hasUnsupportedSpecifier = parameter.type.tokens(viewMode: .sourceAccurate).contains { token in
+		token.tokenKind == .keyword(.inout) || token.tokenKind == .keyword(.some)
+	}
+	let attributes = parameter.type.as(AttributedTypeSyntax.self)?.attributes ?? []
+	let hasAutoclosure = attributes.contains { element in
+		guard let attribute = element.as(AttributeSyntax.self),
+			let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
+			return false
+		}
+		return identifier.name.identifier?.name == "autoclosure"
+	}
+	return parameter.defaultValue == nil
+		&& parameter.ellipsis == nil
+		&& !hasUnsupportedSpecifier
+		&& !hasAutoclosure
+		&& !isDirectOptionalType(parameter.type)
 }
 
 // 지정한 이름 attribute의 선언 포함 여부 확인

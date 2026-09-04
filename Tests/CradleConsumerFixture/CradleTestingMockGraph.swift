@@ -76,6 +76,17 @@ public struct CradleTestingOriginalService: Equatable {
 	}
 }
 
+// 외부 입력 mock Factory가 반환할 결과
+public struct CradleTestingExternalResult: Equatable {
+	// graph 의존성과 외부 입력을 조합한 검증값
+	public let token: Int
+
+	// 외부 입력 mock 결과 생성
+	public init(token: Int) {
+		self.token = token
+	}
+}
+
 // XCTest와 Swift Testing이 함께 사용할 override graph
 @DependencyGraph(overrides: true)
 public final class CradleTestingMockGraph {
@@ -101,6 +112,15 @@ public final class CradleTestingMockGraph {
 	@Provide
 	private func makeCradleTestingOriginalService() -> CradleTestingOriginalService {
 		CradleTestingOriginalService(token: 4)
+	}
+
+	// graph 의존성과 외부 입력으로 원본 결과 생성
+	@Provide(.transient)
+	private func makeCradleTestingExternalResult(
+		service: CradleTestingConcreteService,
+		@External input: Int
+	) -> CradleTestingExternalResult {
+		CradleTestingExternalResult(token: service.token + input)
 	}
 }
 

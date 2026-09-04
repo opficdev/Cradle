@@ -58,16 +58,18 @@ struct DependencyGraphMacro: MemberMacro {
 			) {
 			return []
 		}
-		let propertyNames = propertyNames(for: providerResult.descriptors)
+		let registeredProviders = providerResult.descriptors.filter { !$0.hasExternalParameters }
+		let propertyNames = propertyNames(for: registeredProviders)
 		guard providerConnectionsAreValid(
 			in: providerResult.descriptors,
+			registeredProviders: registeredProviders,
 			propertyNames: propertyNames,
 			context: context
 		) else {
 			return []
 		}
 		let storage = sharedStorage(
-			for: providerResult.descriptors,
+			for: registeredProviders,
 			graphName: graph.name,
 			sources: sources,
 			propertyNames: propertyNames,
@@ -79,7 +81,7 @@ struct DependencyGraphMacro: MemberMacro {
 			accessLevel: graphAccess,
 			storage: storage
 		) : []
-		let properties = propertyDeclarations(
+		let properties = providerDeclarations(
 			for: providerResult.descriptors,
 			accessLevel: graphAccess,
 			propertyNames: propertyNames,
@@ -129,24 +131,32 @@ struct DependencyGraphMacro: MemberMacro {
 		context: some MacroExpansionContext
 	) -> Bool {
 		let memberNames = instanceMemberNames(in: members)
+		let registeredProviders = providers.filter { !$0.hasExternalParameters }
 		let sourceError = diagnoseSourceGraphErrors(
 			in: members,
 			sources: sources,
-			providerNames: Set(providers.map(\.propertyIdentifier)),
+			providerNames: Set(registeredProviders.map(\.propertyIdentifier)),
 			memberNames: memberNames,
 			context: context
 		)
 		let propertyError = diagnosePropertyNameErrors(
-			in: providers,
+			in: registeredProviders,
 			memberNames: memberNames,
 			context: context
 		)
-		return sourceError || propertyError
+		let externalError = diagnoseExternalMethodNameCollisions(
+			in: providers,
+			sources: sources,
+			members: members,
+			context: context
+		)
+		return sourceError || propertyError || externalError
 	}
 
 	// Factory 매개변수·shared 참조·순환 연결 진단
 	private static func providerConnectionsAreValid(
 		in providers: [ProviderDescriptor],
+		registeredProviders: [ProviderDescriptor],
 		propertyNames: [RegisteredTypeIdentity: String],
 		context: some MacroExpansionContext
 	) -> Bool {
@@ -157,10 +167,10 @@ struct DependencyGraphMacro: MemberMacro {
 		) else {
 			return false
 		}
-		guard !diagnoseSharedProviderReferenceErrors(in: providers, context: context) else {
+		guard !diagnoseSharedProviderReferenceErrors(in: registeredProviders, context: context) else {
 			return false
 		}
-		return !diagnoseCircularDependency(in: providers, context: context)
+		return !diagnoseCircularDependency(in: registeredProviders, context: context)
 	}
 
 	// 첫 순환의 닫는 매개변수와 경로에 포함된 원본 등록 위치 진단
@@ -254,9 +264,30 @@ struct DependencyGraphMacro: MemberMacro {
 		context: some MacroExpansionContext
 	) -> Bool {
 		var hasError = false
+		let externalProviders = Dictionary(grouping: providers.filter(\.hasExternalParameters)) { provider in
+			provider.registrationIdentity
+		}
 
 		for provider in providers {
-			for parameter in provider.parameters where propertyNames[parameter.typeIdentity] == nil {
+			for parameter in provider.graphParameters where propertyNames[parameter.typeIdentity] == nil {
+				if let external = externalProviders[parameter.typeIdentity]?.first {
+					context.diagnose(
+						Diagnostic(
+							node: parameter.type,
+							message: ExternalResultDependencyDiagnostic(
+								type: parameter.type.trimmedDescription
+							),
+							notes: [
+								Note(
+									node: Syntax(external.attribute),
+									message: ExternalResultProviderNote(factoryName: external.factoryName)
+								)
+							]
+						)
+					)
+					hasError = true
+					continue
+				}
 				context.diagnose(
 					Diagnostic(
 						node: parameter.type,
@@ -290,7 +321,7 @@ struct DependencyGraphMacro: MemberMacro {
 		var hasError = false
 
 		for provider in providers where provider.lifetime == .shared {
-			for parameter in provider.parameters {
+			for parameter in provider.graphParameters {
 				guard let dependency = registrations[parameter.typeIdentity],
 					dependency.lifetime == .transient else {
 					continue
@@ -361,37 +392,4 @@ private func sharedStorage(
 		propertyNames: propertyNames,
 		in: context
 	)
-}
-
-// shared 저장소와 transient Factory 호출을 구분한 생성 프로퍼티 선언 생성
-private func propertyDeclarations(
-	for providers: [ProviderDescriptor],
-	accessLevel: AccessLevel,
-	propertyNames: [RegisteredTypeIdentity: String],
-	storage: SharedGraphStorage?
-) -> [DeclSyntax] {
-	let properties = providers.map { provider in
-		let propertySignature = "\(accessLevel.rawValue) var \(provider.propertyName)"
-		if provider.lifetime == .shared, let storage {
-			return DeclSyntax(
-				"""
-				\(raw: propertySignature): \(raw: provider.returnType.trimmedDescription) {
-				    \(raw: storage.valueReference(for: provider))
-				}
-				"""
-			)
-		}
-		let arguments = provider.parameters.map { parameter in
-			parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity]!)
-		}.joined(separator: ", ")
-
-		return DeclSyntax(
-			"""
-			\(raw: propertySignature): \(raw: provider.returnType.trimmedDescription) {
-			    \(raw: provider.factoryName)(\(raw: arguments))
-			}
-			"""
-		)
-	}
-	return (storage?.declarations() ?? []) + properties
 }

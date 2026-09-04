@@ -31,6 +31,19 @@ func cradleTestingSwiftTestingSupportsMockFactoryContracts() {
 	#expect(graph.cradleTestingOriginalService.token == 4)
 }
 
+// Swift Testing에서 외부 입력 mock Factory의 전체 매개변수 전달 확인
+@Test
+func externalProviderOverrideMockSupportsExternalInput() {
+	let graph = CradleTestingMockGraph.override(
+		cradleTestingExternalResult: .mock { service, input in
+			CradleTestingExternalResult(token: service.token * input)
+		}
+	).build()
+	let result = graph.cradleTestingExternalResult(input: 3)
+
+	#expect(result.token == 3)
+}
+
 // mock Factory 호출 횟수 확인용 참조 값
 private final class CradleTestingMockFactoryProbe {
 	// shared mock Factory 호출 횟수

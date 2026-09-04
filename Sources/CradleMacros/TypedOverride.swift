@@ -85,7 +85,8 @@ func typedOverrideDeclarations(
 			sources: sources,
 			accessLevel: accessLevel,
 			propertyNames: propertyNames,
-			storage: sharedStorage
+			storage: sharedStorage,
+			in: context
 		)
 }
 
@@ -356,12 +357,14 @@ private func graphInitializers(
 }
 
 // shared 저장소 참조와 transient Factory 선택을 반영한 생성 프로퍼티 선언
+// swiftlint:disable:next function_parameter_count
 private func typedOverridePropertyDeclarations(
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
 	accessLevel: AccessLevel,
 	propertyNames: [RegisteredTypeIdentity: String],
-	storage: TypedOverrideSharedStorage
+	storage: TypedOverrideSharedStorage,
+	in context: some MacroExpansionContext
 ) -> [DeclSyntax] {
 	let sourceStorage = sources.map { source in
 		DeclSyntax("private let \(raw: source.propertyName): \(raw: source.type.trimmedDescription)")
@@ -370,33 +373,91 @@ private func typedOverridePropertyDeclarations(
 		DeclSyntax("private let \(override.storageName): \(override.stateName)")
 	}
 	let properties = providers.map { override in
-		let provider = override.provider
-		let signature = "\(accessLevel.rawValue) var \(provider.propertyName): \(provider.returnType.trimmedDescription)"
-		if provider.lifetime == .shared {
-			return DeclSyntax("""
-			\(raw: signature) {
-			    \(raw: storage.valueReference(for: override))
-			}
-			""")
+		if override.provider.hasExternalParameters {
+			return typedOverrideExternalMethodDeclaration(
+				for: override,
+				accessLevel: accessLevel,
+				propertyNames: propertyNames,
+				replacementFactoryName: typedOverrideUniqueName("replacementFactory", in: context)
+			)
 		}
-		let originalArguments = provider.parameters.map { parameter in
-			parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity]!)
-		}.joined(separator: ", ")
-		let overrideArguments = provider.parameters.map { parameter in
-			propertyNames[parameter.typeIdentity]!
-		}.joined(separator: ", ")
+		return typedOverridePropertyDeclaration(
+			for: override,
+			accessLevel: accessLevel,
+			propertyNames: propertyNames,
+			storage: storage
+		)
+	}
+	return sourceStorage + transientStorage + storage.declarations() + properties
+}
+
+// 외부 입력을 호출 시점에 원본 또는 교체 Factory로 전달하는 생성 메서드
+private func typedOverrideExternalMethodDeclaration(
+	for override: TypedOverrideProvider,
+	accessLevel: AccessLevel,
+	propertyNames: [RegisteredTypeIdentity: String],
+	replacementFactoryName: TokenSyntax
+) -> DeclSyntax {
+	let provider = override.provider
+	let parameters = provider.externalParameters.compactMap { parameter in
+		parameter.externalMethodParameter()
+	}.joined(separator: ", ")
+	let originalArguments = provider.parameters.map { parameter in
+		parameter.factoryArgument(
+			propertyName: propertyNames[parameter.typeIdentity],
+			qualifyingGraphMember: true
+		)
+	}.joined(separator: ", ")
+	let overrideArguments = provider.parameters.map { parameter in
+		parameter.factoryValue(
+			propertyName: propertyNames[parameter.typeIdentity],
+			qualifyingGraphMember: true
+		)
+	}.joined(separator: ", ")
+	return DeclSyntax("""
+	\(raw: accessLevel.rawValue) func \(raw: provider.propertyName)(\(raw: parameters)) -> \(raw: provider.returnType.trimmedDescription) {
+	    switch self.\(override.storageName) {
+	    case .original:
+	        self.\(raw: provider.factoryName)(\(raw: originalArguments))
+	    case let .replace(\(replacementFactoryName)):
+	        \(replacementFactoryName)(\(raw: overrideArguments))
+	    }
+	}
+	""")
+}
+
+// 원본 또는 교체 Factory를 선택하는 일반 생성 프로퍼티
+private func typedOverridePropertyDeclaration(
+	for override: TypedOverrideProvider,
+	accessLevel: AccessLevel,
+	propertyNames: [RegisteredTypeIdentity: String],
+	storage: TypedOverrideSharedStorage
+) -> DeclSyntax {
+	let provider = override.provider
+	let signature = "\(accessLevel.rawValue) var \(provider.propertyName): \(provider.returnType.trimmedDescription)"
+	if provider.lifetime == .shared {
 		return DeclSyntax("""
 		\(raw: signature) {
-		    switch \(override.storageName) {
-		    case .original:
-		        \(raw: provider.factoryName)(\(raw: originalArguments))
-		    case let .replace(factory):
-		        factory(\(raw: overrideArguments))
-		    }
+		    \(raw: storage.valueReference(for: override))
 		}
 		""")
 	}
-	return sourceStorage + transientStorage + storage.declarations() + properties
+	let originalArguments = provider.parameters.map { parameter in
+		parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity])
+	}.joined(separator: ", ")
+	let overrideArguments = provider.parameters.map { parameter in
+		parameter.factoryValue(propertyName: propertyNames[parameter.typeIdentity])
+	}.joined(separator: ", ")
+	return DeclSyntax("""
+	\(raw: signature) {
+	    switch \(override.storageName) {
+	    case .original:
+	        \(raw: provider.factoryName)(\(raw: originalArguments))
+	    case let .replace(factory):
+	        factory(\(raw: overrideArguments))
+	    }
+	}
+	""")
 }
 
 // override-enabled graph의 shared 결과 저장소 생성

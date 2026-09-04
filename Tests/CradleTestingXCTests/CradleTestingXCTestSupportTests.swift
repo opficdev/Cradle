@@ -31,4 +31,16 @@ final class CradleTestingXCTestSupportTests: XCTestCase {
 		XCTAssertTrue(graph.cradleTestingRepositoryBase is CradleTestingRepositorySubclass)
 		XCTAssertEqual(graph.cradleTestingOriginalService.token, 4)
 	}
+
+	// 외부 입력 mock Factory의 graph 의존성과 호출자 입력 전달 확인
+	func testExternalProviderOverrideMockFactory() {
+		let graph = CradleTestingMockGraph.override(
+			cradleTestingExternalResult: .mock { service, input in
+				CradleTestingExternalResult(token: service.token * input)
+			}
+		).build()
+		let result = graph.cradleTestingExternalResult(input: 5)
+
+		XCTAssertEqual(result.token, 5)
+	}
 }
