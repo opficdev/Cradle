@@ -17,6 +17,8 @@
 		A1000000000000000000002C /* ProductClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002A /* ProductClient.swift */; };
 		A1000000000000000000002D /* InfraGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002B /* InfraGraph.swift */; };
 		A10000000000000000000031 /* DataGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* DataGraph.swift */; };
+		A10000000000000000000034 /* ProductDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000032 /* ProductDetailViewModel.swift */; };
+		A10000000000000000000035 /* ProductDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000033 /* ProductDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +32,8 @@
 		A1000000000000000000002A /* ProductClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductClient.swift; sourceTree = "<group>"; };
 		A1000000000000000000002B /* InfraGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfraGraph.swift; sourceTree = "<group>"; };
 		A1000000000000000000002F /* DataGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataGraph.swift; sourceTree = "<group>"; };
+		A10000000000000000000032 /* ProductDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailViewModel.swift; sourceTree = "<group>"; };
+		A10000000000000000000033 /* ProductDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,6 +125,8 @@
 		A10000000000000000000016 /* Presentation */ = {
 			isa = PBXGroup;
 			children = (
+				A10000000000000000000032 /* ProductDetailViewModel.swift */,
+				A10000000000000000000033 /* ProductDetailView.swift */,
 			);
 			path = Presentation;
 			sourceTree = "<group>";
@@ -224,6 +230,8 @@
 				A1000000000000000000002C /* ProductClient.swift in Sources */,
 				A1000000000000000000002D /* InfraGraph.swift in Sources */,
 				A10000000000000000000031 /* DataGraph.swift in Sources */,
+				A10000000000000000000034 /* ProductDetailViewModel.swift in Sources */,
+				A10000000000000000000035 /* ProductDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
