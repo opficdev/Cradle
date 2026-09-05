@@ -31,7 +31,35 @@ func copyCradleMermaidScriptFindsEncodedTargetOutput() throws {
 
 	#expect(process.terminationReason == .exit)
 	#expect(process.terminationStatus == 0)
-	#expect(try String(contentsOf: project.appendingPathComponent(".cradle/DependencyGraph.mmd"), encoding: .utf8) == "graph TD\n")
+	let destination = project.appendingPathComponent(".cradle/DependencyGraph.mmd")
+	#expect(try String(contentsOf: destination, encoding: .utf8) == "graph TD\n")
+}
+
+// glob 메타문자가 있는 Xcode target 이름의 Mermaid 복사 확인
+@Test
+func copyCradleMermaidScriptEscapesTargetPathPattern() throws {
+	let temporary = try makeCopyScriptTemporaryDirectory()
+	defer { try? FileManager.default.removeItem(at: temporary) }
+	let output = temporary.appendingPathComponent(
+		"BuildToolPluginIntermediates/ExampleApp.output/My[App]/CradlePlugin/CradleDiagrams/My%5BApp%5D/DependencyGraph.mmd"
+	)
+	try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
+	try "graph escaped target\n".write(to: output, atomically: true, encoding: .utf8)
+
+	let project = temporary.appendingPathComponent("project")
+	let targetTemporary = temporary.appendingPathComponent("target-temporary")
+	try FileManager.default.createDirectory(at: targetTemporary, withIntermediateDirectories: true)
+	let process = try runCopyCradleMermaidScript(
+		objroot: temporary,
+		sourceRoot: project,
+		targetTemporary: targetTemporary,
+		targetName: "My[App]"
+	)
+
+	#expect(process.terminationReason == .exit)
+	#expect(process.terminationStatus == 0)
+	let destination = project.appendingPathComponent(".cradle/DependencyGraph.mmd")
+	#expect(try String(contentsOf: destination, encoding: .utf8) == "graph escaped target\n")
 }
 
 // source 없음과 복수 후보에서 기존 Mermaid 복사본 보존 확인
@@ -43,7 +71,8 @@ func copyCradleMermaidScriptPreservesExistingOutputForMissingOrMultipleCandidate
 	let missingProject = temporary.appendingPathComponent("missing-project")
 	let missingDestination = missingProject.appendingPathComponent(".cradle/DependencyGraph.mmd")
 	let missingTargetTemporary = temporary.appendingPathComponent("missing-target-temporary")
-	try FileManager.default.createDirectory(at: missingDestination.deletingLastPathComponent(), withIntermediateDirectories: true)
+	let missingDirectory = missingDestination.deletingLastPathComponent()
+	try FileManager.default.createDirectory(at: missingDirectory, withIntermediateDirectories: true)
 	try FileManager.default.createDirectory(at: missingTargetTemporary, withIntermediateDirectories: true)
 	try "previous missing\n".write(to: missingDestination, atomically: true, encoding: .utf8)
 	let missingProcess = try runCopyCradleMermaidScript(
@@ -60,7 +89,8 @@ func copyCradleMermaidScriptPreservesExistingOutputForMissingOrMultipleCandidate
 	let multipleProject = temporary.appendingPathComponent("multiple-project")
 	let multipleDestination = multipleProject.appendingPathComponent(".cradle/DependencyGraph.mmd")
 	let multipleTargetTemporary = temporary.appendingPathComponent("multiple-target-temporary")
-	try FileManager.default.createDirectory(at: multipleDestination.deletingLastPathComponent(), withIntermediateDirectories: true)
+	let multipleDirectory = multipleDestination.deletingLastPathComponent()
+	try FileManager.default.createDirectory(at: multipleDirectory, withIntermediateDirectories: true)
 	try FileManager.default.createDirectory(at: multipleTargetTemporary, withIntermediateDirectories: true)
 	try "previous multiple\n".write(to: multipleDestination, atomically: true, encoding: .utf8)
 	for outputName in ["first", "second"] {
