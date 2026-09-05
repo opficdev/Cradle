@@ -22,6 +22,30 @@ Cradle은 Swift Macro를 사용해 `@Provide` Factory를 반환 타입과 매개
 
 Swift tools 6.3과 iOS 17 이상 또는 macOS 10.15 이상이 필요해요.
 
+## 설치
+
+Cradle은 Swift Package Manager에서 `1.0.0` 이상 버전으로 설치해요.
+
+```swift
+dependencies: [
+	.package(
+		url: "https://github.com/opficdev/Cradle.git",
+		from: "1.0.0"
+	)
+]
+```
+
+Cradle을 쓸 target에는 `Cradle` product를 추가해요.
+
+```swift
+.target(
+	name: "AppComposition",
+	dependencies: [
+		.product(name: "Cradle", package: "Cradle")
+	]
+)
+```
+
 ## 첫 graph
 
 이 예제에서는 `UserRepository`와 `LoadUserUseCase`를 graph가 만들고 보관해요. 화면마다 달라지는 `UserID`는 `userProfileViewModel`을 호출할 때 넘겨요.
@@ -91,30 +115,6 @@ let viewModel = graph.userProfileViewModel(
 `@Provide`는 반환 타입을 기준으로 Factory를 연결해요. 기본값은 graph마다 한 번 만들고 계속 쓰며, `.transient`는 접근할 때마다 Factory를 다시 호출해요. `@External`은 graph가 만들 수 없는 호출 시점 값에 붙여요.
 
 Cradle은 graph를 만들 때 누락한 등록, 중복된 등록, 순환 의존성처럼 연결할 수 없는 구성을 컴파일 단계에서 알려줘요. Factory 본문에서 하는 임의 호출이나 실행 중 상태까지 검사하지는 않아요.
-
-## 설치
-
-Cradle은 Swift Package Manager에서 `1.0.0` 이상 버전으로 설치해요.
-
-```swift
-dependencies: [
-	.package(
-		url: "https://github.com/opficdev/Cradle.git",
-		from: "1.0.0"
-	)
-]
-```
-
-Cradle을 쓸 target에는 `Cradle` product를 추가해요.
-
-```swift
-.target(
-	name: "AppComposition",
-	dependencies: [
-		.product(name: "Cradle", package: "Cradle")
-	]
-)
-```
 
 <details>
 <summary>테스트와 Mermaid 산출물 추가하기</summary>
