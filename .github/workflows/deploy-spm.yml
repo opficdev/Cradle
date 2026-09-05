@@ -13,16 +13,17 @@ on:
         type: string
 
 concurrency:
-  group: deploy-spm-${{ github.ref }}
+  group: deploy-spm
   cancel-in-progress: false
 
-permissions:
-  contents: write
-
 jobs:
-  deploy:
-    name: Deploy Swift Package
+  validate:
+    name: Validate Swift Package
     runs-on: macos-26
+    permissions:
+      contents: read
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.sha }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       VERSION: ${{ inputs.version }}
@@ -33,12 +34,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Resolve deployment commit
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit_sha="$(git rev-parse "$GITHUB_SHA^{commit}")"
+          echo "sha=$commit_sha" >> "$GITHUB_OUTPUT"
+
       - name: Validate version
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "Version must use semantic versioning like 1.0.0" >&2
             exit 1
           fi
@@ -75,7 +84,9 @@ jobs:
         run: bash Scripts/verify-diagram-artifact.sh
 
       - name: Verify remote Cradle consumer by revision
-        run: bash Scripts/verify-cradle-consumer.sh revision "$GITHUB_SHA"
+        env:
+          COMMIT_SHA: ${{ steps.commit.outputs.sha }}
+        run: bash Scripts/verify-cradle-consumer.sh revision "$COMMIT_SHA" "$COMMIT_SHA"
 
       - name: Test
         shell: bash
@@ -96,7 +107,51 @@ jobs:
           path: deploy-test.log
           if-no-files-found: ignore
 
-      - name: Create and push tag
+  publish:
+    name: Publish Swift Package
+    needs: validate
+    runs-on: macos-26
+    permissions:
+      contents: write
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      VERSION: ${{ inputs.version }}
+      RELEASE_NOTES: ${{ inputs.release_notes }}
+      COMMIT_SHA: ${{ needs.validate.outputs.commit_sha }}
+    steps:
+      - name: Checkout verified commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.validate.outputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Ensure tag does not already exist
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force origin
+          if git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "Tag already exists locally: $VERSION" >&2
+            exit 1
+          fi
+
+          set +e
+          remote_tags="$(git ls-remote --tags origin "refs/tags/$VERSION")"
+          remote_status=$?
+          set -e
+
+          if [[ "$remote_status" -ne 0 ]]; then
+            echo "Unable to check remote tags" >&2
+            exit "$remote_status"
+          fi
+
+          if [[ -n "$remote_tags" ]]; then
+            echo "Tag already exists on origin: $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Create and push verified tag
         shell: bash
         run: |
           set -euo pipefail
@@ -104,31 +159,48 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git tag -a "$VERSION" -m "Release $VERSION"
-          git push origin "$VERSION"
+          if [[ "$(git rev-parse "$COMMIT_SHA^{commit}")" != "$COMMIT_SHA" ]]; then
+            echo "Verified commit is unavailable" >&2
+            exit 1
+          fi
+
+          git tag -a "$VERSION" "$COMMIT_SHA" -m "Release $VERSION"
+          git push origin "refs/tags/$VERSION"
+
+      - name: Verify pushed tag revision
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          remote_revision="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
+          if [[ "$remote_revision" != "$COMMIT_SHA" ]]; then
+            echo "Pushed tag does not point to the verified commit" >&2
+            exit 1
+          fi
 
       - name: Verify remote Cradle consumer by version
-        run: bash Scripts/verify-cradle-consumer.sh exact "$VERSION"
+        run: bash Scripts/verify-cradle-consumer.sh exact "$VERSION" "$COMMIT_SHA"
 
       - name: Create GitHub release
         uses: actions/github-script@v8
         env:
           VERSION: ${{ env.VERSION }}
           RELEASE_NOTES: ${{ env.RELEASE_NOTES }}
+          COMMIT_SHA: ${{ env.COMMIT_SHA }}
         with:
           script: |
             const version = process.env.VERSION;
             const releaseNotes = process.env.RELEASE_NOTES?.trim();
+            const commitSHA = process.env.COMMIT_SHA;
             const body = releaseNotes && releaseNotes.length > 0
               ? releaseNotes
               : [
-                  `Swift Package release ${version}`,
+                  `Cradle ${version} 배포`,
                   '',
-                  `- Ref: ${context.ref}`,
-                  `- Commit: ${context.sha}`,
+                  `- 기준 commit: ${commitSHA}`,
                 ].join('\n');
 
-            await github.rest.repos.createRelease({
+            const response = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: version,
@@ -136,3 +208,10 @@ jobs:
               body,
               generate_release_notes: !releaseNotes,
             });
+
+            const release = response.data;
+            if (release.tag_name !== version || release.draft || !release.html_url) {
+              throw new Error('Published Release verification failed');
+            }
+
+            core.info(`Published Release: ${release.html_url}`);
