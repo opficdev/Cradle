@@ -71,6 +71,12 @@ jobs:
       - name: Swift Version
         run: swift --version
 
+      - name: Verify committed DiagramMaker artifact
+        run: bash Scripts/verify-diagram-artifact.sh
+
+      - name: Verify remote Cradle consumer by revision
+        run: bash Scripts/verify-cradle-consumer.sh revision "$GITHUB_SHA"
+
       - name: Test
         shell: bash
         run: |
@@ -100,6 +106,9 @@ jobs:
 
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
+
+      - name: Verify remote Cradle consumer by version
+        run: bash Scripts/verify-cradle-consumer.sh exact "$VERSION"
 
       - name: Create GitHub release
         uses: actions/github-script@v8
