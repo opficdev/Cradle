@@ -30,6 +30,18 @@ let package = Package(
 				.product(name: "SwiftSyntaxBuilder", package: "swift-syntax")
 			]
 		),
+		.target(
+			name: "CradleDiagramMakerSupport",
+			dependencies: [
+				"CradleGraphAnalysis",
+				.product(name: "SwiftParser", package: "swift-syntax")
+			]
+		),
+		.executableTarget(
+			name: "CradleDiagramMakerSource",
+			dependencies: ["CradleDiagramMakerSupport"],
+			path: "Sources/CradleDiagramMaker"
+		),
 		.macro(
 			name: "CradleMacros",
 			dependencies: [
@@ -55,6 +67,10 @@ let package = Package(
 				.product(name: "SwiftSyntax", package: "swift-syntax"),
 				.product(name: "SwiftSyntaxBuilder", package: "swift-syntax")
 			]
+		),
+		.testTarget(
+			name: "CradleDiagramMakerSupportTests",
+			dependencies: ["CradleDiagramMakerSupport"]
 		),
 		.testTarget(
 			name: "CradleTests",
