@@ -14,6 +14,10 @@ let package = Package(
 		.library(
 			name: "CradleTesting",
 			targets: ["CradleTesting"]
+		),
+		.plugin(
+			name: "CradlePlugin",
+			targets: ["CradlePlugin"]
 		)
 	],
 	dependencies: [
@@ -41,6 +45,15 @@ let package = Package(
 			name: "CradleDiagramMakerSource",
 			dependencies: ["CradleDiagramMakerSupport"],
 			path: "Sources/CradleDiagramMaker"
+		),
+		.binaryTarget(
+			name: "CradleDiagramMaker",
+			path: "Artifacts/CradleDiagramMaker.artifactbundle"
+		),
+		.plugin(
+			name: "CradlePlugin",
+			capability: .buildTool(),
+			dependencies: ["CradleDiagramMaker"]
 		),
 		.macro(
 			name: "CradleMacros",
