@@ -21,7 +21,7 @@ Treat role assignment, approved Spec handoff, final review, and verification evi
 | Tier | Use | Model |
 | --- | --- | --- |
 | `Primary` | Planning, implementation, public API decisions, final integration, and failed-check triage | Active primary agent |
-| `SDD Gate` | Design analysis and final diff review | `gpt-5.6-sol`, `xhigh` |
+| `SDD Gate` | Design analysis and final diff review | `gpt-6-astra`, `xhigh` |
 | `Lightweight` | Read-only review, checklist verification, CI log summaries, documentation drafts, and architecture preflight | `gpt-5.3-codex-spark`; use `gpt-5.6-luna`, `high` only when unavailable |
 
 | Role | Owner or custom agent | Tier |
@@ -37,7 +37,7 @@ Treat role assignment, approved Spec handoff, final review, and verification evi
 
 ## Dispatch and Fallback Rules
 
-- `Designer` and `Code Reviewer` use only `gpt-5.6-sol`, `xhigh`, with no Luna fallback.
+- `Designer` and `Code Reviewer` use only `gpt-6-astra`, `xhigh`, with no Luna fallback.
 - Lightweight roles use Spark first and may use only the matching `*_luna` setting when Spark is unavailable.
 - A `*_luna` role must not replace `Designer`, `Code Reviewer`, `Planner`, or `Implementer`.
 - A side task `task_name` must exactly match the `.codex/agents/<name>.toml` filename without its extension.
