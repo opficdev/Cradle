@@ -40,6 +40,7 @@ func cradlePluginConsumerBuildCreatesMermaidOutputOutsideTargetSources() throws 
 	#expect(result.diagramContents.contains {
 		$0.contains("AppGraph") && $0.contains("graph0_provider0 --> graph0_provider1")
 	})
+	#expect(result.diagramContents.contains { $0.contains("class graph0_provider0 transient") })
 	#expect(result.diagramContents.contains { $0.contains("ExplicitGraph") })
 	#expect(result.diagramContents.contains { $0.contains("ExternalGraph") && !$0.contains("ExternalFeature") })
 	#expect(result.diagramContents.contains { $0.contains("Composition.NestedGraph") })

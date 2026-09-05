@@ -71,6 +71,22 @@ func graphDiagramsCollectsGraphRelationships() {
 	#expect(diagram[0].providers[1].dependencyIdentities.map(\.canonicalText) == ["Repository"])
 }
 
+// escaped transient 수명 인자를 Mermaid 수명으로 정규화하는지 확인
+@Test
+func graphDiagramsRecognizesEscapedTransientLifetime() {
+	let sourceFile = Parser.parse(
+		source: """
+		@DependencyGraph
+		final class AppGraph {
+			@Provide(.`transient`)
+			private func makeFeature() -> Feature { Feature() }
+		}
+		"""
+	)
+
+	#expect(graphDiagrams(in: sourceFile)[0].providers.map(\.lifetime) == [.transient])
+}
+
 // `@External` Factory를 node와 연결에서 제외하고 본문 없는 일반 Factory는 포함하는지 확인
 @Test
 func graphDiagramsExcludesExternalFactoryAndIncludesBodylessProvider() {

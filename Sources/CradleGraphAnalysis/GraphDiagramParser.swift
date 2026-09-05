@@ -307,7 +307,7 @@ private func graphProviderLifetime(in attribute: AttributeSyntax) -> GraphProvid
 		argument.label == nil,
 		let member = argument.expression.as(MemberAccessExprSyntax.self),
 		member.base == nil,
-		member.declName.baseName.text == "transient" else {
+		graphIdentifierName(member.declName.baseName) == "transient" else {
 		return .shared
 	}
 	return .transient

@@ -7,7 +7,7 @@ final class AppGraph {
 		Repository()
 	}
 
-	@Provide(.transient)
+	@Provide(.`transient`)
 	private func makeFeature(repository: Repository) -> Feature {
 		Feature(repository: repository)
 	}
