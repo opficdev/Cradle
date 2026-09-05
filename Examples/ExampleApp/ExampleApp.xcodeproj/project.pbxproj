@@ -165,6 +165,7 @@
 				A10000000000000000000006 /* Sources */,
 				A10000000000000000000007 /* Frameworks */,
 				A10000000000000000000008 /* Resources */,
+				A1000000000000000000003E /* Cradle Mermaid copy */,
 			);
 			buildRules = (
 			);
@@ -225,6 +226,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A1000000000000000000003E /* Cradle Mermaid copy */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Cradle Mermaid copy";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${SRCROOT}/Scripts/CopyCradleMermaid.sh\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000006 /* Sources */ = {
