@@ -377,6 +377,8 @@ SwiftPM target의 `plugins`에 `CradlePlugin`을 추가하면 빌드마다 해�
 
 생성 파일은 `<plugin work directory>/CradleDiagrams/<module>/<lexical-name>-<stable-digest>.mmd`에만 남습니다. 이 파일은 package source·resource가 아니며 app 또는 library binary에도 포함되지 않습니다. `swift package clean`이나 plugin work directory 정리는 산출물을 지울 수 있습니다.
 
+Xcode 프로젝트에서는 target의 **Build Phases → Run Build Tool Plug-ins**에 `CradlePlugin`을 추가합니다. `Examples/ExampleApp`에 연결 예제가 있습니다. Xcode에서는 target 표시 이름을 출력 디렉터리 이름으로 사용하며 경로 구분자 등은 퍼센트 인코딩합니다. 이 이름은 `PRODUCT_MODULE_NAME`을 뜻하지 않습니다. `.mmd`는 DerivedData의 plugin 작업 경로에 생성되며 DerivedData 정리 시 사라질 수 있습니다.
+
 plugin은 macOS용 `CradleDiagramMaker` artifact를 실행합니다. 소비자 빌드에서 분석 도구의 SwiftSyntax 의존성을 직접 빌드하지 않으며 도구는 앱이나 라이브러리에 링크되지 않습니다. 도구 소스를 수정한 뒤 저장소 루트에서 `bash Scripts/build-diagram-artifact.sh`를 실행하면 arm64·x86_64 실행 파일을 갱신할 수 있습니다.
 
 `.mmd`를 resource로 등록하지 않기 위해 명령의 `outputFiles`는 비워 둡니다. Xcode가 명령을 매 빌드에 실행한다는 경고를 표시할 수 있으며 이는 의도한 동작입니다. 도구는 내용이 같은 `.mmd`를 다시 쓰지 않습니다.
