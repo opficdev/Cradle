@@ -4,6 +4,27 @@ set -euo pipefail
 # 배포 대상 commit의 Maker source와 artifact 소비 가능 여부 검증
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 revision="${1:-HEAD}"
+if [[ "$#" -gt 2 ]]; then
+	echo "Usage: $0 [revision] [architecture]" >&2
+	exit 1
+fi
+
+target_architecture="${2:-$(uname -m)}"
+case "$target_architecture" in
+	arm64 | x86_64)
+		;;
+	*)
+		echo "Unsupported artifact architecture: $target_architecture" >&2
+		exit 1
+		;;
+esac
+
+host_architecture="$(uname -m)"
+if [[ "$host_architecture" != "$target_architecture" ]]; then
+	echo "Artifact architecture must match host architecture" >&2
+	exit 1
+fi
+
 temporary="$(mktemp -d "${TMPDIR:-/tmp}/cradle-diagram-artifact.XXXXXX")"
 package_dir="$temporary/Cradle"
 trap 'rm -rf "$temporary"' EXIT
@@ -30,18 +51,8 @@ for index in "${!artifacts[@]}"; do
 	fi
 done
 
-host_architecture="$(uname -m)"
-case "$host_architecture" in
-	arm64 | x86_64)
-		;;
-	*)
-		echo "Unsupported artifact host architecture: $host_architecture" >&2
-		exit 1
-		;;
-esac
-
 stored_tool="$temporary/stored-CradleDiagramMaker"
-cp "$package_dir/Artifacts/CradleDiagramMaker.artifactbundle/CradleDiagramMaker-$host_architecture/bin/CradleDiagramMaker" "$stored_tool"
+cp "$package_dir/Artifacts/CradleDiagramMaker.artifactbundle/CradleDiagramMaker-$target_architecture/bin/CradleDiagramMaker" "$stored_tool"
 
 bash "$package_dir/Scripts/build-diagram-artifact.sh"
 
@@ -59,7 +70,7 @@ scratch="$temporary/consumer-scratch"
 source_file="$fixture/Sources/AppComposition/AppGraph.swift"
 stored_output="$temporary/stored-output"
 source_output="$temporary/source-output"
-source_tool="$package_dir/Artifacts/CradleDiagramMaker.artifactbundle/CradleDiagramMaker-$host_architecture/bin/CradleDiagramMaker"
+source_tool="$package_dir/Artifacts/CradleDiagramMaker.artifactbundle/CradleDiagramMaker-$target_architecture/bin/CradleDiagramMaker"
 
 "$stored_tool" --module AppComposition --output "$stored_output" "$source_file"
 "$source_tool" --module AppComposition --output "$source_output" "$source_file"
@@ -79,4 +90,4 @@ if [[ -z "$diagram" ]] || ! grep -q "AppGraph" "$diagram" || ! grep -q "Explicit
 	exit 1
 fi
 
-echo "CradleDiagramMaker artifacts passed consumer verification for $revision"
+echo "CradleDiagramMaker $target_architecture artifact passed consumer verification for $revision"

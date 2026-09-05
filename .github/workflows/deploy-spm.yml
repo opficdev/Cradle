@@ -17,8 +17,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-artifact:
+    name: Verify DiagramMaker artifact (${{ matrix.architecture }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: arm64
+            runner: macos-26
+          - architecture: x86_64
+            runner: macos-26-intel
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Verify committed DiagramMaker artifact
+        run: bash Scripts/verify-diagram-artifact.sh HEAD "${{ matrix.architecture }}"
+
   validate:
     name: Validate Swift Package
+    needs: verify-artifact
     runs-on: macos-26
     permissions:
       contents: read
@@ -79,9 +104,6 @@ jobs:
 
       - name: Swift Version
         run: swift --version
-
-      - name: Verify committed DiagramMaker artifact
-        run: bash Scripts/verify-diagram-artifact.sh
 
       - name: Verify remote Cradle consumer by revision
         env:
