@@ -14,6 +14,10 @@ let package = Package(
 		.library(
 			name: "CradleTesting",
 			targets: ["CradleTesting"]
+		),
+		.plugin(
+			name: "CradlePlugin",
+			targets: ["CradlePlugin"]
 		)
 	],
 	dependencies: [
@@ -23,6 +27,34 @@ let package = Package(
 		)
 	],
 	targets: [
+		.target(
+			name: "CradleGraphAnalysis",
+			dependencies: [
+				.product(name: "SwiftSyntax", package: "swift-syntax"),
+				.product(name: "SwiftSyntaxBuilder", package: "swift-syntax")
+			]
+		),
+		.target(
+			name: "CradleDiagramMakerSupport",
+			dependencies: [
+				"CradleGraphAnalysis",
+				.product(name: "SwiftParser", package: "swift-syntax")
+			]
+		),
+		.executableTarget(
+			name: "CradleDiagramMakerSource",
+			dependencies: ["CradleDiagramMakerSupport"],
+			path: "Sources/CradleDiagramMaker"
+		),
+		.binaryTarget(
+			name: "CradleDiagramMaker",
+			path: "Artifacts/CradleDiagramMaker.artifactbundle"
+		),
+		.plugin(
+			name: "CradlePlugin",
+			capability: .buildTool(),
+			dependencies: ["CradleDiagramMaker"]
+		),
 		.macro(
 			name: "CradleMacros",
 			dependencies: [
@@ -39,6 +71,19 @@ let package = Package(
 			name: "CradleConsumerFixture",
 			dependencies: ["Cradle"],
 			path: "Tests/CradleConsumerFixture"
+		),
+		.testTarget(
+			name: "CradleGraphAnalysisTests",
+			dependencies: [
+				"CradleGraphAnalysis",
+				.product(name: "SwiftParser", package: "swift-syntax"),
+				.product(name: "SwiftSyntax", package: "swift-syntax"),
+				.product(name: "SwiftSyntaxBuilder", package: "swift-syntax")
+			]
+		),
+		.testTarget(
+			name: "CradleDiagramMakerSupportTests",
+			dependencies: ["CradleDiagramMakerSupport"]
 		),
 		.testTarget(
 			name: "CradleTests",

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "artifacts": {
+    "CradleDiagramMaker": {
+      "version": "0.1.0",
+      "type": "executable",
+      "variants": [
+        {
+          "path": "CradleDiagramMaker-arm64/bin/CradleDiagramMaker",
+          "supportedTriples": [
+            "arm64-apple-macosx"
+          ]
+        },
+        {
+          "path": "CradleDiagramMaker-x86_64/bin/CradleDiagramMaker",
+          "supportedTriples": [
+            "x86_64-apple-macosx"
+          ]
+        }
+      ]
+    }
+  }
+}

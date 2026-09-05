@@ -14,7 +14,11 @@
 // `overrides: true` graph의 인스턴스별 Factory 선택 builder와 생성 경로 추가
 // source·override가 없는 graph의 initializer·stored property 미변경
 @attached(member, names: arbitrary)
-public macro DependencyGraph(sources: [Any.Type] = [], overrides: Bool = false) = #externalMacro(
+public macro DependencyGraph(
+	sources: [Any.Type] = [],
+	overrides: Bool = false,
+	diagram: Bool = true
+) = #externalMacro(
 	module: "CradleMacros",
 	type: "DependencyGraphMacro"
 )

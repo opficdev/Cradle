@@ -165,10 +165,12 @@
 				A10000000000000000000006 /* Sources */,
 				A10000000000000000000007 /* Frameworks */,
 				A10000000000000000000008 /* Resources */,
+				A1000000000000000000003E /* Cradle Mermaid copy */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A1000000000000000000003D /* PBXTargetDependency */,
 			);
 			name = ExampleApp;
 			packageProductDependencies = (
@@ -225,6 +227,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A1000000000000000000003E /* Cradle Mermaid copy */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Cradle Mermaid copy";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${SRCROOT}/Scripts/CopyCradleMermaid.sh\"";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000006 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -248,6 +272,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1000000000000000000003D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = A1000000000000000000003C /* CradlePlugin */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A1000000000000000000000B /* Debug */ = {
@@ -367,6 +398,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A1000000000000000000001B /* XCLocalSwiftPackageReference "Cradle" */;
 			productName = Cradle;
+		};
+		A1000000000000000000003C /* CradlePlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "plugin:CradlePlugin";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

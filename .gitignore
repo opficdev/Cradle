@@ -12,6 +12,9 @@ DerivedData/
 xcuserdata/
 *.xcuserstate
 
+# Mermaid 개발 산출물
+.cradle/
+
 # 인증·환경
 .netrc
 .env

@@ -59,7 +59,7 @@ func sourceGraphResult(
 	guard sourceArguments.count <= 1,
 		arguments.allSatisfy({ argument in
 			let name = argument.label?.identifier?.name
-			return name == "sources" || name == "overrides"
+			return name == "sources" || name == "overrides" || name == "diagram"
 		}) else {
 		context.diagnose(Diagnostic(node: arguments, message: SourceGraphDiagnostic.invalidSources))
 		return SourceGraphResult(descriptors: [], hasError: true)

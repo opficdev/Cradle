@@ -359,6 +359,45 @@ shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 
 
 source graph 저장 프로퍼티는 shared Factory에서 직접 읽을 수 있습니다. Macro는 이 참조를 생성한 static helper의 매개변수로 바꾸고, source 저장 프로퍼티를 대입한 뒤 helper를 실행합니다. source graph의 transient 값을 읽으면 그 표현식은 조합 graph를 초기화할 때 한 번 평가되어 shared 결과에 보관됩니다.
 
+## Mermaid 개발 산출물
+
+SwiftPM target의 `plugins`에 `CradlePlugin`을 추가하면 빌드마다 해당 target의 모든 `@DependencyGraph` 선언을 하나의 Mermaid 그림으로 만듭니다. 분석기는 `@Cradle.DependencyGraph`도 인식하지만 기존 Macro의 컴파일 허용 범위를 넓히지는 않습니다.
+
+```swift
+.target(
+	name: "AppComposition",
+	dependencies: [
+		.product(name: "Cradle", package: "Cradle")
+	],
+	plugins: [
+		.plugin(name: "CradlePlugin", package: "Cradle")
+	]
+)
+```
+
+target마다 `<plugin work directory>/CradleDiagrams/<module>/DependencyGraph.mmd` 하나를 생성합니다. graph별 영역 안에 provider를 표시하고 `sources` 관계를 연결해 전체 구성을 위에서 아래로 배치합니다. 공유 graph는 한 번만 표시하며 순환 관계도 중복으로 펼치지 않습니다. 서로 연결되지 않은 graph도 같은 그림에 표시합니다. 이 파일은 package source·resource가 아니며 app 또는 library binary에도 포함되지 않습니다. `swift package clean`이나 plugin work directory 정리는 산출물을 지울 수 있습니다.
+
+Xcode 프로젝트에서는 target의 **Build Phases → Run Build Tool Plug-ins**에 `CradlePlugin`을 추가합니다. `Examples/ExampleApp`에 연결 예제가 있습니다. Xcode에서는 target 표시 이름을 출력 디렉터리 이름으로 사용하며 경로 구분자 등은 퍼센트 인코딩합니다. 이 이름은 `PRODUCT_MODULE_NAME`을 뜻하지 않습니다. `.mmd`는 DerivedData의 plugin 작업 경로에 생성되며 DerivedData 정리 시 사라질 수 있습니다.
+
+plugin은 macOS용 `CradleDiagramMaker` artifact를 실행합니다. 소비자 빌드에서 분석 도구의 SwiftSyntax 의존성을 직접 빌드하지 않으며 도구는 앱이나 라이브러리에 링크되지 않습니다. 도구 소스를 수정한 뒤 저장소 루트에서 `bash Scripts/build-diagram-artifact.sh`를 실행하면 arm64·x86_64 실행 파일을 갱신할 수 있습니다.
+
+`.mmd`를 resource로 등록하지 않기 위해 명령의 `outputFiles`는 비워 둡니다. Xcode가 명령을 매 빌드에 실행한다는 경고를 표시할 수 있으며 이는 의도한 동작입니다. 도구는 내용이 같은 `.mmd`를 다시 쓰지 않습니다.
+
+`@DependencyGraph`의 `diagram` 인자는 기본값이 `true`입니다. 특정 graph를 제외할 때만 직접 작성한 `false`를 지정합니다.
+
+```swift
+@DependencyGraph(diagram: false)
+final class PreviewGraph {}
+```
+
+Mermaid는 graph의 `sources` 선언, provider의 타입 의존성, Factory가 실제로 읽는 source 참조를 모두 실선 화살표로 그립니다. provider 간 연결은 해당 graph 안에서만 만듭니다. 바깥 graph 묶음은 이름 없이 provider를 모으고, graph 이름 node와 source node는 중립 실선 테두리입니다. `.shared` provider node는 실선 테두리, `.transient` provider node는 점선 테두리입니다.
+
+source 타입은 명시한 lexical 경로가 일치하거나 바깥 lexical scope에서 같은 이름의 graph를 찾을 때 해당 graph에 연결합니다. 다른 target의 graph, 해석할 수 없는 타입, `diagram: false`로 제외한 graph는 내부 없이 source 이름만 표시합니다. module 접두사와 typealias는 의미 분석하지 않으며, 다른 scope의 이름 끝부분만 같다는 이유로 연결하지 않습니다.
+
+`@External` 입력이 있는 Factory는 graph가 자동으로 등록·연결하지 않는 호출 시점 생성 경로이므로 Mermaid node와 화살표에서 모두 제외합니다. runtime override 선택과 다른 target의 내부 등록은 분석하지 않습니다.
+
+plugin은 실제 build condition을 평가하지 않습니다. source에 작성된 모든 `#if`·`#elseif`·`#else` 절을 함께 분석하므로 같은 lexical graph가 여러 절에 선언되면 source 위치를 포함한 오류로 build를 중단하고, 기존 성공 산출물은 유지합니다. 같은 내용의 `.mmd`는 다시 쓰지 않습니다. graph 삭제·이름 변경·`diagram: false` 전환은 다음 build에서 그림에 반영하며, 대상 graph가 없으면 파일도 제거합니다. 이전 방식으로 생성한 graph별 `.mmd`는 단일 파일 생성에 성공한 뒤 정리합니다.
+
 ## 본문 없는 Factory
 
 본문이 없는 Factory에는 선언한 반환 타입의 initializer 호출을 자동으로 추가합니다. 매개변수의 외부 레이블과 순서는 initializer 호출에도 유지합니다.
