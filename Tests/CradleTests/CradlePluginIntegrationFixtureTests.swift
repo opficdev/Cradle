@@ -33,11 +33,13 @@ func cradlePluginConsumerBuildCreatesMermaidOutputOutsideTargetSources() throws 
 
 	#expect(result.terminationReason == .exit)
 	#expect(result.status == 0, Comment(rawValue: result.output))
-	#expect(result.diagramPaths.count == 6)
+	#expect(result.diagramPaths.count == 1)
 	#expect(result.diagramPaths.allSatisfy { path in
-		path.contains("CradleDiagrams/AppComposition") && !path.contains(".bundle")
+		path.hasSuffix("CradleDiagrams/AppComposition/DependencyGraph.mmd") && !path.contains(".bundle")
 	})
-	#expect(result.diagramContents.contains { $0.contains("AppGraph") && $0.contains("provider0 --> provider1") })
+	#expect(result.diagramContents.contains {
+		$0.contains("AppGraph") && $0.contains("graph0_provider0 --> graph0_provider1")
+	})
 	#expect(result.diagramContents.contains { $0.contains("ExplicitGraph") })
 	#expect(result.diagramContents.contains { $0.contains("ExternalGraph") && !$0.contains("ExternalFeature") })
 	#expect(result.diagramContents.contains { $0.contains("Composition.NestedGraph") })
@@ -109,13 +111,16 @@ private func verifyCradlePluginRebuilds(at fixture: URL, scratch: URL, log: URL)
 	let renamed = original.replacingOccurrences(of: "ExplicitGraph", with: "RenamedGraph")
 	try renamed.write(to: source, atomically: true, encoding: .utf8)
 	try rebuildCradlePluginFixture(at: fixture, scratch: scratch, log: log, succeeds: true)
-	#expect(try mermaidFiles(in: scratch).contains { $0.lastPathComponent.hasPrefix("RenamedGraph-") })
-	#expect(try !mermaidFiles(in: scratch).contains { $0.lastPathComponent.hasPrefix("ExplicitGraph-") })
+	let output = try #require(mermaidFiles(in: scratch).first)
+	#expect(output.lastPathComponent == "DependencyGraph.mmd")
+	let content = try String(contentsOf: output, encoding: .utf8)
+	#expect(content.contains("RenamedGraph") && !content.contains("ExplicitGraph"))
 	let disabled = renamed.replacingOccurrences(of: "@Cradle.DependencyGraph(diagram: true)",
 		with: "@Cradle.DependencyGraph(diagram: false)")
 	try disabled.write(to: source, atomically: true, encoding: .utf8)
 	try rebuildCradlePluginFixture(at: fixture, scratch: scratch, log: log, succeeds: true)
-	#expect(try mermaidFiles(in: scratch).count == 5)
+	#expect(try mermaidFiles(in: scratch).count == 1)
+	#expect(try !String(contentsOf: output, encoding: .utf8).contains("RenamedGraph"))
 	let successful = try diagramSnapshot(in: scratch)
 	let duplicate = """
 	#if DEBUG

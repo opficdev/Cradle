@@ -10,9 +10,16 @@ import SwiftSyntaxBuilder
 
 // 모든 조건부 컴파일 절을 포함해 DependencyGraph Mermaid 모델 수집
 package func graphDiagrams(in sourceFile: SourceFileSyntax) -> [GraphDiagram] {
+	graphDiagramCollection(in: sourceFile).diagrams
+}
+
+// 제외 graph의 이름도 보존해 다른 범위의 동명 graph에 잘못 연결하지 않도록 수집
+package func graphDiagramCollection(in sourceFile: SourceFileSyntax) -> (
+	diagrams: [GraphDiagram], excludedNames: Set<String>
+) {
 	let collector = GraphDiagramCollector()
 	collector.walk(sourceFile)
-	return collector.diagrams
+	return (collector.diagrams, collector.excludedNames)
 }
 
 // source file의 lexical type 경로를 유지하는 graph 수집기
@@ -21,6 +28,8 @@ private final class GraphDiagramCollector: SyntaxVisitor {
 	private var typePath = [String]()
 	// 수집한 graph를 source 선언 순서로 보관
 	private(set) var diagrams = [GraphDiagram]()
+	// 내부를 분석하지 않는 graph의 lexical 이름
+	private(set) var excludedNames = Set<String>()
 
 	// sourceAccurate traversal로 모든 `#if` 절을 함께 방문
 	init() {
@@ -98,8 +107,12 @@ private final class GraphDiagramCollector: SyntaxVisitor {
 		name: TokenSyntax,
 		memberBlock: MemberBlockSyntax
 	) {
-		guard let attribute = graphAttribute(in: attributes),
-			graphDiagramIsEnabled(in: attribute) else {
+		guard let attribute = graphAttribute(in: attributes) else {
+			return
+		}
+		let lexicalName = (typePath + [graphIdentifierName(name)]).joined(separator: ".")
+		guard graphDiagramIsEnabled(in: attribute) else {
+			excludedNames.insert(lexicalName)
 			return
 		}
 		let sources = graphDiagramSources(in: attribute)
@@ -109,7 +122,7 @@ private final class GraphDiagramCollector: SyntaxVisitor {
 		)
 		diagrams.append(
 			GraphDiagram(
-				lexicalName: (typePath + [graphIdentifierName(name)]).joined(separator: "."),
+				lexicalName: lexicalName,
 				sourceOffset: graphSourceOffset(of: name),
 				sources: sources,
 				providers: providers

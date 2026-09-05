@@ -7,32 +7,50 @@
 
 import Foundation
 
-// 정적 graph 모델을 Mermaid flowchart 코드로 변환
-package func mermaidDiagram(for diagram: GraphDiagram) -> String {
+// target의 모든 graph와 source 연결을 하나의 Mermaid 그림으로 변환
+package func mermaidDiagram(for diagrams: [GraphDiagram], excludedNames: Set<String> = []) -> String {
+	let target = TargetGraphDiagram(diagrams: diagrams, excludedNames: excludedNames)
+	var lines = [
+		"%% CradlePlugin이 생성한 의존성 graph",
+		"%% 모든 조건부 컴파일 절을 포함하며 실제 활성 build condition을 뜻하지 않음",
+		"%% plugin work directory 산출물이므로 swift package clean 뒤 사라질 수 있음",
+		"flowchart TB",
+		"    classDef source stroke:#333,stroke-width:1px;",
+		"    classDef shared stroke:#333,stroke-width:2px;",
+		"    classDef transient stroke:#333,stroke-width:2px,stroke-dasharray:5 5;"
+	]
+	for (index, diagram) in target.diagrams.enumerated() {
+		lines += mermaidGraph(diagram, prefix: "graph\(index)", target: target)
+	}
+	return lines.joined(separator: "\n") + "\n"
+}
+
+// graph별 node ID를 분리하고 해석된 source는 공용 anchor에 연결
+private func mermaidGraph(_ diagram: GraphDiagram, prefix: String, target: TargetGraphDiagram) -> [String] {
 	let sources = diagram.sources.sorted(by: graphDiagramSourceOrder)
 	let providers = diagram.providers.sorted(by: graphDiagramProviderOrder)
 	let sourceIDs = Dictionary(uniqueKeysWithValues: sources.indices.map { index in
-		(sources[index].name, "source\(index)")
+		(sources[index].name, target.anchor(for: sources[index], in: diagram) ?? "\(prefix)_source\(index)")
 	})
-	let providerIDs = providers.indices.map { "provider\($0)" }
+	let providerIDs = providers.indices.map { "\(prefix)_provider\($0)" }
 	let providersByIdentity = Dictionary(grouping: providers.enumerated(), by: { _, provider in
 		provider.identity
 	})
 
 	var lines = [
-		"%% CradlePlugin이 생성한 의존성 graph",
-		"%% 모든 조건부 컴파일 절을 포함하며 실제 활성 build condition을 뜻하지 않음",
-		"%% plugin work directory 산출물이므로 swift package clean 뒤 사라질 수 있음",
-		"flowchart LR",
-		"    subgraph graph[\"\(mermaidLabel(diagram.lexicalName))\"]"
+		"    subgraph \(prefix)[\"\(mermaidLabel(diagram.lexicalName))\"]",
+		"        \(prefix)_root[\"\(mermaidLabel(diagram.lexicalName))\"]"
 	]
-	lines += sources.enumerated().map { index, source in
-		"        source\(index)[\"\(mermaidLabel(source.typeName))\"]"
+	lines += sources.enumerated().compactMap { index, source in
+		guard target.anchor(for: source, in: diagram) == nil else { return nil }
+		return "        \(prefix)_source\(index)[\"\(mermaidLabel(source.typeName))\"]"
 	}
 	lines += providers.enumerated().map { index, provider in
-		"        provider\(index)[\"\(mermaidProviderLabel(provider))\"]"
+		"        \(providerIDs[index])[\"\(mermaidProviderLabel(provider))\"]"
 	}
 	lines.append("    end")
+	lines.append("    class \(prefix)_root source")
+	lines += Set(sourceIDs.values).sorted().map { "    \(prefix)_root --> \($0)" }
 	lines += mermaidEdges(
 		providers: providers,
 		providerIDs: providerIDs,
@@ -45,7 +63,7 @@ package func mermaidDiagram(for diagram: GraphDiagram) -> String {
 		sourceIDs: sourceIDs,
 		providerIDs: providerIDs
 	)
-	return lines.joined(separator: "\n") + "\n"
+	return lines
 }
 
 // source graph의 안정적인 Mermaid node 순서
@@ -113,11 +131,7 @@ private func mermaidNodeStyles(
 	sourceIDs: [String: String],
 	providerIDs: [String]
 ) -> [String] {
-	var lines = [
-		"    classDef source stroke:#333,stroke-width:1px;",
-		"    classDef shared stroke:#333,stroke-width:2px;",
-		"    classDef transient stroke:#333,stroke-width:2px,stroke-dasharray:5 5;"
-	]
+	var lines = [String]()
 	for source in sources {
 		guard let sourceID = sourceIDs[source.name] else {
 			continue

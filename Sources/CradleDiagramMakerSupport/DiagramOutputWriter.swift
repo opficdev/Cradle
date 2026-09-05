@@ -25,7 +25,6 @@ package struct DiagramOutputRequest {
 // Mermaid `.mmd` 산출물 생성 중단 사유
 package enum DiagramOutputError: LocalizedError {
 	case duplicateLexicalGraph(name: String, locations: [DiagramSourceLocation])
-	case duplicateOutputFileName(name: String, graphs: [String])
 	case duplicateSourceAccessor(graph: String, name: String, types: [String])
 	case invalidModuleName(String)
 	case invalidSource(URL)
@@ -36,8 +35,6 @@ package enum DiagramOutputError: LocalizedError {
 		case let .duplicateLexicalGraph(name, locations):
 			let paths = locations.map(\.description).joined(separator: ", ")
 			return "중복된 DependencyGraph lexical 이름 `\(name)`을 찾았습니다: \(paths)"
-		case let .duplicateOutputFileName(name, graphs):
-			return "같은 Mermaid 산출물 이름 `\(name)`을 만드는 graph가 있습니다: \(graphs.joined(separator: ", "))"
 		case let .duplicateSourceAccessor(graph, name, types):
 			return "`\(graph)`에서 중복된 source accessor `\(name)`을 찾았습니다: \(types.joined(separator: ", "))"
 		case let .invalidModuleName(name):
@@ -67,25 +64,23 @@ package struct DiagramOutputWriter {
 	@discardableResult
 	package func write(request: DiagramOutputRequest) throws -> [URL] {
 		try validateModuleName(request.moduleName)
-		let diagrams = try collectDiagrams(from: request.sourceURLs)
+		let collected = try collectDiagrams(from: request.sourceURLs)
+		let diagrams = collected.diagrams
 		try validateUniqueLexicalNames(diagrams)
 		try validateUniqueSourceAccessors(diagrams)
 		let directory = request.outputDirectoryURL.appendingPathComponent(request.moduleName)
-		let outputs = diagramOutputs(
-			for: diagrams,
-			moduleName: request.moduleName,
-			outputDirectory: directory
-		)
-		try validateUniqueOutputFileNames(outputs)
+		let output = directory.appendingPathComponent("DependencyGraph.mmd")
+		let outputs = diagrams.isEmpty ? [] : [output]
 		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-		for output in outputs {
-			try writeIfChanged(content: output.content, to: output.url)
+		if !diagrams.isEmpty {
+			try writeIfChanged(content: mermaidDiagram(
+				for: diagrams.map(\.diagram), excludedNames: collected.excludedNames), to: output)
 		}
 		try removeStaleOutputs(
 			in: directory,
-			keeping: Set(outputs.map { $0.url.resolvingSymlinksInPath().path })
+			keeping: Set(outputs.map { $0.resolvingSymlinksInPath().path })
 		)
-		return outputs.map(\.url)
+		return outputs
 	}
 
 	// SwiftPM module 또는 Xcode target 이름의 경로 이탈 차단
@@ -112,20 +107,27 @@ package struct DiagramOutputWriter {
 		}
 	}
 
-	private func collectDiagrams(from sourceURLs: [URL]) throws -> [CollectedDiagram] {
-		try sourceURLs.sorted(by: { $0.path < $1.path }).flatMap { url in
+	private func collectDiagrams(from sourceURLs: [URL]) throws -> (
+		diagrams: [CollectedDiagram], excludedNames: Set<String>
+	) {
+		var diagrams = [CollectedDiagram]()
+		var excludedNames = Set<String>()
+		for url in sourceURLs.sorted(by: { $0.path < $1.path }) {
 			let source = try String(contentsOf: url, encoding: .utf8)
 			let sourceFile = Parser.parse(source: source)
 			guard !sourceFile.hasError else {
 				throw DiagramOutputError.invalidSource(url)
 			}
-			return graphDiagrams(in: sourceFile).map { diagram in
+			let collection = graphDiagramCollection(in: sourceFile)
+			excludedNames.formUnion(collection.excludedNames)
+			diagrams += collection.diagrams.map { diagram in
 				CollectedDiagram(
 					diagram: diagram,
 					location: DiagramSourceLocation(sourceURL: url, offset: diagram.sourceOffset)
 				)
 			}
 		}
+		return (diagrams, excludedNames)
 	}
 
 	private func validateUniqueLexicalNames(_ diagrams: [CollectedDiagram]) throws {
@@ -138,35 +140,6 @@ package struct DiagramOutputWriter {
 		throw DiagramOutputError.duplicateLexicalGraph(
 			name: duplicate.key,
 			locations: duplicate.value.map(\.location)
-		)
-	}
-
-	private func diagramOutputs(
-		for diagrams: [CollectedDiagram],
-		moduleName: String,
-		outputDirectory: URL
-	) -> [DiagramOutput] {
-		diagrams.map { collected in
-			let name = collected.diagram.lexicalName
-			let fileName = "\(diagramFileStem(for: name))-\(diagramDigest(moduleName: moduleName, lexicalName: name)).mmd"
-			return DiagramOutput(
-				graphName: name,
-				url: outputDirectory.appendingPathComponent(fileName),
-				content: mermaidDiagram(for: collected.diagram)
-			)
-		}
-	}
-
-	private func validateUniqueOutputFileNames(_ outputs: [DiagramOutput]) throws {
-		let duplicates = Dictionary(grouping: outputs, by: { $0.url.lastPathComponent })
-			.filter { 1 < $0.value.count }
-			.sorted { $0.key < $1.key }
-		guard let duplicate = duplicates.first else {
-			return
-		}
-		throw DiagramOutputError.duplicateOutputFileName(
-			name: duplicate.key,
-			graphs: duplicate.value.map(\.graphName).sorted()
 		)
 	}
 
@@ -196,35 +169,4 @@ private struct CollectedDiagram {
 	let diagram: GraphDiagram
 	// 중복 graph 진단에 사용할 원본 source 위치
 	let location: DiagramSourceLocation
-}
-
-// 최종 파일 쓰기에 사용할 graph 이름·URL·content
-private struct DiagramOutput {
-	// 충돌 진단에 사용할 graph lexical 이름
-	let graphName: String
-	// plugin 작업 경로의 Mermaid 산출물 위치
-	let url: URL
-	// 기록할 Mermaid 코드
-	let content: String
-}
-
-// lexical type 경로를 파일 시스템 안전 이름으로 변환
-private func diagramFileStem(for lexicalName: String) -> String {
-	let characters = lexicalName.unicodeScalars.map { scalar in
-		CharacterSet.alphanumerics.contains(scalar) ? Character(String(scalar)) : "-"
-	}
-	let stem = String(characters)
-		.split(separator: "-", omittingEmptySubsequences: true)
-		.joined(separator: "-")
-	return stem.isEmpty ? "DependencyGraph" : stem
-}
-
-// module과 lexical graph 경로에 따른 결정적 FNV-1a digest
-private func diagramDigest(moduleName: String, lexicalName: String) -> String {
-	var hash: UInt64 = 14_695_981_039_346_656_037
-	for byte in "\(moduleName)\u{0}\(lexicalName)".utf8 {
-		hash ^= UInt64(byte)
-		hash = hash &* 1_099_511_628_211
-	}
-	return String(hash, radix: 16)
 }
