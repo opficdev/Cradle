@@ -28,6 +28,9 @@ struct DependencyGraphMacro: MemberMacro {
 		guard let overrideConfiguration = typedOverrideConfiguration(from: node, in: context) else {
 			return []
 		}
+		guard diagramConfiguration(from: node, in: context) != nil else {
+			return []
+		}
 
 		let sourceResult = sourceGraphResult(from: node, in: context)
 		guard let sources = acceptedSourceDescriptors(for: graph, from: node, result: sourceResult, in: context) else {
