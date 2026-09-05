@@ -9,6 +9,8 @@
   ·
   <a href="Sources/Cradle/Cradle.docc/DependencyGraph.md">사용 안내</a>
   ·
+  <a href="docs/Architecture.md">아키텍처</a>
+  ·
   <a href="Sources/CradleTesting/CradleTesting.docc/CradleTesting.md">테스트</a>
   ·
   <a href="LICENSE">MIT License</a>
@@ -86,19 +88,19 @@ let viewModel = graph.userProfileViewModel(
 )
 ```
 
-`@Provide`는 반환 타입을 기준으로 Factory를 연결해요. 기본값은 graph마다 한 번 만들고 계속 쓰며, `.transient`는 접근할 때마다 새로 만들어요. `@External`은 graph가 만들 수 없는 호출 시점 값에 붙여요.
+`@Provide`는 반환 타입을 기준으로 Factory를 연결해요. 기본값은 graph마다 한 번 만들고 계속 쓰며, `.transient`는 접근할 때마다 Factory를 다시 호출해요. `@External`은 graph가 만들 수 없는 호출 시점 값에 붙여요.
 
 Cradle은 graph를 만들 때 누락한 등록, 중복된 등록, 순환 의존성처럼 연결할 수 없는 구성을 컴파일 단계에서 알려줘요. Factory 본문에서 하는 임의 호출이나 실행 중 상태까지 검사하지는 않아요.
 
 ## 설치
 
-아직 release tag가 없어요. 지금은 `develop` branch를 가리켜 설치해요.
+Cradle은 Swift Package Manager에서 `1.0.0` 이상 버전으로 설치해요.
 
 ```swift
 dependencies: [
 	.package(
 		url: "https://github.com/opficdev/Cradle.git",
-		branch: "develop"
+		from: "1.0.0"
 	)
 ]
 ```
@@ -115,22 +117,9 @@ Cradle을 쓸 target에는 `Cradle` product를 추가해요.
 ```
 
 <details>
-<summary>첫 release tag 뒤 버전을 고정하기</summary>
-
-첫 release tag가 올라오면 의존성 버전을 고정할 수 있어요.
-
-```swift
-dependencies: [
-	.package(url: "https://github.com/opficdev/Cradle.git", from: "1.0.0")
-]
-```
-
-</details>
-
-<details>
 <summary>테스트와 Mermaid 산출물 추가하기</summary>
 
-테스트에서 Factory를 바꾸려면 `CradleTesting`을 test target에만 연결해요. graph 선언과 `.mock` 편의 API를 함께 쓰려면 `Cradle`도 같은 target에 추가해요.
+`CradleTesting`은 `DependencyOverride.mock` 편의 API를 제공해요. 테스트에서 `.mock`을 쓰려면 `CradleTesting`을, graph 선언도 한다면 `Cradle`을 같은 test target에 추가해요. `.replace`를 직접 쓰는 경우에는 `Cradle`만 필요해요.
 
 ```swift
 .testTarget(
@@ -190,5 +179,6 @@ tag를 원격에 push한 뒤 exact version 소비자 검증이 실패하면 tag�
 ## 더 살펴보기
 
 - [ExampleApp](Examples/ExampleApp) — 단일 app target에서 `sources`, `@External`, SwiftUI `@Observable`과 `@State`를 쓰는 상품 상세 예제
+- [아키텍처](docs/Architecture.md) — Macro 확장, `CradlePlugin`, Mermaid artifact 제작 경로
 - [DependencyGraph 안내](Sources/Cradle/Cradle.docc/DependencyGraph.md) — `sources`, 수명, actor graph, `CradlePlugin`, 선언 조건과 compiler diagnostic
 - [CradleTesting 안내](Sources/CradleTesting/CradleTesting.docc/CradleTesting.md) — `overrides: true`, `.replace`, `.mock`, graph별 테스트 대역 구성
