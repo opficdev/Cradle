@@ -38,7 +38,7 @@ private func mermaidGraph(_ diagram: GraphDiagram, prefix: String, target: Targe
 	})
 
 	var lines = [
-		"    subgraph \(prefix)[\"\(mermaidLabel(diagram.lexicalName))\"]",
+		"    subgraph \(prefix)[\" \"]",
 		"        \(prefix)_root[\"\(mermaidLabel(diagram.lexicalName))\"]"
 	]
 	lines += sources.enumerated().compactMap { index, source in

@@ -390,7 +390,7 @@ plugin은 macOS용 `CradleDiagramMaker` artifact를 실행합니다. 소비자 �
 final class PreviewGraph {}
 ```
 
-Mermaid는 graph의 `sources` 선언, provider의 타입 의존성, Factory가 실제로 읽는 source 참조를 모두 실선 화살표로 그립니다. provider 간 연결은 해당 graph 안에서만 만듭니다. `.shared` provider node는 실선 테두리, `.transient` provider node는 점선 테두리이며 graph와 source node는 중립 실선 테두리입니다.
+Mermaid는 graph의 `sources` 선언, provider의 타입 의존성, Factory가 실제로 읽는 source 참조를 모두 실선 화살표로 그립니다. provider 간 연결은 해당 graph 안에서만 만듭니다. 바깥 graph 묶음은 이름 없이 provider를 모으고, graph 이름 node와 source node는 중립 실선 테두리입니다. `.shared` provider node는 실선 테두리, `.transient` provider node는 점선 테두리입니다.
 
 source 타입은 명시한 lexical 경로가 일치하거나 바깥 lexical scope에서 같은 이름의 graph를 찾을 때 해당 graph에 연결합니다. 다른 target의 graph, 해석할 수 없는 타입, `diagram: false`로 제외한 graph는 내부 없이 source 이름만 표시합니다. module 접두사와 typealias는 의미 분석하지 않으며, 다른 scope의 이름 끝부분만 같다는 이유로 연결하지 않습니다.
 

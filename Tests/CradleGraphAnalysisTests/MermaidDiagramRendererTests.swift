@@ -46,6 +46,9 @@ func mermaidDiagramUnifiesSharedAndCyclicGraphs() {
 	#expect(mermaid.contains("graph1_root --> graph2_root"))
 	#expect(mermaid.contains("graph2_root --> graph0_root"))
 	#expect(mermaid.contains("graph0_provider0 --> graph1_root"))
+	#expect(mermaid.contains("subgraph graph0[\" \"]"))
+	#expect(!mermaid.contains("subgraph graph0[\"AGraph\"]"))
+	#expect(mermaid.components(separatedBy: "AGraph").count - 1 == 1)
 	#expect(!mermaid.contains("_source"))
 	#expect(mermaidDiagram(for: diagrams.reversed()) == mermaid)
 }

@@ -56,6 +56,8 @@ func diagramOutputWriterCombinesTargetAndMigratesOldFiles() throws {
 	let output = try #require(outputs.first)
 	let content = try String(contentsOf: output, encoding: .utf8)
 	#expect(content.contains("AGraph") && content.contains("BGraph"))
+	#expect(content.contains("subgraph graph0[\" \"]"))
+	#expect(!content.contains("subgraph graph0[\"AGraph\"]"))
 	#expect(content.contains("graph0_root --> graph1_root"))
 	#expect(!FileManager.default.fileExists(atPath: old.path))
 	#expect(try String(contentsOf: note, encoding: .utf8) == "keep")
