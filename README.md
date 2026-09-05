@@ -152,13 +152,13 @@ Cradle은 graph를 만들 때 누락한 등록, 중복된 등록, 순환 의존�
 <details>
 <summary>Xcode에서 Mermaid 파일 열기</summary>
 
-`CradlePlugin`은 build 때 Mermaid 원본을 만들어요. Xcode에서 파일을 바로 열고 싶다면 target의 마지막 Run Script 단계에서 [CopyCradleMermaid.sh](Examples/ExampleApp/Scripts/CopyCradleMermaid.sh)를 실행하고 Based on dependency analysis를 선택 해제해요.
+`CradlePlugin`은 build 때 Mermaid 원본을 만들어요. 외부 Xcode 프로젝트에서 파일을 바로 열려면 먼저 [CopyCradleMermaid.sh](Examples/ExampleApp/Scripts/CopyCradleMermaid.sh)를 소비자 프로젝트의 `Scripts/CopyCradleMermaid.sh`로 복사해요. Mermaid가 필요한 같은 target에 `CradlePlugin`을 연결한 뒤, target의 마지막 Run Script 단계에서 다음 명령을 실행하고 Based on dependency analysis를 선택 해제해요.
 
 ```sh
 /bin/sh "${SRCROOT}/Scripts/CopyCradleMermaid.sh"
 ```
 
-`Cmd+B` 뒤 `Examples/ExampleApp/.cradle/DependencyGraph.mmd`가 생겨요. `.cradle/`은 Git에 올리지 않고 앱과 라이브러리 binary에도 넣지 않아요. Xcode의 build 도구 작업 경로는 공개된 고정 경로가 아니에요. 경고가 나타나면 `CopyCradleMermaid.sh`의 검색 경로를 확인해요.
+`Cmd+B` 뒤 소비자 프로젝트의 `.cradle/DependencyGraph.mmd`가 생겨요. `.cradle/`은 Git에 올리지 않고 앱과 라이브러리 binary에도 넣지 않아요. Xcode의 build 도구 작업 경로는 공개된 고정 경로가 아니에요. 경고가 나타나면 `CopyCradleMermaid.sh`의 검색 경로를 확인해요.
 
 </details>
 
