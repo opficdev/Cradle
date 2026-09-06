@@ -25,6 +25,18 @@ struct DependencyGraphMacro: MemberMacro {
 			context.diagnose(Diagnostic(node: node, message: CradleMacroDiagnostic.invalidGraph))
 			return []
 		}
+		let hasInput = graphInputArgument(in: node) != nil
+		let graphInput = GraphInputDescriptor.from(attribute: node, in: context)
+		guard !hasInput || graphInput != nil else {
+			return []
+		}
+		guard let configuredLifetime = dependencyGraphLifetimeConfiguration(from: node, in: context) else {
+			return []
+		}
+		if graphInput != nil && configuredLifetime.createsSharedGraph {
+			context.diagnose(Diagnostic(node: node, message: GraphInputDiagnostic.sharedGraphUnsupported))
+			return []
+		}
 		guard let lifetime = validatedSharedGraphLifetime(
 			for: graph,
 			attribute: node,
@@ -32,17 +44,8 @@ struct DependencyGraphMacro: MemberMacro {
 		) else {
 			return []
 		}
-		let hasInput = graphInputArgument(in: node) != nil
-		let graphInput = GraphInputDescriptor.from(attribute: node, in: context)
-		guard !hasInput || graphInput != nil else {
-			return []
-		}
 		if graphInput != nil && graph.isActor {
 			context.diagnose(Diagnostic(node: node, message: GraphInputDiagnostic.actorUnsupported))
-			return []
-		}
-		if graphInput != nil && lifetime.createsSharedGraph {
-			context.diagnose(Diagnostic(node: node, message: GraphInputDiagnostic.sharedGraphUnsupported))
 			return []
 		}
 		guard let overrideConfiguration = typedOverrideConfiguration(from: node, in: context) else {
