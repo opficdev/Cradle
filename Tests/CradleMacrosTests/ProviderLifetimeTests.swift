@@ -27,6 +27,14 @@ func providerLifetimeAcceptsShared(source: String) throws {
 	#expect(context.diagnostics.isEmpty)
 }
 
+// 주석과 백틱을 포함한 직접 lazy case 표기 허용 확인
+@Test(arguments: ["@Provide(.lazy)", "@Provide(/* 수명 */ .lazy)", "@Provide(.`lazy`)"])
+func providerLifetimeAcceptsLazy(source: String) throws {
+	let (attribute, context) = try lifetimeAttribute(source)
+	#expect(providerLifetime(from: attribute, in: context) == .lazy)
+	#expect(context.diagnostics.isEmpty)
+}
+
 // 주석과 백틱을 포함한 직접 transient case 표기 허용 확인
 @Test(arguments: ["@Provide(.transient)", "@Provide(/* 수명 */ .transient)", "@Provide(.`transient`)"])
 func providerLifetimeAcceptsTransient(source: String) throws {
@@ -48,7 +56,7 @@ func providerLifetimeRejectsUnsupportedArguments(argument: String) throws {
 	let diagnostic = try #require(context.diagnostics.first)
 	#expect(diagnostic.diagnosticID == .init(domain: "Cradle", id: "invalidProviderLifetime"))
 	#expect(diagnostic.diagMessage.severity == .error)
-	#expect(diagnostic.message == "`@Provide` 인자는 생략하거나 `.shared` 또는 `.transient`로 직접 지정해야 합니다.")
+	#expect(diagnostic.message == "`@Provide` 인자는 생략하거나 `.shared`, `.lazy`, `.transient`로 직접 지정해야 합니다.")
 	#expect(diagnostic.node.trimmedDescription == argument)
 	#expect(diagnostic.notes.isEmpty)
 	#expect(diagnostic.fixIts.isEmpty)

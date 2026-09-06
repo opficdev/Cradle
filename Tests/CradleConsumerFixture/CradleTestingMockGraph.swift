@@ -135,6 +135,17 @@ public final class CradleTestingSharedService {
 	}
 }
 
+// lazy mock Factory가 반환할 graph별 참조 값
+public final class CradleTestingLazyService {
+	// lazy mock Factory의 검증값
+	public let token: Int
+
+	// lazy mock 결과 생성
+	public init(token: Int) {
+		self.token = token
+	}
+}
+
 // shared 의존성을 받는 transient 결과
 public struct CradleTestingTransientService {
 	// transient 결과에 주입한 shared 참조 값
@@ -153,6 +164,12 @@ public final class CradleTestingLifetimeGraph {
 	@Provide
 	private func makeCradleTestingSharedService() -> CradleTestingSharedService {
 		CradleTestingSharedService(token: 5)
+	}
+
+	// 최초 접근에만 생성할 lazy 결과의 원본 Factory
+	@Provide(.lazy)
+	private func makeCradleTestingLazyService() -> CradleTestingLazyService {
+		CradleTestingLazyService(token: 6)
 	}
 
 	// transient 결과의 원본 Factory

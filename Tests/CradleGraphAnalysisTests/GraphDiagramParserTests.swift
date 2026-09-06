@@ -53,6 +53,11 @@ func graphDiagramsCollectsGraphRelationships() {
 			Feature(repository: repository)
 		}
 
+		@Provide(.lazy)
+		private func makeLazyFeature(repository: Repository) -> LazyFeature {
+			LazyFeature(repository: repository)
+		}
+
 		@Provide(.transient)
 		private func makeProfile(@External token: Token) -> Profile {
 			Profile(token: token)
@@ -65,10 +70,11 @@ func graphDiagramsCollectsGraphRelationships() {
 
 	#expect(diagram.map(\.lexicalName) == ["AppGraph"])
 	#expect(diagram[0].sources.map(\.name) == ["sessionGraph"])
-	#expect(diagram[0].providers.map(\.factoryName) == ["makeRepository", "makeFeature"])
-	#expect(diagram[0].providers.map(\.lifetime) == [.shared, .transient])
+	#expect(diagram[0].providers.map(\.factoryName) == ["makeRepository", "makeFeature", "makeLazyFeature"])
+	#expect(diagram[0].providers.map(\.lifetime) == [.shared, .transient, .lazy])
 	#expect(diagram[0].providers[0].sourceNames == ["sessionGraph"])
 	#expect(diagram[0].providers[1].dependencyIdentities.map(\.canonicalText) == ["Repository"])
+	#expect(diagram[0].providers[2].dependencyIdentities.map(\.canonicalText) == ["Repository"])
 }
 
 // escaped transient 수명 인자를 Mermaid 수명으로 정규화하는지 확인
@@ -85,6 +91,22 @@ func graphDiagramsRecognizesEscapedTransientLifetime() {
 	)
 
 	#expect(graphDiagrams(in: sourceFile)[0].providers.map(\.lifetime) == [.transient])
+}
+
+// escaped lazy 수명 인자를 Mermaid 수명으로 정규화하는지 확인
+@Test
+func graphDiagramsRecognizesEscapedLazyLifetime() {
+	let sourceFile = Parser.parse(
+		source: """
+		@DependencyGraph
+		final class AppGraph {
+			@Provide(.`lazy`)
+			private func makeFeature() -> Feature { Feature() }
+		}
+		"""
+	)
+
+	#expect(graphDiagrams(in: sourceFile)[0].providers.map(\.lifetime) == [.lazy])
 }
 
 // `@External` Factory를 node와 연결에서 제외하고 본문 없는 일반 Factory는 포함하는지 확인

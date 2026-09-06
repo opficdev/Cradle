@@ -281,6 +281,37 @@ func diagramOutputWriterRendersSourceDependenciesAndLifetimeBorders() throws {
 	#expect(mermaid.contains("classDef transient stroke:#333,stroke-width:2px,stroke-dasharray:5 5;"))
 }
 
+// lazy provider 수명 테두리를 Mermaid 산출물에 표현하는지 확인
+@Test
+func diagramOutputWriterRendersLazyLifetimeBorder() throws {
+	let temporary = try makeDiagramTemporaryDirectory()
+	defer { try? FileManager.default.removeItem(at: temporary) }
+	let source = temporary.appendingPathComponent("AppGraph.swift")
+	try """
+	@DependencyGraph
+	final class AppGraph {
+		@Provide(.lazy)
+		private func makeLazyFeature() -> LazyFeature {
+			LazyFeature()
+		}
+	}
+	""".write(to: source, atomically: true, encoding: .utf8)
+
+	let output = try #require(
+		DiagramOutputWriter().write(
+			request: DiagramOutputRequest(
+				moduleName: "AppComposition",
+				sourceURLs: [source],
+				outputDirectoryURL: temporary.appendingPathComponent("CradleDiagrams")
+			)
+		).first
+	)
+	let mermaid = try String(contentsOf: output, encoding: .utf8)
+
+	#expect(mermaid.contains("classDef lazy stroke:#333,stroke-width:2px,stroke-dasharray:2 3;"))
+	#expect(mermaid.contains("LazyFeature<br/>makeLazyFeature<br/>.lazy"))
+}
+
 // 구문 오류가 있으면 직전 성공 산출물을 유지하는지 확인
 @Test
 func diagramOutputWriterPreservesExistingOutputWhenSourceIsInvalid() throws {

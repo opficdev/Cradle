@@ -176,6 +176,32 @@ func mermaidDiagramRendersSolidRelationshipsAndLifetimeBorders() {
 	#expect(!mermaid.contains("-.->"))
 }
 
+// lazy provider node의 수명 label과 테두리를 Mermaid로 표현하는지 확인
+@Test
+func mermaidDiagramRendersLazyLifetimeBorder() {
+	let diagram = GraphDiagram(
+		lexicalName: "AppGraph",
+		sourceOffset: 0,
+		sources: [],
+		providers: [
+			GraphDiagramProvider(
+				factoryName: "makeLazyFeature",
+				typeName: "LazyFeature",
+				identity: GraphTypeIdentity(canonicalText: "LazyFeature"),
+				lifetime: .lazy,
+				dependencyIdentities: [],
+				sourceNames: []
+			)
+		]
+	)
+
+	let mermaid = mermaidDiagram(for: [diagram])
+
+	#expect(mermaid.contains("classDef lazy stroke:#333,stroke-width:2px,stroke-dasharray:2 3;"))
+	#expect(mermaid.contains("LazyFeature<br/>makeLazyFeature<br/>.lazy"))
+	#expect(mermaid.contains("class graph0_provider0 lazy"))
+}
+
 // Mermaid node ID가 사람이 읽는 label에 의존하지 않는지 확인
 @Test
 func mermaidDiagramEscapesLabelsWithoutChangingNodeIDs() {

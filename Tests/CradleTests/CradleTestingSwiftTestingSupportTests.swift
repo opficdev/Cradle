@@ -48,6 +48,8 @@ func externalProviderOverrideMockSupportsExternalInput() {
 private final class CradleTestingMockFactoryProbe {
 	// shared mock Factory 호출 횟수
 	var sharedCount = 0
+	// lazy mock Factory 호출 횟수
+	var lazyCount = 0
 	// transient mock Factory 호출 횟수
 	var transientCount = 0
 }
@@ -61,6 +63,10 @@ func cradleTestingSwiftTestingPreservesMockFactoryLifetimes() {
 			probe.sharedCount += 1
 			return CradleTestingSharedService(token: probe.sharedCount)
 		},
+		cradleTestingLazyService: .mock {
+			probe.lazyCount += 1
+			return CradleTestingLazyService(token: probe.lazyCount)
+		},
 		cradleTestingTransientService: .mock { shared in
 			probe.transientCount += 1
 			return CradleTestingTransientService(shared: shared)
@@ -68,17 +74,24 @@ func cradleTestingSwiftTestingPreservesMockFactoryLifetimes() {
 	)
 
 	#expect(probe.sharedCount == 0)
+	#expect(probe.lazyCount == 0)
 	#expect(probe.transientCount == 0)
 	let first = builder.build()
 	let second = builder.build()
 
 	#expect(probe.sharedCount == 2)
+	#expect(probe.lazyCount == 0)
 	#expect(probe.transientCount == 0)
 	#expect(first.cradleTestingSharedService !== second.cradleTestingSharedService)
+	let firstLazy = first.cradleTestingLazyService
+	let secondLazy = first.cradleTestingLazyService
 	let firstTransient = first.cradleTestingTransientService
 	let secondTransient = first.cradleTestingTransientService
 
+	#expect(probe.lazyCount == 1)
 	#expect(probe.transientCount == 2)
+	#expect(firstLazy === secondLazy)
+	#expect(firstLazy.token == 1)
 	#expect(firstTransient.shared === first.cradleTestingSharedService)
 	#expect(secondTransient.shared === first.cradleTestingSharedService)
 }

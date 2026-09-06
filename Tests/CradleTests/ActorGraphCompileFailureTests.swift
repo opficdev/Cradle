@@ -29,8 +29,10 @@ func actorGraphCompileFailuresPreserveCompilerOwnership() throws {
 	let nonSendableSource = nonSendableFixture
 		.appendingPathComponent("Sources/ActorGraphNonSendableBoundary/main.swift")
 	let isolationFixture = fixtures.appendingPathComponent("ActorGraphSharedIsolation")
+	let lazyNonSendableFixture = fixtures.appendingPathComponent("LazyActorGraphNonSendableBoundary")
 	let nonSendableResult = try buildActorGraphFixture(at: nonSendableFixture)
 	let isolationResult = try buildActorGraphFixture(at: isolationFixture)
+	let lazyNonSendableResult = try buildActorGraphFixture(at: lazyNonSendableFixture)
 	let nonSendableError = "\(nonSendableSource.path):24:18: error: non-Sendable type "
 		+ "'ActorGraphNonSendableService' of property 'actorGraphNonSendableService' "
 		+ "cannot exit actor-isolated context"
@@ -41,6 +43,11 @@ func actorGraphCompileFailuresPreserveCompilerOwnership() throws {
 	#expect(isolationResult.terminationReason == .exit)
 	#expect(isolationResult.status != 0)
 	#expect(isolationResult.output.contains("instance member 'sequence' cannot be used on type"))
+	#expect(lazyNonSendableResult.terminationReason == .exit)
+	#expect(lazyNonSendableResult.status != 0)
+	#expect(lazyNonSendableResult.output.contains("non-Sendable type 'LazyActorNonSendableService'"))
+	#expect(lazyNonSendableResult.output.contains("cannot exit actor-isolated context"))
+	#expect(lazyNonSendableResult.output.contains("actor-isolated property 'lazyActorNonSendableService'"))
 }
 
 // fixture 실행 없이 별도 scratch 경로에서 엄격한 동시성 Swift build와 진단 수집

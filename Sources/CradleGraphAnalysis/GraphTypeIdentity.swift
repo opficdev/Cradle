@@ -19,6 +19,8 @@ package enum GraphProviderLifetime: String {
 	case transient
 	// graph 생성 중 한 번 만들고 보관하는 수명
 	case shared
+	// 생성 프로퍼티를 처음 읽을 때 한 번 만들고 보관하는 수명
+	case lazy
 }
 
 // 타입 연결과 정렬에 사용할 정규 identity 생성

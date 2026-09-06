@@ -9,6 +9,8 @@
 public enum DependencyLifetime: Sendable {
 	// graph 생성 중 한 번 만들고 해당 graph에서 재사용
 	case shared
+	// 생성 프로퍼티를 처음 읽을 때 graph별로 한 번 생성
+	case lazy
 	// 생성 프로퍼티를 읽을 때마다 Factory를 호출
 	case transient
 }
