@@ -29,7 +29,7 @@ struct LazyGraphStorage {
 		storageNames = Dictionary(uniqueKeysWithValues: self.providers.map { provider in
 			(
 				provider.registrationIdentity,
-				lazyStorageName(for: provider, in: context)
+				lazyStorageName(in: context)
 			)
 		})
 	}
@@ -60,18 +60,7 @@ struct LazyGraphStorage {
 	}
 }
 
-// Macro context의 고유 이름을 유효한 lazy 저장 식별자로 정규화
-private func lazyStorageName(
-	for provider: ProviderDescriptor,
-	in context: some MacroExpansionContext
-) -> TokenSyntax {
-	let unique = context.makeUniqueName("lazy\(provider.propertyIdentifier)").trimmedDescription
-	let identifier = unique.unicodeScalars.map { scalar in
-		if scalar == "_" || scalar.properties.isAlphabetic || scalar.properties.numericType != nil {
-			String(scalar)
-		} else {
-			"_"
-		}
-	}.joined()
-	return .identifier(identifier)
+// 타입 이름과 무관하게 고유한 lazy 저장 식별자 생성
+private func lazyStorageName(in context: some MacroExpansionContext) -> TokenSyntax {
+	context.makeUniqueName("lazyStorage")
 }

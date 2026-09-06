@@ -21,10 +21,7 @@ private struct LazyProviderCompileResult {
 // lazy 수명 연결과 외부 입력 제한이 원본 위치에서 거부되는지 확인
 @Test
 func lazyProviderCompileFailuresReportOriginalLocations() throws {
-	let fixture = URL(fileURLWithPath: #filePath)
-		.deletingLastPathComponent()
-		.deletingLastPathComponent()
-		.appendingPathComponent("CompileFixtures/LazyProviderInvalidUsage")
+	let fixture = lazyProviderFixture(named: "LazyProviderInvalidUsage")
 	let source = fixture.appendingPathComponent("Sources/LazyProviderInvalidUsage/main.swift")
 	let result = try buildLazyProviderFixture(at: fixture)
 	let errors = [
@@ -39,6 +36,26 @@ func lazyProviderCompileFailuresReportOriginalLocations() throws {
 	for error in errors {
 		#expect(result.output.contains(error))
 	}
+}
+
+// Unicode 반환 타입의 lazy 저장소 이름을 서로 구분하는지 확인
+@Test
+func lazyProviderCompilesDistinctUnicodeStorageNames() throws {
+	let result = try buildLazyProviderFixture(
+		at: lazyProviderFixture(named: "LazyProviderUnicodeStorage")
+	)
+
+	#expect(result.terminationReason == .exit)
+	#expect(result.status == 0, Comment(rawValue: result.output))
+}
+
+// 이름으로 선택한 lazy provider compiler fixture 경로
+private func lazyProviderFixture(named name: String) -> URL {
+	URL(fileURLWithPath: #filePath)
+		.deletingLastPathComponent()
+		.deletingLastPathComponent()
+		.appendingPathComponent("CompileFixtures")
+		.appendingPathComponent(name)
 }
 
 // fixture 실행 없이 별도 scratch 경로에서 compiler 진단 수집
