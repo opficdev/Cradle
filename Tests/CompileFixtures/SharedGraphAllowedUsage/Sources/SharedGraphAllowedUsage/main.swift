@@ -40,6 +40,16 @@ final class SharedGraphAllowedQualifiedFeature: Sendable {}
 @DependencyGraph(.shared)
 final class SharedGraphAllowedMainActor {}
 
+// Swift 모듈 한정 MainActor 격리와 override를 함께 사용하는 graph
+@Swift.MainActor
+@DependencyGraph(.shared, overrides: true)
+final class SharedGraphAllowedSwiftMainActor {
+	@Provide
+	private func makeSharedGraphAllowedService() -> SharedGraphAllowedService {
+		SharedGraphAllowedService()
+	}
+}
+
 // actor graph의 정적 접근점
 @DependencyGraph(.shared)
 actor SharedGraphAllowedActor {}
@@ -66,6 +76,8 @@ func sharedGraphAllowedUsage() {
 	_ = source
 	_ = feature
 	_ = SharedGraphAllowedMainActor.shared
+	_ = SharedGraphAllowedSwiftMainActor.shared
+	_ = SharedGraphAllowedSwiftMainActor.override().build()
 	_ = SharedGraphAllowedActor.shared
 	_ = SharedGraphAllowedQualifiedFeature.shared
 	_ = SharedGraphAllowedPackage.shared

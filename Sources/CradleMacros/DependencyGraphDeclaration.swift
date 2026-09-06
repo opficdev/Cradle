@@ -122,7 +122,7 @@ private func containsMainActorAttribute(in attributes: AttributeListSyntax) -> B
 	}.contains(where: isMainActorAttribute)
 }
 
-// `MainActor`와 `_Concurrency.MainActor` attribute 이름을 구문 구조로 판별
+// `MainActor`와 표준 모듈 한정 MainActor attribute 이름을 구문 구조로 판별
 private func isMainActorAttribute(_ attribute: AttributeSyntax) -> Bool {
 	if let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) {
 		return attributeIdentifierName(identifier.name) == "MainActor"
@@ -131,7 +131,8 @@ private func isMainActorAttribute(_ attribute: AttributeSyntax) -> Bool {
 		let module = member.baseType.as(IdentifierTypeSyntax.self) else {
 		return false
 	}
-	return attributeIdentifierName(module.name) == "_Concurrency"
+	let moduleName = attributeIdentifierName(module.name)
+	return (moduleName == "Swift" || moduleName == "_Concurrency")
 		&& attributeIdentifierName(member.name) == "MainActor"
 }
 

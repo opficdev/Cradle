@@ -44,6 +44,26 @@ func sharedActorGraphCreatesStaticSharedMember() {
 	)
 }
 
+// Swift 모듈 한정 MainActor graph의 shared 접근점 허용 확인
+@Test
+func swiftMainActorSharedGraphCreatesStaticSharedMember() {
+	assertMacroExpansion(
+		"""
+		@Swift.MainActor
+		@DependencyGraph(.shared)
+		final class Graph {}
+		""",
+		expandedSource: """
+		@Swift.MainActor
+		final class Graph {
+
+		    internal static let shared: Graph = Graph()
+		}
+		""",
+		macros: testMacros
+	)
+}
+
 // 직접 instance lifetime이 기존 member 미생성을 유지하는지 확인
 @Test
 func instanceGraphDoesNotCreateStaticSharedMember() {
