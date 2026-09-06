@@ -59,7 +59,7 @@ func sourceGraphResult(
 	guard sourceArguments.count <= 1,
 		arguments.allSatisfy({ argument in
 			let name = argument.label?.identifier?.name
-			return name == nil || name == "sources" || name == "overrides" || name == "diagram"
+			return name == nil || name == "input" || name == "sources" || name == "overrides" || name == "diagram"
 		}) else {
 		context.diagnose(Diagnostic(node: arguments, message: SourceGraphDiagnostic.invalidSources))
 		return SourceGraphResult(descriptors: [], hasError: true)
@@ -295,26 +295,35 @@ private func sourceGraphHasTypeMemberModifier(_ modifiers: DeclModifierListSynta
 // source 저장 프로퍼티와 생성 initializer 선언 생성
 func sourceGraphDeclarations(
 	for sources: [SourceGraphDescriptor],
+	input: GraphInputDescriptor? = nil,
 	accessLevel: AccessLevel,
 	storage: SharedGraphStorage?
 ) -> [DeclSyntax] {
-	guard !sources.isEmpty else {
+	guard !sources.isEmpty || input != nil else {
 		return []
 	}
-	let properties = sources.map { source in
+	let inputProperties: [DeclSyntax] = input.map { input in
+		[DeclSyntax("private let input: \(raw: input.type.trimmedDescription)")]
+	} ?? []
+	let sourceProperties = sources.map { source in
 		DeclSyntax(
 			"""
 			private let \(raw: source.propertyName): \(raw: source.type.trimmedDescription)
 			"""
 		)
 	}
-	let parameters = sources.map { source in
+	let inputParameters: [String] = input.map { input in
+		["input: \(input.type.trimmedDescription)"]
+	} ?? []
+	let sourceParameters = sources.map { source in
 		"\(source.propertyName): \(source.type.trimmedDescription)"
-	}.joined(separator: ", ")
+	}
+	let parameters = (inputParameters + sourceParameters).joined(separator: ", ")
+	let inputAssignments: [String] = input.map { _ in ["self.input = input"] } ?? []
 	let sourceAssignments = sources.map { source in
 		"self.\(source.propertyName) = \(source.propertyName)"
 	}
-	let assignments = (sourceAssignments + [storage?.initializationAssignment()])
+	let assignments = (inputAssignments + sourceAssignments + [storage?.initializationAssignment()])
 		.compactMap { $0 }
 		.joined(separator: "\n")
 	let initializer = DeclSyntax(
@@ -324,5 +333,5 @@ func sourceGraphDeclarations(
 		}
 		"""
 	)
-	return properties + [initializer]
+	return inputProperties + sourceProperties + [initializer]
 }

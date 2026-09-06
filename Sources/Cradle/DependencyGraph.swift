@@ -34,6 +34,7 @@
 @attached(member, names: arbitrary)
 public macro DependencyGraph(
 	_ lifetime: DependencyGraphLifetime = .instance,
+	input: Any.Type? = nil,
 	sources: [Any.Type] = [],
 	overrides: Bool = false,
 	diagram: Bool = true

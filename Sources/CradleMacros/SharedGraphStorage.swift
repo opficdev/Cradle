@@ -23,6 +23,8 @@ struct SharedGraphStorage {
 	let providers: [ProviderDescriptor]
 	// 조합 graph가 보관하는 source graph
 	let sources: [SourceGraphDescriptor]
+	// graph 생성자가 보관하는 조립 입력
+	let input: GraphInputDescriptor?
 	// 의존성 타입 identity와 생성 프로퍼티 이름 연결
 	let propertyNames: [RegisteredTypeIdentity: String]
 	// 등록별 복제 static Factory helper 이름
@@ -33,12 +35,15 @@ struct SharedGraphStorage {
 	let providerSources: [RegisteredTypeIdentity: [SourceGraphDescriptor]]
 	// 등록별 source graph helper 매개변수 이름
 	let helperSourceNames: [RegisteredTypeIdentity: [RegisteredTypeIdentity: TokenSyntax]]
+	// 등록별 input helper 매개변수 이름
+	let helperInputNames: [RegisteredTypeIdentity: TokenSyntax]
 
 	// 한 graph의 shared Factory와 충돌하지 않는 저장소 식별자 생성
 	init(
 		graphName: TokenSyntax,
 		providers: [ProviderDescriptor],
 		sources: [SourceGraphDescriptor],
+		input: GraphInputDescriptor? = nil,
 		propertyNames: [RegisteredTypeIdentity: String],
 		in context: some MacroExpansionContext
 	) {
@@ -48,13 +53,15 @@ struct SharedGraphStorage {
 		builderName = context.makeUniqueName("makeSharedStorage")
 		self.providers = providers
 		self.sources = sources
+		self.input = input
 		self.propertyNames = propertyNames
 		helperNames = Dictionary(uniqueKeysWithValues: providers.map { provider in
 			(provider.registrationIdentity, context.makeUniqueName("makeShared\(provider.propertyIdentifier)"))
 		})
 		let sourceNames = Set(sources.map(\.propertyIdentifier))
+		let referenceNames = sourceNames.union(input == nil ? [] : ["input"])
 		let references = Dictionary(uniqueKeysWithValues: providers.map { provider in
-			(provider.registrationIdentity, sourceGraphReferences(in: provider.factory, sourceNames: sourceNames))
+			(provider.registrationIdentity, sourceGraphReferences(in: provider.factory, sourceNames: referenceNames))
 		})
 		sourceReferences = references
 		let providerSources = Dictionary(uniqueKeysWithValues: providers.map { provider in
@@ -67,6 +74,12 @@ struct SharedGraphStorage {
 				(source.identity, sourceHelperParameterName(for: source, in: context))
 			})
 			return (provider.registrationIdentity, names)
+		})
+		helperInputNames = Dictionary(uniqueKeysWithValues: providers.compactMap { provider in
+			guard references[provider.registrationIdentity]?.sourceNames.contains("input") == true else {
+				return nil
+			}
+			return (provider.registrationIdentity, graphInputHelperParameterName(in: context))
 		})
 	}
 
@@ -84,7 +97,7 @@ struct SharedGraphStorage {
 
 	// source 저장 프로퍼티 대입 뒤 shared 저장소를 초기화할지 여부
 	var requiresSourceInitialization: Bool {
-		!sources.isEmpty
+		!sources.isEmpty || input != nil
 	}
 
 	// source 저장 프로퍼티 대입 뒤 실행할 shared 저장소 초기화문
@@ -92,9 +105,11 @@ struct SharedGraphStorage {
 		guard requiresSourceInitialization else {
 			return nil
 		}
-		let arguments = builderSources.map { source in
+		let sourceArguments = builderSources.map { source in
 			"\(source.propertyName): \(source.propertyName)"
 		}.joined(separator: ", ")
+		let inputArguments = requiresInputParameter ? "input: input" : ""
+		let arguments = [inputArguments, sourceArguments].filter { !$0.isEmpty }.joined(separator: ", ")
 		return "self.\(storagePropertyName.trimmedDescription) = \(graphName.trimmedDescription).\(builderName.trimmedDescription)(\(arguments))"
 	}
 
@@ -122,9 +137,11 @@ struct SharedGraphStorage {
 			) else {
 			return nil
 		}
-		let parameters = provider.factory.signature.parameterClause.parameters.map { parameter in
+		let factoryParameters = provider.factory.signature.parameterClause.parameters.map { parameter in
 			parameter.with(\.trailingComma, nil).trimmedDescription
 		}
+		let inputParameters = helperInput(for: provider).map { ["\($0): \(input!.type.trimmedDescription)"] } ?? []
+		let parameters = factoryParameters + inputParameters
 			+ helperSources(for: provider).compactMap { source in
 				guard let name = helperSourceNames[provider.registrationIdentity]?[source.identity] else {
 					return nil
@@ -146,21 +163,24 @@ struct SharedGraphStorage {
 			let providerArguments = provider.parameters.map { parameter in
 				parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity]!)
 			}
-			let sourceArguments = helperSources(for: provider).compactMap { source -> String? in
+		let inputArguments = helperInput(for: provider).map { ["\($0): input"] } ?? []
+		let sourceArguments = helperSources(for: provider).compactMap { source -> String? in
 				guard let name = helperSourceNames[provider.registrationIdentity]?[source.identity] else {
 					return nil
 				}
 				return "\(name.trimmedDescription): \(source.propertyName)"
 			}
-			let arguments = (providerArguments + sourceArguments).joined(separator: ", ")
+		let arguments = (providerArguments + inputArguments + sourceArguments).joined(separator: ", ")
 			return "let \(provider.propertyName): \(provider.returnType.trimmedDescription) = \(helper)(\(arguments))"
 		}.joined(separator: "\n")
 		let arguments = providers.map { provider in
 			"\(provider.propertyName): \(provider.propertyName)"
 		}.joined(separator: ", ")
-		let parameters = builderSources.map { source in
+		let sourceParameters = builderSources.map { source in
 			"\(source.propertyName): \(source.type.trimmedDescription)"
 		}.joined(separator: ", ")
+		let inputParameters = requiresInputParameter ? "input: \(input!.type.trimmedDescription)" : ""
+		let parameters = [inputParameters, sourceParameters].filter { !$0.isEmpty }.joined(separator: ", ")
 		return DeclSyntax(
 			"""
 			private static func \(builderName)(\(raw: parameters)) -> \(storageTypeName) {
@@ -194,20 +214,56 @@ struct SharedGraphStorage {
 		}
 	}
 
+	// shared builder가 input을 받아야 하는지 여부
+	private var requiresInputParameter: Bool {
+		guard input != nil else {
+			return false
+		}
+		return helperNames.keys.contains { identity in
+			sourceReferences[identity]?.sourceNames.contains("input") == true
+		}
+	}
+
 	// 한 shared Factory가 실제로 참조한 source graph
 	private func helperSources(for provider: ProviderDescriptor) -> [SourceGraphDescriptor] {
 		providerSources[provider.registrationIdentity] ?? []
 	}
 
+	// shared helper가 전달받을 input 매개변수 이름
+	private func helperInput(for provider: ProviderDescriptor) -> String? {
+		guard input != nil,
+			sourceReferences[provider.registrationIdentity]?.sourceNames.contains("input") == true else {
+			return nil
+		}
+		return helperInputNames[provider.registrationIdentity]?.trimmedDescription
+	}
+
 	// Factory source 이름과 helper 매개변수 이름 연결
 	private func sourceParameterNames(for provider: ProviderDescriptor) -> [String: String] {
-		Dictionary(uniqueKeysWithValues: helperSources(for: provider).compactMap { source in
+		var names: [String: String] = Dictionary(uniqueKeysWithValues: helperSources(for: provider).compactMap { source in
 			guard let name = helperSourceNames[provider.registrationIdentity]?[source.identity] else {
 				return nil
 			}
 			return (source.propertyIdentifier, name.trimmedDescription)
 		})
+		if let helperInput = helperInput(for: provider) {
+			names["input"] = helperInput
+		}
+		return names
 	}
+}
+
+// input helper 매개변수로 사용할 유효한 고유 identifier 생성
+private func graphInputHelperParameterName(in context: some MacroExpansionContext) -> TokenSyntax {
+	let uniqueName = context.makeUniqueName("graphInput").trimmedDescription
+	let identifier = uniqueName.unicodeScalars.map { scalar in
+		if scalar == "_" || scalar.properties.isAlphabetic || scalar.properties.numericType != nil {
+			String(scalar)
+		} else {
+			"_"
+		}
+	}.joined()
+	return .identifier(identifier)
 }
 
 // helper 매개변수로 사용할 유효한 고유 identifier 생성

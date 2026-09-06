@@ -15,10 +15,12 @@ func propertyNames(for providers: [ProviderDescriptor]) -> [RegisteredTypeIdenti
 }
 
 // shared 등록이 있을 때만 graph 전용 저장소 생성
+// swiftlint:disable:next function_parameter_count
 func sharedStorage(
 	for providers: [ProviderDescriptor],
 	graphName: TokenSyntax,
 	sources: [SourceGraphDescriptor],
+	input: GraphInputDescriptor?,
 	propertyNames: [RegisteredTypeIdentity: String],
 	in context: some MacroExpansionContext
 ) -> SharedGraphStorage? {
@@ -30,6 +32,7 @@ func sharedStorage(
 		graphName: graphName,
 		providers: sharedProviders,
 		sources: sources,
+		input: input,
 		propertyNames: propertyNames,
 		in: context
 	)
