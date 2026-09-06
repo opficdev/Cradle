@@ -84,6 +84,34 @@ func sharedGraphRejectsExistingStaticSharedMember() {
 	)
 }
 
+// escaped static shared member 충돌 진단 확인
+@Test
+func sharedGraphRejectsEscapedStaticSharedMember() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph(.shared)
+		final class Graph: Sendable {
+		static let `shared` = Graph()
+		}
+		""",
+		expandedSource: """
+		final class Graph: Sendable {
+		static let `shared` = Graph()
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "sharedGraphMemberCollision"),
+				message: "생성할 `shared` static member가 기존 type member와 충돌합니다.",
+				line: 1,
+				column: 18,
+				highlights: [".shared"]
+			)
+		],
+		macros: testMacros
+	)
+}
+
 // 직접 case 이외 lifetime 표기 거부 확인
 @Test
 func dependencyGraphRejectsInvalidLifetimeExpression() {

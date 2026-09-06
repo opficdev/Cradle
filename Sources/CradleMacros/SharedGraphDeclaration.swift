@@ -10,15 +10,42 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-// source·override 없는 graph의 정적 접근점 선언 생성
+// source graph 조합을 포함한 정적 접근점 선언 생성
 func sharedGraphDeclaration(
 	for graph: DependencyGraphDeclaration,
-	accessLevel: AccessLevel
+	sources: [SourceGraphDescriptor],
+	accessLevel: AccessLevel,
+	in context: some MacroExpansionContext
 ) -> DeclSyntax {
 	let graphName = graph.name.trimmedDescription
+	guard !sources.isEmpty else {
+		return DeclSyntax(
+			"""
+			\(raw: accessLevel.rawValue) static let shared: \(raw: graphName) = \(raw: graphName)()
+			"""
+		)
+	}
+	let sourceAliases = Dictionary(uniqueKeysWithValues: sources.map { source in
+		(source.identity, context.makeUniqueName("shared\(source.propertyIdentifier)Type"))
+	})
+	let sourceNames = Dictionary(uniqueKeysWithValues: sources.map { source in
+		(source.identity, context.makeUniqueName("shared\(source.propertyIdentifier)"))
+	})
+	let sourceInitializations = sources.map { source in
+		let alias = sourceAliases[source.identity]!.trimmedDescription
+		let name = sourceNames[source.identity]!.trimmedDescription
+		return "typealias \(alias) = \(source.type.trimmedDescription)\nlet \(name): \(alias) = \(alias).shared"
+	}.joined(separator: "\n")
+	let arguments = sources.map { source in
+		let name = sourceNames[source.identity]!.trimmedDescription
+		return "\(source.propertyName): \(name)"
+	}.joined(separator: ", ")
 	return DeclSyntax(
 		"""
-		\(raw: accessLevel.rawValue) static let shared: \(raw: graphName) = \(raw: graphName)()
+		\(raw: accessLevel.rawValue) static let shared: \(raw: graphName) = {
+		    \(raw: sourceInitializations)
+		    return \(raw: graphName)(\(raw: arguments))
+		}()
 		"""
 	)
 }
@@ -66,7 +93,7 @@ private func typeMemberNames(in members: MemberBlockItemListSyntax) -> Set<Strin
 	members.reduce(into: Set<String>()) { names, member in
 		if let function = member.decl.as(FunctionDeclSyntax.self),
 			hasTypeMemberModifier(in: function.modifiers) {
-			names.insert(function.name.text)
+			names.insert(typeMemberName(function.name))
 			return
 		}
 
@@ -76,10 +103,15 @@ private func typeMemberNames(in members: MemberBlockItemListSyntax) -> Set<Strin
 				guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
 					continue
 				}
-				names.insert(pattern.identifier.text)
+				names.insert(typeMemberName(pattern.identifier))
 			}
 		}
 	}
+}
+
+// backtick을 제외한 type member 비교용 이름 반환
+private func typeMemberName(_ token: TokenSyntax) -> String {
+	token.identifier?.name ?? token.text
 }
 
 // static·class type member 여부 확인

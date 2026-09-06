@@ -76,3 +76,36 @@ func publicSharedGraphPreservesAccessLevel() {
 		macros: testMacros
 	)
 }
+
+// source graph를 정규화한 순서로 정적 접근점에서 한 번씩 읽는지 확인
+@Test
+func sharedGraphBuildsSourcesFromStaticAccessPoints() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph(.shared, sources: [SessionGraph.self, AppGraph.self])
+		final class FeatureGraph: Sendable {}
+		""",
+		expandedSource: """
+		final class FeatureGraph: Sendable {
+
+		    private let appGraph: AppGraph
+
+		    private let sessionGraph: SessionGraph
+
+		    internal init(appGraph: AppGraph, sessionGraph: SessionGraph) {
+		        self.appGraph = appGraph
+		        self.sessionGraph = sessionGraph
+		    }
+
+		    internal static let shared: FeatureGraph = {
+		        typealias __macro_local_18sharedappGraphTypefMu_ = AppGraph
+		        let __macro_local_14sharedappGraphfMu_: __macro_local_18sharedappGraphTypefMu_ = __macro_local_18sharedappGraphTypefMu_.shared
+		        typealias __macro_local_22sharedsessionGraphTypefMu_ = SessionGraph
+		        let __macro_local_18sharedsessionGraphfMu_: __macro_local_22sharedsessionGraphTypefMu_ = __macro_local_22sharedsessionGraphTypefMu_.shared
+		        return FeatureGraph(appGraph: __macro_local_14sharedappGraphfMu_, sessionGraph: __macro_local_18sharedsessionGraphfMu_)
+		    }()
+		}
+		""",
+		macros: testMacros
+	)
+}
