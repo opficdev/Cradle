@@ -25,13 +25,19 @@ struct DependencyGraphMacro: MemberMacro {
 			context.diagnose(Diagnostic(node: node, message: CradleMacroDiagnostic.invalidGraph))
 			return []
 		}
+		guard let lifetime = validatedSharedGraphLifetime(
+			for: graph,
+			attribute: node,
+			context: context
+		) else {
+			return []
+		}
 		guard let overrideConfiguration = typedOverrideConfiguration(from: node, in: context) else {
 			return []
 		}
 		guard diagramConfiguration(from: node, in: context) != nil else {
 			return []
 		}
-
 		let sourceResult = sourceGraphResult(from: node, in: context)
 		guard let sources = acceptedSourceDescriptors(for: graph, from: node, result: sourceResult, in: context) else {
 			return []
@@ -40,7 +46,6 @@ struct DependencyGraphMacro: MemberMacro {
 			diagnoseTypedOverrideInitializationErrors(in: graph.memberBlock.members, context: context) {
 			return []
 		}
-
 		let providerResult = providers(in: graph.memberBlock.members, context: context)
 		let graphAccess = accessLevel(of: graph.modifiers)
 		let hasDeclarationError = hasInitialDeclarationError(
@@ -97,10 +102,19 @@ struct DependencyGraphMacro: MemberMacro {
 			lazyStorage: lazyStorage
 		)
 		guard overrideConfiguration.isEnabled else {
-			return sourceDeclarations + properties
+			let shared = lifetime.createsSharedGraph ? [
+				sharedGraphDeclaration(
+					for: graph,
+					sources: sources,
+					accessLevel: graphAccess,
+					in: context
+				)
+			] : []
+			return sourceDeclarations + properties + shared
 		}
 		return typedOverrideDeclarations(
 			for: graph,
+			lifetime: lifetime,
 			providers: providerResult.descriptors,
 			sources: sources,
 			accessLevel: graphAccess,
@@ -360,7 +374,6 @@ private func providers(
 ) -> (descriptors: [ProviderDescriptor], hasError: Bool) {
 	var hasError = false
 	var descriptors: [ProviderDescriptor] = []
-
 	for member in members {
 		guard let attribute = provideAttribute(in: member.decl) else {
 			continue

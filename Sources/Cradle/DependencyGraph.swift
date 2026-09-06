@@ -15,6 +15,7 @@
 // source·override가 없는 graph의 initializer·stored property 미변경
 @attached(member, names: arbitrary)
 public macro DependencyGraph(
+	_ lifetime: DependencyGraphLifetime = .instance,
 	sources: [Any.Type] = [],
 	overrides: Bool = false,
 	diagram: Bool = true
