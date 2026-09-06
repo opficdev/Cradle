@@ -71,3 +71,57 @@ func typedOverrideGraphAllowsAutomaticStoredPropertyInitialization() throws {
 	#expect(context.diagnostics.isEmpty)
 	#expect(source.contains("internal struct OverrideBuilder"))
 }
+
+// checked Sendable shared graph의 override Factory 동시성 경계 확인
+@Test
+func sharedGraphOverrideRequiresSendableFactory() throws {
+	let source = try typedOverrideExpansionSource(
+		"""
+		@DependencyGraph(.shared, overrides: true)
+		final class Graph: Sendable {
+			@Provide
+			private func makeService() -> Service { Service() }
+		}
+		"""
+	)
+
+	#expect(source.contains("@Sendable () -> Service"))
+	#expect(source.contains("internal struct OverrideBuilder: Sendable"))
+	#expect(source.contains("internal static let shared: Graph = Graph()"))
+}
+
+// 일반 instance graph의 override Factory capture 허용 범위 보존 확인
+@Test
+func instanceGraphOverrideDoesNotRequireSendableFactory() throws {
+	let source = try typedOverrideExpansionSource(
+		"""
+		@DependencyGraph(overrides: true)
+		final class Graph: Sendable {
+			@Provide
+			private func makeService() -> Service { Service() }
+		}
+		"""
+	)
+
+	#expect(!source.contains("@Sendable () -> Service"))
+	#expect(!source.contains("static let shared"))
+}
+
+// override graph 확장 결과의 선언 문자열 반환
+private func typedOverrideExpansionSource(_ source: String) throws -> String {
+	let file = Parser.parse(source: source)
+	let graph = try #require(file.statements.first?.item.as(ClassDeclSyntax.self))
+	let attribute = try #require(graph.attributes.first?.as(AttributeSyntax.self))
+	let context = BasicMacroExpansionContext(sourceFiles: [
+		file: .init(moduleName: "Fixture", fullFilePath: "/Fixture.swift")
+	])
+	let declarations = try DependencyGraphMacro.expansion(
+		of: attribute,
+		providingMembersOf: graph,
+		conformingTo: [],
+		in: context
+	)
+
+	#expect(context.diagnostics.isEmpty)
+	return declarations.map(\.trimmedDescription).joined(separator: "\n")
+}

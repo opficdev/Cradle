@@ -114,6 +114,7 @@ struct DependencyGraphMacro: MemberMacro {
 		}
 		return typedOverrideDeclarations(
 			for: graph,
+			lifetime: lifetime,
 			providers: providerResult.descriptors,
 			sources: sources,
 			accessLevel: graphAccess,
@@ -373,7 +374,6 @@ private func providers(
 ) -> (descriptors: [ProviderDescriptor], hasError: Bool) {
 	var hasError = false
 	var descriptors: [ProviderDescriptor] = []
-
 	for member in members {
 		guard let attribute = provideAttribute(in: member.decl) else {
 			continue

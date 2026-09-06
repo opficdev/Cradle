@@ -36,10 +36,11 @@ private struct TypedOverrideProvider {
 	}
 }
 
-// source 없는 non-public class graph의 override 선언 생성
-// swiftlint:disable:next function_parameter_count
+// class graph의 override 선언 생성
+// swiftlint:disable:next function_parameter_count function_body_length
 func typedOverrideDeclarations(
 	for graph: DependencyGraphDeclaration,
+	lifetime: DependencyGraphLifetimeConfiguration,
 	providers: [ProviderDescriptor],
 	sources: [SourceGraphDescriptor],
 	accessLevel: AccessLevel,
@@ -47,6 +48,9 @@ func typedOverrideDeclarations(
 	storage: SharedGraphStorage?,
 	in context: some MacroExpansionContext
 ) -> [DeclSyntax] {
+	let requiresSendableFactory = graph.isActor || (
+		lifetime.createsSharedGraph && graph.isCheckedSendable && !graph.isMainActor
+	)
 	let overrides = providers.map { provider in
 		TypedOverrideProvider(
 			provider: provider,
@@ -54,7 +58,7 @@ func typedOverrideDeclarations(
 			storageName: typedOverrideUniqueName("typedOverrideState", in: context),
 			lazyValueName: typedOverrideUniqueName("typedOverrideLazyValue", in: context),
 			lazyBuilderName: typedOverrideUniqueName("makeTypedOverrideLazy", in: context),
-			requiresSendableFactory: graph.isActor
+			requiresSendableFactory: requiresSendableFactory
 		)
 	}
 	let builderName = TokenSyntax.identifier("OverrideBuilder")
@@ -72,6 +76,7 @@ func typedOverrideDeclarations(
 	return overrides.map(selectionDeclaration)
 		+ typedOverrideBuilderDeclarations(
 			for: graph,
+			lifetime: lifetime,
 			builderName: builderName,
 			providers: overrides,
 			sources: sources,
@@ -96,11 +101,21 @@ func typedOverrideDeclarations(
 			storage: sharedStorage,
 			in: context
 		)
+		+ (lifetime.createsSharedGraph ? [
+			sharedGraphDeclaration(
+				for: graph,
+				sources: sources,
+				accessLevel: accessLevel,
+				in: context
+			)
+		] : [])
 }
 
 // graph 생성 전 상태를 보관할 builder와 static 진입점 선언 생성
+// swiftlint:disable:next function_parameter_count
 private func typedOverrideBuilderDeclarations(
 	for graph: DependencyGraphDeclaration,
+	lifetime: DependencyGraphLifetimeConfiguration,
 	builderName: TokenSyntax,
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
@@ -110,6 +125,7 @@ private func typedOverrideBuilderDeclarations(
 		builderDeclaration(
 			named: builderName,
 			graph: graph,
+			lifetime: lifetime,
 			providers: providers,
 			sources: sources,
 			accessLevel: accessLevel
@@ -251,14 +267,18 @@ private func selectionDeclaration(for override: TypedOverrideProvider) -> DeclSy
 }
 
 // graph 생성 전 override 상태만 보관하는 nested builder 선언
+// swiftlint:disable:next function_parameter_count
 private func builderDeclaration(
 	named builderName: TokenSyntax,
 	graph: DependencyGraphDeclaration,
+	lifetime: DependencyGraphLifetimeConfiguration,
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
 	accessLevel: AccessLevel
 ) -> DeclSyntax {
-	let sendable = graph.isActor ? ": Sendable" : ""
+	let sendable = graph.isActor || (
+		lifetime.createsSharedGraph && graph.isCheckedSendable && !graph.isMainActor
+	) ? ": Sendable" : ""
 	let mainActor = graph.isMainActor ? "@MainActor\n" : ""
 	let fields = providers.map { override in
 		"fileprivate let \(override.storageName): \(override.stateName)"
