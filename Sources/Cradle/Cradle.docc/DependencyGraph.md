@@ -29,6 +29,24 @@ let client = graph.httpClient
 
 기본 `@Provide`는 graph 생성 중 한 번 만드는 shared 등록입니다. `graph.httpClient`를 여러 번 읽어도 같은 값을 반환하며 이 값은 전역 싱글턴이 아니라 해당 graph 인스턴스에만 보관됩니다. `@Provide(.lazy)`는 생성 프로퍼티를 처음 읽을 때 graph별 값을 한 번 만들고 보관합니다. 접근할 때마다 새 값을 만들어야 하면 `@Provide(.transient)`를 사용합니다.
 
+## initializer input
+
+graph를 만들 때 정하는 조립 입력은 `input:`으로 선언합니다. Macro는 `input`을 보관한 뒤 기본 `@Provide`의 shared 결과를 만듭니다. 따라서 기본 provider는 graph 생성 시점에 `input`을 읽고, `.lazy` provider만 최초 접근까지 생성을 미룹니다.
+
+```swift
+@DependencyGraph(input: DomainGraphInput.self)
+final class DomainGraph {
+	@Provide
+	private func makeUseCase() -> SomeUseCase {
+		SomeUseCase(repository: input.repository)
+	}
+}
+
+let graph = DomainGraph(input: input)
+```
+
+input graph의 initializer는 Macro가 생성하므로 사용자 initializer는 함께 선언할 수 없습니다. actor graph와 `@DependencyGraph(.shared)` graph는 호출자 input을 지원하지 않습니다. 호출 시점마다 받는 값은 initializer input이 아니라 `@Provide(.transient)`의 `@External`을 사용합니다.
+
 | 반환 타입 | 생성 프로퍼티 |
 | --- | --- |
 | `TestUseCase` | `testUseCase` |
