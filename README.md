@@ -112,14 +112,14 @@ let viewModel = graph.userProfileViewModel(
 )
 ```
 
-`@Provide`는 반환 타입을 기준으로 Factory를 연결해요. 기본값은 graph마다 한 번 만들고 계속 쓰며, `.lazy`는 생성 프로퍼티를 처음 읽을 때 한 번 만들고, `.transient`는 접근할 때마다 Factory를 다시 호출해요. `@External`은 graph가 만들 수 없는 호출 시점 값에 붙여요.
+`@Provide`는 반환 타입을 기준으로 Factory를 연결해요. 기본값은 graph마다 한 번 만들고 계속 쓰며 `.lazy`는 생성 프로퍼티를 처음 읽을 때 한 번 만들고 `.transient`는 접근할 때마다 Factory를 다시 호출해요. `@External`은 graph가 만들 수 없는 호출 시점 값에 붙여요.
 
 Cradle은 graph를 만들 때 누락한 등록, 중복된 등록, 순환 의존성처럼 연결할 수 없는 구성을 컴파일 단계에서 알려줘요. Factory 본문에서 하는 임의 호출이나 실행 중 상태까지 검사하지는 않아요.
 
 <details>
 <summary>테스트와 Mermaid 산출물 추가하기</summary>
 
-`CradleTesting`은 `DependencyOverride.mock` 편의 API를 제공해요. 테스트에서 `.mock`을 쓰려면 `CradleTesting`을, graph 선언도 한다면 `Cradle`을 같은 test target에 추가해요. `.replace`를 직접 쓰는 경우에는 `Cradle`만 필요해요.
+`CradleTesting`은 `DependencyOverride.mock` 편의 API를 제공해요. 테스트에서 `.mock`을 쓰려면 같은 test target에 `CradleTesting`을 추가해요. graph도 선언한다면 `Cradle`도 추가해요. `.replace`를 직접 쓰는 경우에는 `Cradle`만 필요해요.
 
 ```swift
 .testTarget(
@@ -152,7 +152,7 @@ Cradle은 graph를 만들 때 누락한 등록, 중복된 등록, 순환 의존�
 <details>
 <summary>Xcode에서 Mermaid 파일 열기</summary>
 
-`CradlePlugin`은 build 때 Mermaid 원본을 만들어요. 외부 Xcode 프로젝트에서 파일을 바로 열려면 먼저 [CopyCradleMermaid.sh](Examples/ExampleApp/Scripts/CopyCradleMermaid.sh)를 소비자 프로젝트의 `Scripts/CopyCradleMermaid.sh`로 복사해요. Mermaid가 필요한 같은 target에 `CradlePlugin`을 연결한 뒤, target의 마지막 Run Script 단계에서 다음 명령을 실행하고 Based on dependency analysis를 선택 해제해요.
+`CradlePlugin`은 build 때 Mermaid 원본을 만들어요. 외부 Xcode 프로젝트에서 파일을 바로 열려면 먼저 [CopyCradleMermaid.sh](Examples/ExampleApp/Scripts/CopyCradleMermaid.sh)를 소비자 프로젝트의 `Scripts/CopyCradleMermaid.sh`로 복사해요. Mermaid가 필요한 같은 target에 `CradlePlugin`을 연결한 뒤 target의 마지막 Run Script 단계에서 다음 명령을 실행하고 Based on dependency analysis를 선택 해제해요.
 
 ```sh
 /bin/sh "${SRCROOT}/Scripts/CopyCradleMermaid.sh"

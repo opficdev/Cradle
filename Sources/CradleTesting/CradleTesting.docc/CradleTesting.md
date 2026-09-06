@@ -4,7 +4,7 @@
 
 ## Overview
 
-테스트 target은 graph 선언과 Macro를 위해 `Cradle`을, `.mock` 편의 API를 위해 `CradleTesting`을 함께 import합니다. `.mock`은 Factory를 실행하지 않고 기존 `.replace` 상태로 감싸며, graph 생성은 기존 `Graph.override(...).build()` 경로를 사용합니다.
+테스트 target은 graph 선언과 Macro를 위해 `Cradle`을 import하고 `.mock` 편의 API를 위해 `CradleTesting`도 import합니다. `.mock`은 Factory를 실행하지 않고 기존 `.replace` 상태로 감싸며 graph 생성은 기존 `Graph.override(...).build()` 경로를 사용합니다.
 
 ```swift
 import Cradle
