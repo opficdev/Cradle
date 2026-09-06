@@ -34,7 +34,7 @@ SwiftPM target에 `CradlePlugin`을 연결하면 build마다 의존성 관계를
 
 ### 매크로
 
-- ``DependencyGraph(_:sources:overrides:diagram:)``
+- ``DependencyGraph(_:input:sources:overrides:diagram:)``
 - ``DependencyGraphLifetime``
 - ``DependencyOverride``
 - ``External``
