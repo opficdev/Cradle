@@ -17,6 +17,7 @@ package func mermaidDiagram(for diagrams: [GraphDiagram], excludedNames: Set<Str
 		"flowchart TB",
 		"    classDef source stroke:#333,stroke-width:1px;",
 		"    classDef shared stroke:#333,stroke-width:2px;",
+		"    classDef lazy stroke:#333,stroke-width:2px,stroke-dasharray:2 3;",
 		"    classDef transient stroke:#333,stroke-width:2px,stroke-dasharray:5 5;"
 	]
 	for (index, diagram) in target.diagrams.enumerated() {

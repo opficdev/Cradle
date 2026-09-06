@@ -112,7 +112,7 @@ let viewModel = graph.userProfileViewModel(
 )
 ```
 
-`@Provide`는 반환 타입을 기준으로 Factory를 연결해요. 기본값은 graph마다 한 번 만들고 계속 쓰며, `.transient`는 접근할 때마다 Factory를 다시 호출해요. `@External`은 graph가 만들 수 없는 호출 시점 값에 붙여요.
+`@Provide`는 반환 타입을 기준으로 Factory를 연결해요. 기본값은 graph마다 한 번 만들고 계속 쓰며, `.lazy`는 생성 프로퍼티를 처음 읽을 때 한 번 만들고, `.transient`는 접근할 때마다 Factory를 다시 호출해요. `@External`은 graph가 만들 수 없는 호출 시점 값에 붙여요.
 
 Cradle은 graph를 만들 때 누락한 등록, 중복된 등록, 순환 의존성처럼 연결할 수 없는 구성을 컴파일 단계에서 알려줘요. Factory 본문에서 하는 임의 호출이나 실행 중 상태까지 검사하지는 않아요.
 

@@ -20,7 +20,16 @@ func graphTypeIdentityNormalizesAnyAndParentheses() {
 }
 
 // provider 수명의 원본 문자열을 보존하는지 확인
-@Test(arguments: [GraphProviderLifetime.shared, .transient])
+@Test(arguments: [GraphProviderLifetime.shared, .lazy, .transient])
 func graphProviderLifetimePreservesRawValue(lifetime: GraphProviderLifetime) {
-	#expect(lifetime.rawValue == (lifetime == .shared ? "shared" : "transient"))
+	let expected = switch lifetime {
+	case .shared:
+		"shared"
+	case .lazy:
+		"lazy"
+	case .transient:
+		"transient"
+	}
+
+	#expect(lifetime.rawValue == expected)
 }

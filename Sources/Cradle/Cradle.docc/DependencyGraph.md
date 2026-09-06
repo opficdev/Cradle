@@ -27,7 +27,7 @@ let graph = AppGraph()
 let client = graph.httpClient
 ```
 
-기본 `@Provide`는 graph 생성 중 한 번 만드는 shared 등록입니다. `graph.httpClient`를 여러 번 읽어도 같은 값을 반환하며, 이 값은 전역 싱글턴이 아니라 해당 graph 인스턴스에만 보관됩니다. 접근할 때마다 새 값을 만들어야 하면 `@Provide(.transient)`를 사용합니다.
+기본 `@Provide`는 graph 생성 중 한 번 만드는 shared 등록입니다. `graph.httpClient`를 여러 번 읽어도 같은 값을 반환하며, 이 값은 전역 싱글턴이 아니라 해당 graph 인스턴스에만 보관됩니다. `@Provide(.lazy)`는 생성 프로퍼티를 처음 읽을 때 graph별 값을 한 번 만들고 보관합니다. 접근할 때마다 새 값을 만들어야 하면 `@Provide(.transient)`를 사용합니다.
 
 | 반환 타입 | 생성 프로퍼티 |
 | --- | --- |
@@ -73,9 +73,9 @@ let graph = AppGraph.override(
 ).build()
 ```
 
-`OverrideBuilder`는 교체 Factory와 `.original` 선택만 보관합니다. graph와 shared 등록은 `.build()`를 호출할 때 처음 만들며, 같은 builder로 여러 번 `.build()`하면 서로 다른 graph와 shared 저장소를 얻습니다. shared 교체 Factory는 graph마다 한 번 실행하고, transient 교체 Factory는 생성 프로퍼티를 읽을 때마다 실행합니다.
+`OverrideBuilder`는 교체 Factory와 `.original` 선택만 보관합니다. graph와 shared 등록은 `.build()`를 호출할 때 처음 만들며, 같은 builder로 여러 번 `.build()`하면 서로 다른 graph와 shared 저장소를 얻습니다. shared 교체 Factory는 graph마다 한 번 실행하고, lazy 교체 Factory는 생성 프로퍼티를 처음 읽을 때 graph마다 한 번 실행하며, transient 교체 Factory는 생성 프로퍼티를 읽을 때마다 실행합니다.
 
-builder를 보관하는 동안에는 builder가 선택한 모든 교체 Factory와 capture를 보관합니다. `.build()` 뒤 graph는 transient 교체 Factory와 그 capture만 graph가 해제될 때까지 보관합니다. shared 교체 Factory는 결과를 만든 뒤 graph에 보관하지 않습니다. 따라서 Factory가 graph 또는 builder를 capture하면 참조 순환이 생기지 않도록 수명을 직접 확인해야 합니다.
+builder를 보관하는 동안에는 builder가 선택한 모든 교체 Factory와 capture를 보관합니다. `.build()` 뒤 graph는 transient 교체 Factory와 그 capture를 graph가 해제될 때까지 보관합니다. lazy 교체 Factory와 capture는 첫 결과를 만든 직후 graph에서 놓습니다. shared 교체 Factory는 `.build()`에서 결과를 만든 뒤 graph에 보관하지 않습니다. 따라서 Factory가 graph 또는 builder를 capture하면 참조 순환이 생기지 않도록 수명을 직접 확인해야 합니다.
 
 `.replace` closure의 매개변수 타입·순서·반환 타입은 원래 `@Provide` Factory와 같습니다. 잘못된 매개변수 또는 반환 타입, 존재하지 않거나 중복한 argument label은 Swift 컴파일러가 closure 또는 호출 원본 위치에서 오류를 표시합니다. `Optional`, `Any`, 문자열 key, 전역 등록소는 교체 경로에 사용하지 않습니다.
 
@@ -83,7 +83,7 @@ builder를 보관하는 동안에는 builder가 선택한 모든 교체 Factory�
 
 ## actor graph
 
-`@DependencyGraph`는 비 generic actor에도 적용할 수 있습니다. actor graph에서 만든 생성 프로퍼티는 actor-isolated 상태로 남으므로 actor 밖에서는 `await`로 읽습니다. shared 등록은 class graph와 마찬가지로 graph 인스턴스별 타입 지정 `let` 저장소에 한 번 만들고, transient 등록은 접근할 때마다 Factory를 다시 호출합니다.
+`@DependencyGraph`는 비 generic actor에도 적용할 수 있습니다. actor graph에서 만든 생성 프로퍼티는 actor-isolated 상태로 남으므로 actor 밖에서는 `await`로 읽습니다. shared 등록은 class graph와 마찬가지로 graph 인스턴스별 타입 지정 `let` 저장소에 한 번 만들고, lazy 등록은 actor 격리 안에서 첫 접근에 한 번 만들고, transient 등록은 접근할 때마다 Factory를 다시 호출합니다.
 
 ```swift
 import Cradle
@@ -175,7 +175,7 @@ let feature = graph.feature
 
 조합 graph는 source graph를 강하게 보관합니다. source graph의 shared 생성 프로퍼티는 source graph마다 같은 값을 반환합니다. 조합 graph의 transient Factory는 source graph의 transient 생성 프로퍼티를 읽을 때마다 source Factory를 다시 호출합니다.
 
-조합 graph의 shared Factory도 source graph 생성 프로퍼티를 본문에서 직접 읽을 수 있습니다. Macro는 source 저장 프로퍼티를 먼저 대입한 뒤 실제로 참조한 source graph만 shared 저장소 생성기에 전달합니다. source graph의 transient 생성 프로퍼티는 이 생성기가 graph 초기화 중 실행될 때 평가되고, 결과는 조합 graph의 shared 값에 보관됩니다. source 생성 프로퍼티가 없거나 접근 수준이 맞지 않거나 반환 타입이 맞지 않으면 Macro가 대신 연결하지 않으며 Swift 컴파일러가 원본 Factory 본문에서 오류를 표시합니다.
+조합 graph의 shared Factory도 source graph 생성 프로퍼티를 본문에서 직접 읽을 수 있습니다. Macro는 source 저장 프로퍼티를 먼저 대입한 뒤 실제로 참조한 source graph만 shared 저장소 생성기에 전달합니다. source graph의 transient 생성 프로퍼티는 이 생성기가 graph 초기화 중 실행될 때 평가되고, 결과는 조합 graph의 shared 값에 보관됩니다. lazy Factory는 source graph 참조를 바꾸지 않고 생성 프로퍼티를 처음 읽을 때 원래 본문을 실행하므로 source graph의 transient 값도 그 시점에 한 번 읽습니다. source 생성 프로퍼티가 없거나 접근 수준이 맞지 않거나 반환 타입이 맞지 않으면 Macro가 대신 연결하지 않으며 Swift 컴파일러가 원본 Factory 본문에서 오류를 표시합니다.
 
 ## 타입으로 의존성 연결
 
@@ -333,7 +333,7 @@ let profile = graph.profile
 
 `P`와 `any P`는 연결과 중복 검사에서 같은 등록 타입으로 취급합니다. Macro는 `typealias`가 가리키는 실제 타입, import로 생략한 모듈 경로, protocol·superclass 선언의 의미를 해석하지 않습니다.
 
-## shared 수명과 transient 수명
+## shared 수명과 lazy 수명, transient 수명
 
 `@Provide`와 `@Provide(.shared)`는 graph를 만들 때 Factory 결과를 한 번 생성하고, graph 전용의 타입 지정 `let` 저장소가 이를 보유하게 합니다. 같은 graph에서 해당 생성 프로퍼티를 여러 번 읽으면 같은 값을 반환합니다. graph가 해제되면 저장소가 보유한 참조도 함께 놓습니다. 이 수명은 전역 싱글턴이 아니라 graph 인스턴스별 수명입니다.
 
@@ -351,9 +351,11 @@ let first = graph.userRepository
 let second = graph.userRepository
 ```
 
-프로퍼티를 읽을 때마다 Factory를 호출해야 하면 `@Provide(.transient)`를 사용합니다. transient Factory는 shared와 transient 등록을 매개변수로 받을 수 있습니다.
+`@Provide(.lazy)`는 graph 인스턴스의 타입 지정 `lazy var` 저장소에 결과를 보관합니다. graph를 만들 때는 Factory를 실행하지 않고 생성 프로퍼티를 처음 읽을 때 한 번 실행합니다. 같은 graph의 뒤이은 접근은 같은 값을 반환하며 graph가 해제되면 결과도 함께 놓습니다. lazy Factory는 일반 인스턴스 Factory이므로 첫 접근 시점의 `self`, graph 상태와 source graph를 직접 읽을 수 있습니다.
 
-shared 수명의 Factory는 다른 shared 등록만 매개변수로 받을 수 있습니다. shared 수명의 Factory가 transient 등록을 받으면 그 transient 값이 graph 생성 때 한 번 만들어져 shared 값에 고정되므로, Macro는 해당 매개변수 타입 위치에 오류를 표시합니다.
+프로퍼티를 읽을 때마다 Factory를 호출해야 하면 `@Provide(.transient)`를 사용합니다. transient Factory는 shared·lazy·transient 등록을 매개변수로 받을 수 있습니다.
+
+shared 수명의 Factory는 다른 shared 등록만 매개변수로 받을 수 있습니다. shared 수명의 Factory가 lazy 또는 transient 등록을 받으면 두 등록의 평가 시점이 shared 결과에 고정되므로, Macro는 해당 매개변수 타입 위치에 오류를 표시합니다. lazy 수명의 Factory는 shared 또는 lazy 등록을 받을 수 있지만 transient 등록은 보관할 수 없습니다.
 
 shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 실행됩니다. 따라서 `self`, `super`, class·actor graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다. actor graph의 shared Factory가 actor 상태를 읽으면 static helper에서 Swift 컴파일러가 오류를 표시합니다.
 
@@ -390,7 +392,7 @@ plugin은 macOS용 `CradleDiagramMaker` artifact를 실행합니다. 소비자 �
 final class PreviewGraph {}
 ```
 
-Mermaid는 graph의 `sources` 선언, provider의 타입 의존성, Factory가 실제로 읽는 source 참조를 모두 실선 화살표로 그립니다. provider 간 연결은 해당 graph 안에서만 만듭니다. 바깥 graph 묶음은 이름 없이 provider를 모으고, graph 이름 node와 source node는 중립 실선 테두리입니다. `.shared` provider node는 실선 테두리, `.transient` provider node는 점선 테두리입니다.
+Mermaid는 graph의 `sources` 선언, provider의 타입 의존성, Factory가 실제로 읽는 source 참조를 모두 실선 화살표로 그립니다. provider 간 연결은 해당 graph 안에서만 만듭니다. 바깥 graph 묶음은 이름 없이 provider를 모으고, graph 이름 node와 source node는 중립 실선 테두리입니다. `.shared` provider node는 실선 테두리, `.lazy` provider node는 짧은 점선 테두리, `.transient` provider node는 긴 점선 테두리입니다.
 
 source 타입은 명시한 lexical 경로가 일치하거나 바깥 lexical scope에서 같은 이름의 graph를 찾을 때 해당 graph에 연결합니다. 다른 target의 graph, 해석할 수 없는 타입, `diagram: false`로 제외한 graph는 내부 없이 source 이름만 표시합니다. module 접두사와 typealias는 의미 분석하지 않으며, 다른 scope의 이름 끝부분만 같다는 이유로 연결하지 않습니다.
 
@@ -433,7 +435,7 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 반환 타입은 프로퍼티 이름을 만들 수 있는 명목 타입 또는 `any`를 사용한 단일 protocol 타입이어야 합니다. `Array<Service>`와 `Dictionary<Key, Value>`처럼 이름으로 작성한 제네릭 명목 타입은 사용할 수 있지만, `[Service]`, `[Key: Value]` 축약 문법은 지원하지 않습니다. 함수, 튜플, 메타타입, `some` 타입, protocol 조합도 등록 타입으로 지원하지 않습니다. `typealias`가 가리키는 실제 타입은 분석하지 않습니다.
 
-유효한 graph에서는 누락 등록, 중복 등록, 기존 멤버 충돌, shared → transient 참조, 순환 의존성을 컴파일 중 진단합니다. 이런 오류가 있으면 관련 없는 등록을 포함해 graph 프로퍼티를 생성하지 않습니다.
+유효한 graph에서는 누락 등록, 중복 등록, 기존 멤버 충돌, shared → lazy·transient 참조, lazy → transient 참조, 순환 의존성을 컴파일 중 진단합니다. 이런 오류가 있으면 관련 없는 등록을 포함해 graph 프로퍼티를 생성하지 않습니다.
 
 ## 접근 수준과 초기화
 
@@ -445,7 +447,7 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 ## 현재 지원 범위
 
-현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결, transient·shared 수명, 호출 시점 외부 입력 생성 메서드, graph 인스턴스별 Factory 교체를 지원합니다. 다음 기능은 아직 지원하지 않습니다.
+현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결, shared·lazy·transient 수명, 호출 시점 외부 입력 생성 메서드, graph 인스턴스별 Factory 교체를 지원합니다. 다음 기능은 아직 지원하지 않습니다.
 
 - graph 생성 뒤 등록 교체
 - source graph 생성 프로퍼티의 자동 주입

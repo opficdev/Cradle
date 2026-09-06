@@ -306,11 +306,17 @@ private func graphProviderLifetime(in attribute: AttributeSyntax) -> GraphProvid
 		let argument = arguments.first,
 		argument.label == nil,
 		let member = argument.expression.as(MemberAccessExprSyntax.self),
-		member.base == nil,
-		graphIdentifierName(member.declName.baseName) == "transient" else {
+		member.base == nil else {
 		return .shared
 	}
-	return .transient
+	switch graphIdentifierName(member.declName.baseName) {
+	case "transient":
+		return .transient
+	case "lazy":
+		return .lazy
+	default:
+		return .shared
+	}
 }
 
 // `@External` 또는 `@Cradle.External` marker 확인

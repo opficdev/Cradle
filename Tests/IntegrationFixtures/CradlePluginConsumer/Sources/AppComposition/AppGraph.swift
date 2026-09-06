@@ -13,6 +13,14 @@ final class AppGraph {
 	}
 }
 
+@DependencyGraph
+final class LazyGraph {
+	@Provide(.lazy)
+	private func makeLazyFeature() -> LazyFeature {
+		LazyFeature()
+	}
+}
+
 @DependencyGraph(diagram: false)
 final class ExcludedGraph {
 	@Provide
@@ -71,6 +79,8 @@ struct Repository {}
 struct Feature {
 	let repository: Repository
 }
+
+struct LazyFeature {}
 
 struct ExcludedFeature {}
 

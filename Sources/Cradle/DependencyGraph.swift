@@ -31,7 +31,7 @@ public macro Provide() = #externalMacro(
 	type: "ProvideMacro"
 )
 
-// `.shared`로 graph가 Factory 결과를 즉시 소유하도록 표시
+// Factory 결과를 graph 수명 정책에 맞게 소유하도록 표시
 @attached(peer, names: arbitrary)
 @attached(body)
 public macro Provide(_ lifetime: DependencyLifetime) = #externalMacro(
