@@ -131,15 +131,12 @@ struct DependencyGraphMacro: MemberMacro {
 			] : []
 			return sourceDeclarations + properties + shared
 		}
-		if graphInput != nil {
-			context.diagnose(Diagnostic(node: node, message: GraphInputDiagnostic.initializationConflict))
-			return []
-		}
 		return typedOverrideDeclarations(
 			for: graph,
 			lifetime: lifetime,
 			providers: providerResult.descriptors,
 			sources: sources,
+			input: graphInput,
 			accessLevel: graphAccess,
 			propertyNames: propertyNames,
 			storage: storage,

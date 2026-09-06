@@ -161,6 +161,55 @@ final class TypedOverrideClassGraph {
 	}
 }
 
+// initializer input을 받는 override graph
+@DependencyGraph(input: GraphInput.self, overrides: true)
+final class TypedOverrideInputGraph {
+	// input repository를 사용하는 기본 shared 결과 생성
+	@Provide
+	private func makeGraphInputUseCase() -> GraphInputUseCase {
+		return GraphInputUseCase(repository: input.repository)
+	}
+}
+
+// input과 source graph를 함께 받는 override graph
+@DependencyGraph(input: GraphInput.self, sources: [SourceGraphAppGraph.self], overrides: true)
+final class TypedOverrideSourceInputGraph {
+	// input과 source transient 값을 함께 읽는 shared 결과 생성
+	@Provide
+	private func makeGraphInputUseCase() -> GraphInputUseCase {
+		_ = sourceGraphAppGraph.sourceGraphRequestIdentifier
+		return GraphInputUseCase(repository: input.repository)
+	}
+}
+
+// override builder가 input을 graph 생성 경로로 전달하는지 확인
+@Test
+func typedOverrideGraphBuildsSharedProviderWithInitializerInput() {
+	let repository = GraphInputRepository()
+	let graph = TypedOverrideInputGraph.override().build(
+		input: GraphInput(repository: repository, probe: GraphInputCreationProbe())
+	)
+
+	#expect(graph.graphInputUseCase.repository === repository)
+}
+
+// source와 input을 받는 override builder가 build 전에는 Factory를 평가하지 않는지 확인
+@Test
+func typedOverrideGraphDefersSourceInputSharedProviderUntilBuild() {
+	let repository = GraphInputRepository()
+	let probe = GraphInputCreationProbe()
+	let source = SourceGraphAppGraph()
+	let builder = TypedOverrideSourceInputGraph.override()
+
+	#expect(source.requestCount == 0)
+	let graph = builder.build(
+		input: GraphInput(repository: repository, probe: probe),
+		sourceGraphAppGraph: source
+	)
+	#expect(source.requestCount == 1)
+	#expect(graph.graphInputUseCase.repository === repository)
+}
+
 // 교체 shared Factory와 원본 transient 연결 확인
 @Test
 func typedOverrideClassGraphUsesReplacementAndOriginalDependencies() {

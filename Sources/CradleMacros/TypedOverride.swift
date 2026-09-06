@@ -43,6 +43,7 @@ func typedOverrideDeclarations(
 	lifetime: DependencyGraphLifetimeConfiguration,
 	providers: [ProviderDescriptor],
 	sources: [SourceGraphDescriptor],
+	input: GraphInputDescriptor? = nil,
 	accessLevel: AccessLevel,
 	propertyNames: [RegisteredTypeIdentity: String],
 	storage: SharedGraphStorage?,
@@ -70,6 +71,7 @@ func typedOverrideDeclarations(
 		builderName: builderName,
 		providers: shared,
 		sources: sources,
+		input: input,
 		propertyNames: propertyNames,
 		in: context
 	)
@@ -80,6 +82,7 @@ func typedOverrideDeclarations(
 			builderName: builderName,
 			providers: overrides,
 			sources: sources,
+			input: input,
 			accessLevel: accessLevel
 		)
 		+ graphInitializers(
@@ -87,6 +90,7 @@ func typedOverrideDeclarations(
 			builderName: builderName,
 			providers: overrides,
 			sources: sources,
+			input: input,
 			transient: transient,
 			lazy: lazy,
 			storage: sharedStorage,
@@ -96,6 +100,7 @@ func typedOverrideDeclarations(
 		+ typedOverridePropertyDeclarations(
 			providers: overrides,
 			sources: sources,
+			input: input,
 			accessLevel: accessLevel,
 			propertyNames: propertyNames,
 			storage: sharedStorage,
@@ -119,6 +124,7 @@ private func typedOverrideBuilderDeclarations(
 	builderName: TokenSyntax,
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
+	input: GraphInputDescriptor?,
 	accessLevel: AccessLevel
 ) -> [DeclSyntax] {
 	[
@@ -128,6 +134,7 @@ private func typedOverrideBuilderDeclarations(
 			lifetime: lifetime,
 			providers: providers,
 			sources: sources,
+			input: input,
 			accessLevel: accessLevel
 		),
 		overrideEntryPoint(
@@ -274,6 +281,7 @@ private func builderDeclaration(
 	lifetime: DependencyGraphLifetimeConfiguration,
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
+	input: GraphInputDescriptor?,
 	accessLevel: AccessLevel
 ) -> DeclSyntax {
 	let sendable = graph.isActor || (
@@ -289,14 +297,18 @@ private func builderDeclaration(
 	let assignments = providers.map { override in
 		"self.\(override.storageName) = \(override.storageName)"
 	}.joined(separator: "\n")
+	let inputParameters = input.map { ["input: \($0.type.trimmedDescription)"] } ?? []
 	let sourceParameters = sources.map { source in
 		"\(source.propertyName): \(source.type.trimmedDescription)"
 	}.joined(separator: ", ")
 	let sourceArguments = sources.map { source in
 		"\(source.propertyName): \(source.propertyName)"
 	}.joined(separator: ", ")
-	let buildParameters = sourceParameters.isEmpty ? "" : sourceParameters
-	let buildArguments = (["overrides: self"] + (sourceArguments.isEmpty ? [] : [sourceArguments])).joined(separator: ", ")
+	let buildParameters = (inputParameters + (sourceParameters.isEmpty ? [] : [sourceParameters])).joined(separator: ", ")
+	let buildValues = inputParameters.map { _ in "input: input" }
+		+ ["overrides: self"]
+		+ (sourceArguments.isEmpty ? [] : [sourceArguments])
+	let buildArguments = buildValues.joined(separator: ", ")
 	return DeclSyntax(
 		"""
 		\(raw: mainActor)\(raw: accessLevel.rawValue) struct \(builderName)\(raw: sendable) {
@@ -344,6 +356,7 @@ private func graphInitializers(
 	builderName: TokenSyntax,
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
+	input: GraphInputDescriptor?,
 	transient: [TypedOverrideProvider],
 	lazy: [TypedOverrideProvider],
 	storage: TypedOverrideSharedStorage,
@@ -356,32 +369,34 @@ private func graphInitializers(
 	let lazyAssignments = lazy.map { override in
 		"self.\(override.storageName) = overrides.\(override.storageName)"
 	}.joined(separator: "\n")
-	let storageAssignment = storage.initializationAssignment(sources: sources)
+	let storageAssignment = storage.initializationAssignment(sources: sources, input: input)
+	let inputParameters = input.map { ["input: \($0.type.trimmedDescription)"] } ?? []
 	let sourceParameters = sources.map { source in
 		"\(source.propertyName): \(source.type.trimmedDescription)"
 	}.joined(separator: ", ")
 	let sourceArguments = sources.map { source in
 		"\(source.propertyName): \(source.propertyName)"
 	}.joined(separator: ", ")
-	let originalValues = ["overrides: Self.override()"]
+	let originalValues = inputParameters.map { _ in "input: input" } + ["overrides: Self.override()"]
 		+ (sourceArguments.isEmpty ? [] : [sourceArguments])
 	let originalArguments = originalValues.joined(separator: ", ")
 	let initializerModifier = isActor ? "" : "convenience "
 	let originalInit = DeclSyntax(
 		"""
-		\(raw: accessLevel.rawValue) \(raw: initializerModifier)init(\(raw: sourceParameters)) {
+		\(raw: accessLevel.rawValue) \(raw: initializerModifier)init(\(raw: (inputParameters + (sourceParameters.isEmpty ? [] : [sourceParameters])).joined(separator: ", "))) {
 		    self.init(\(raw: originalArguments))
 		}
 		"""
 	)
-	let privateParameters = (["overrides: \(builderName)"] + (sourceParameters.isEmpty ? [] : [sourceParameters])).joined(separator: ", ")
+	let privateParameters = (inputParameters + ["overrides: \(builderName)"] + (sourceParameters.isEmpty ? [] : [sourceParameters])).joined(separator: ", ")
+	let inputAssignments = input.map { _ in ["self.input = input"] } ?? []
 	let sourceAssignments = sources.map { source in
 		"self.\(source.propertyName) = \(source.propertyName)"
 	}.joined(separator: "\n")
 	let overrideInit = DeclSyntax(
 		"""
 		private init(\(raw: privateParameters)) {
-		    \(raw: sourceAssignments)
+		    \(raw: (inputAssignments + [sourceAssignments]).filter { !$0.isEmpty }.joined(separator: "\n"))
 		    \(raw: transientAssignments)
 		    \(raw: lazyAssignments)
 		    \(raw: storageAssignment)
@@ -396,11 +411,13 @@ private func graphInitializers(
 private func typedOverridePropertyDeclarations(
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
+	input: GraphInputDescriptor?,
 	accessLevel: AccessLevel,
 	propertyNames: [RegisteredTypeIdentity: String],
 	storage: TypedOverrideSharedStorage,
 	in context: some MacroExpansionContext
 ) -> [DeclSyntax] {
+	let inputStorage: [DeclSyntax] = input.map { [DeclSyntax("private let input: \(raw: $0.type.trimmedDescription)")] } ?? []
 	let sourceStorage = sources.map { source in
 		DeclSyntax("private let \(raw: source.propertyName): \(raw: source.type.trimmedDescription)")
 	}
@@ -426,7 +443,7 @@ private func typedOverridePropertyDeclarations(
 			storage: storage
 		)
 	}
-	return sourceStorage + transientStorage + lazyStorage + storage.declarations() + properties
+	return inputStorage + sourceStorage + transientStorage + lazyStorage + storage.declarations() + properties
 }
 
 // 외부 입력을 호출 시점에 원본 또는 교체 Factory로 전달하는 생성 메서드
@@ -563,6 +580,8 @@ private struct TypedOverrideSharedStorage {
 	let providers: [TypedOverrideProvider]
 	// 조합 graph가 소유하는 source graph
 	let sources: [SourceGraphDescriptor]
+	// graph 생성자가 보관하는 조립 입력
+	let input: GraphInputDescriptor?
 	// 등록 의존성 연결
 	let propertyNames: [RegisteredTypeIdentity: String]
 	// 원본 shared Factory helper 이름
@@ -573,12 +592,16 @@ private struct TypedOverrideSharedStorage {
 	let providerSources: [RegisteredTypeIdentity: [SourceGraphDescriptor]]
 	// helper source 매개변수 이름
 	let helperSourceNames: [RegisteredTypeIdentity: [RegisteredTypeIdentity: TokenSyntax]]
+	// helper input 매개변수 이름
+	let helperInputNames: [RegisteredTypeIdentity: TokenSyntax]
 
+	// swiftlint:disable:next function_body_length
 	init(
 		graphName: TokenSyntax,
 		builderName: TokenSyntax,
 		providers: [TypedOverrideProvider],
 		sources: [SourceGraphDescriptor],
+		input: GraphInputDescriptor?,
 		propertyNames: [RegisteredTypeIdentity: String],
 		in context: some MacroExpansionContext
 	) {
@@ -586,6 +609,7 @@ private struct TypedOverrideSharedStorage {
 		overrideBuilderName = builderName
 		self.providers = providers
 		self.sources = sources
+		self.input = input
 		self.propertyNames = propertyNames
 		guard !providers.isEmpty else {
 			typeName = nil
@@ -595,6 +619,7 @@ private struct TypedOverrideSharedStorage {
 			sourceReferences = [:]
 			providerSources = [:]
 			helperSourceNames = [:]
+			helperInputNames = [:]
 			return
 		}
 		typeName = typedOverrideUniqueName("TypedOverrideSharedStorage", in: context)
@@ -604,10 +629,11 @@ private struct TypedOverrideSharedStorage {
 			(override.provider.registrationIdentity, typedOverrideUniqueName("makeTypedOverrideShared", in: context))
 		})
 		let sourceNames = Set(sources.map(\.propertyIdentifier))
+		let referenceNames = sourceNames.union(input == nil ? [] : ["input"])
 		let references = Dictionary(uniqueKeysWithValues: providers.map { override in
 			let sourceReferences = sourceGraphReferences(
 				in: override.provider.factory,
-				sourceNames: sourceNames
+				sourceNames: referenceNames
 			)
 			return (override.provider.registrationIdentity, sourceReferences)
 		})
@@ -625,6 +651,12 @@ private struct TypedOverrideSharedStorage {
 			return (override.provider.registrationIdentity, values)
 		})
 		helperSourceNames = names
+		helperInputNames = Dictionary(uniqueKeysWithValues: providers.compactMap { override in
+			guard references[override.provider.registrationIdentity]?.sourceNames.contains("input") == true else {
+				return nil
+			}
+			return (override.provider.registrationIdentity, typedOverrideInputParameterName(in: context))
+		})
 	}
 
 	// shared 저장소 선언과 helper 선언 생성
@@ -649,10 +681,11 @@ private struct TypedOverrideSharedStorage {
 		let arguments = providers.map { override in
 			"\(override.provider.propertyName): \(override.provider.propertyName)"
 		}.joined(separator: ", ")
+		let inputParameters = requiresInputParameter ? ["input: \(input!.type.trimmedDescription)"] : []
 		let sourceParameters = builderSources.map { source in
 			"\(source.propertyName): \(source.type.trimmedDescription)"
 		}.joined(separator: ", ")
-		let parameters = (["_ overrides: \(overrideBuilderName)"] + (sourceParameters.isEmpty ? [] : [sourceParameters])).joined(separator: ", ")
+		let parameters = (["_ overrides: \(overrideBuilderName)"] + inputParameters + (sourceParameters.isEmpty ? [] : [sourceParameters])).joined(separator: ", ")
 		let builder = DeclSyntax("""
 		private static func \(builderName)(\(raw: parameters)) -> \(typeName) {
 		    \(raw: constructions)
@@ -664,14 +697,15 @@ private struct TypedOverrideSharedStorage {
 	}
 
 	// graph initializer가 실행할 shared 저장소 대입문
-	func initializationAssignment(sources: [SourceGraphDescriptor]) -> String {
+	func initializationAssignment(sources: [SourceGraphDescriptor], input: GraphInputDescriptor?) -> String {
 		guard let propertyName, let builderName else {
 			return ""
 		}
 		let arguments = builderSources.map { source in
 			"\(source.propertyName): \(source.propertyName)"
 		}.joined(separator: ", ")
-		let supplied = (["overrides"] + (arguments.isEmpty ? [] : [arguments])).joined(separator: ", ")
+		let inputArguments = requiresInputParameter && input != nil ? ["input: input"] : []
+		let supplied = (["overrides"] + inputArguments + (arguments.isEmpty ? [] : [arguments])).joined(separator: ", ")
 		return "self.\(propertyName) = Self.\(builderName)(\(supplied))"
 	}
 
@@ -693,9 +727,11 @@ private struct TypedOverrideSharedStorage {
 			) else {
 			return nil
 		}
-		let parameters = override.provider.factory.signature.parameterClause.parameters.map { parameter in
+		let factoryParameters = override.provider.factory.signature.parameterClause.parameters.map { parameter in
 			parameter.with(\.trailingComma, nil).trimmedDescription
-		} + helperSources(for: override).compactMap { source in
+		}
+		let inputParameters = helperInput(for: override).map { ["\($0): \(input!.type.trimmedDescription)"] } ?? []
+		let parameters = factoryParameters + inputParameters + helperSources(for: override).compactMap { source in
 			guard let name = helperSourceNames[override.provider.registrationIdentity]?[source.identity] else {
 				return nil
 			}
@@ -714,13 +750,16 @@ private struct TypedOverrideSharedStorage {
 		let overrideArguments = override.provider.parameters.map { parameter in
 			propertyNames[parameter.typeIdentity]!
 		}.joined(separator: ", ")
+		let inputArguments = helperInput(for: override).map { ["\($0): input"] } ?? []
 		let sourceArguments = helperSources(for: override).compactMap { source -> String? in
 			guard let name = helperSourceNames[override.provider.registrationIdentity]?[source.identity] else {
 				return nil
 			}
 			return "\(name): \(source.propertyName)"
 		}.joined(separator: ", ")
-		let originalCallArguments = ([originalArguments] + (sourceArguments.isEmpty ? [] : [sourceArguments]))
+		let originalValues = [originalArguments] + inputArguments
+			+ (sourceArguments.isEmpty ? [] : [sourceArguments])
+		let originalCallArguments = originalValues
 			.filter { !$0.isEmpty }
 			.joined(separator: ", ")
 		let helper = helperNames[override.provider.registrationIdentity]!.trimmedDescription
@@ -744,18 +783,54 @@ private struct TypedOverrideSharedStorage {
 		}
 	}
 
+	// shared builder가 input을 받아야 하는지 여부
+	private var requiresInputParameter: Bool {
+		guard input != nil else {
+			return false
+		}
+		return helperNames.keys.contains { identity in
+			sourceReferences[identity]?.sourceNames.contains("input") == true
+		}
+	}
+
 	// 한 shared Factory가 읽는 source graph
 	private func helperSources(for override: TypedOverrideProvider) -> [SourceGraphDescriptor] {
 		providerSources[override.provider.registrationIdentity] ?? []
 	}
 
+	// shared helper가 전달받을 input 매개변수 이름
+	private func helperInput(for override: TypedOverrideProvider) -> String? {
+		guard input != nil,
+			sourceReferences[override.provider.registrationIdentity]?.sourceNames.contains("input") == true else {
+			return nil
+		}
+		return helperInputNames[override.provider.registrationIdentity]?.trimmedDescription
+	}
+
 	// source 이름을 helper 매개변수 이름으로 연결
 	private func sourceParameterNames(for override: TypedOverrideProvider) -> [String: String] {
-		Dictionary(uniqueKeysWithValues: helperSources(for: override).compactMap { source in
+		var names: [String: String] = Dictionary(uniqueKeysWithValues: helperSources(for: override).compactMap { source in
 			guard let name = helperSourceNames[override.provider.registrationIdentity]?[source.identity] else {
 				return nil
 			}
 			return (source.propertyIdentifier, name.trimmedDescription)
 		})
+		if let helperInput = helperInput(for: override) {
+			names["input"] = helperInput
+		}
+		return names
 	}
+}
+
+// typed override helper input에 사용할 유효한 고유 identifier 생성
+private func typedOverrideInputParameterName(in context: some MacroExpansionContext) -> TokenSyntax {
+	let uniqueName = context.makeUniqueName("graphInput").trimmedDescription
+	let identifier = uniqueName.unicodeScalars.map { scalar in
+		if scalar == "_" || scalar.properties.isAlphabetic || scalar.properties.numericType != nil {
+			String(scalar)
+		} else {
+			"_"
+		}
+	}.joined()
+	return .identifier(identifier)
 }
