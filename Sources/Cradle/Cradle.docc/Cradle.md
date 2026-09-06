@@ -22,7 +22,7 @@ actor graph의 생성 프로퍼티는 actor 격리를 따릅니다. actor 밖에
 
 일반 비격리 class graph는 동시 접근을 조정하지 않으므로 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다. `.shared`와 직접 `Sendable` 준수를 선언한 class graph는 Swift 컴파일러가 검증한 저장 상태만 Task 사이에 전달할 수 있습니다.
 
-`sources`와 `overrides: true`를 모두 지정하지 않은 graph에서는 매크로가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. `sources` 또는 `overrides: true` graph는 생성 경로를 Macro가 소유합니다.
+`input`, `sources`, `overrides: true`를 모두 지정하지 않은 graph에서는 매크로가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. `input`, `sources`, `overrides: true` graph는 생성 경로를 Macro가 소유합니다.
 
 SwiftPM target에 `CradlePlugin`을 연결하면 build마다 의존성 관계를 Mermaid `.mmd` 개발 산출물로 갱신합니다. 이 산출물은 plugin work directory에만 남으며 library와 app binary에는 포함되지 않습니다.
 
