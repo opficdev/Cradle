@@ -100,10 +100,9 @@ private func typeMemberNames(in members: MemberBlockItemListSyntax) -> Set<Strin
 		if let variable = member.decl.as(VariableDeclSyntax.self),
 			hasTypeMemberModifier(in: variable.modifiers) {
 			for binding in variable.bindings {
-				guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
-					continue
+				for identifier in typeMemberPatternIdentifiers(in: binding.pattern) {
+					names.insert(typeMemberName(identifier))
 				}
-				names.insert(typeMemberName(pattern.identifier))
 			}
 			return
 		}
@@ -136,6 +135,19 @@ private func typeMemberNames(in members: MemberBlockItemListSyntax) -> Set<Strin
 		if let alias = member.decl.as(TypeAliasDeclSyntax.self) {
 			names.insert(typeMemberName(alias.name))
 		}
+	}
+}
+
+// static binding pattern 안의 모든 식별자 반환
+private func typeMemberPatternIdentifiers(in pattern: PatternSyntax) -> [TokenSyntax] {
+	if let identifier = pattern.as(IdentifierPatternSyntax.self) {
+		return [identifier.identifier]
+	}
+	guard let tuple = pattern.as(TuplePatternSyntax.self) else {
+		return []
+	}
+	return tuple.elements.flatMap { element in
+		typeMemberPatternIdentifiers(in: element.pattern)
 	}
 }
 

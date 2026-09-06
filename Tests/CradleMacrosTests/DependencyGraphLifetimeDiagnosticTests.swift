@@ -84,6 +84,34 @@ func sharedGraphRejectsExistingStaticSharedMember() {
 	)
 }
 
+// tuple pattern 내부 static shared member 충돌 진단 확인
+@Test
+func sharedGraphRejectsExistingTupleStaticSharedMember() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph(.shared)
+		final class Graph: Sendable {
+		static let (shared, token) = (Graph(), 0)
+		}
+		""",
+		expandedSource: """
+		final class Graph: Sendable {
+		static let (shared, token) = (Graph(), 0)
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "sharedGraphMemberCollision"),
+				message: "생성할 `shared` static member가 기존 type member와 충돌합니다.",
+				line: 1,
+				column: 18,
+				highlights: [".shared"]
+			)
+		],
+		macros: testMacros
+	)
+}
+
 // 중첩 type shared member 충돌 진단 확인
 @Test
 func sharedGraphRejectsExistingNestedSharedType() {
