@@ -43,4 +43,20 @@ final class CradleTestingXCTestSupportTests: XCTestCase {
 
 		XCTAssertEqual(result.token, 5)
 	}
+
+	// XCTest에서 lazy mock Factory의 최초 접근 평가와 graph별 보관 확인
+	func testLazyMockFactoryLifetime() {
+		var count = 0
+		let graph = CradleTestingLifetimeGraph.override(
+			cradleTestingLazyService: .mock {
+				count += 1
+				return CradleTestingLazyService(token: count)
+			}
+		).build()
+
+		XCTAssertEqual(count, 0)
+		XCTAssertEqual(graph.cradleTestingLazyService.token, 1)
+		XCTAssertEqual(count, 1)
+		XCTAssertTrue(graph.cradleTestingLazyService === graph.cradleTestingLazyService)
+	}
 }

@@ -18,6 +18,17 @@ func anotherModuleCanUsePublicGraphAccessor() {
 	_ = graph.publicService
 }
 
+// 별도 module의 public lazy graph 접근자 호출 확인
+@Test
+func anotherModuleCanUsePublicLazyGraphAccessor() {
+	let graph = PublicLazyGraph()
+	let first = graph.publicLazyService
+	let second = graph.publicLazyService
+
+	#expect(first.token == 41)
+	#expect(first === second)
+}
+
 // 별도 module의 public `@External` 생성 메서드 호출 확인
 @Test
 func externalProviderMethodIsAvailableFromAnotherModule() {
