@@ -77,6 +77,24 @@ func publicSharedGraphPreservesAccessLevel() {
 	)
 }
 
+// package graph의 정적 접근 수준 보존 확인
+@Test
+func packageSharedGraphPreservesAccessLevel() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph(.shared)
+		package final class Graph: Sendable {}
+		""",
+		expandedSource: """
+		package final class Graph: Sendable {
+
+		    package static let shared: Graph = Graph()
+		}
+		""",
+		macros: testMacros
+	)
+}
+
 // source graph를 정규화한 순서로 정적 접근점에서 한 번씩 읽는지 확인
 @Test
 func sharedGraphBuildsSourcesFromStaticAccessPoints() {

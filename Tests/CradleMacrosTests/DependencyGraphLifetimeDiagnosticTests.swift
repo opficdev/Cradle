@@ -84,6 +84,34 @@ func sharedGraphRejectsExistingStaticSharedMember() {
 	)
 }
 
+// 중첩 type shared member 충돌 진단 확인
+@Test
+func sharedGraphRejectsExistingNestedSharedType() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph(.shared)
+		final class Graph: Sendable {
+		enum shared {}
+		}
+		""",
+		expandedSource: """
+		final class Graph: Sendable {
+		enum shared {}
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "sharedGraphMemberCollision"),
+				message: "생성할 `shared` static member가 기존 type member와 충돌합니다.",
+				line: 1,
+				column: 18,
+				highlights: [".shared"]
+			)
+		],
+		macros: testMacros
+	)
+}
+
 // escaped static shared member 충돌 진단 확인
 @Test
 func sharedGraphRejectsEscapedStaticSharedMember() {

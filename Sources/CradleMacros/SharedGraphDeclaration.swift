@@ -105,6 +105,36 @@ private func typeMemberNames(in members: MemberBlockItemListSyntax) -> Set<Strin
 				}
 				names.insert(typeMemberName(pattern.identifier))
 			}
+			return
+		}
+
+		if let structure = member.decl.as(StructDeclSyntax.self) {
+			names.insert(typeMemberName(structure.name))
+			return
+		}
+
+		if let enumeration = member.decl.as(EnumDeclSyntax.self) {
+			names.insert(typeMemberName(enumeration.name))
+			return
+		}
+
+		if let nestedClass = member.decl.as(ClassDeclSyntax.self) {
+			names.insert(typeMemberName(nestedClass.name))
+			return
+		}
+
+		if let nestedActor = member.decl.as(ActorDeclSyntax.self) {
+			names.insert(typeMemberName(nestedActor.name))
+			return
+		}
+
+		if let protocolDeclaration = member.decl.as(ProtocolDeclSyntax.self) {
+			names.insert(typeMemberName(protocolDeclaration.name))
+			return
+		}
+
+		if let alias = member.decl.as(TypeAliasDeclSyntax.self) {
+			names.insert(typeMemberName(alias.name))
 		}
 	}
 }

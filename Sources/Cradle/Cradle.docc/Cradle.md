@@ -18,7 +18,7 @@ actor graph의 생성 프로퍼티는 actor 격리를 따릅니다. actor 밖에
 
 `@DependencyGraph(.shared)`는 프로세스 동안 보유하는 `Graph.shared`를 만듭니다. 비격리 class graph에는 직접 작성한 `Sendable` 준수가 필요하고 actor graph와 사용자가 `@MainActor`로 격리한 class graph도 사용할 수 있습니다. 자세한 source 조립 순서, provider 수명, 테스트 경계는 <doc:DependencyGraph>에서 설명합니다.
 
-class graph는 동시 접근을 조정하지 않습니다. 여러 Task에서 공유해야 하면 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다.
+일반 비격리 class graph는 동시 접근을 조정하지 않으므로 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다. `.shared`와 직접 `Sendable` 준수를 선언한 class graph는 Swift 컴파일러가 검증한 저장 상태만 Task 사이에 전달할 수 있습니다.
 
 `sources`와 `overrides: true`를 모두 지정하지 않은 graph에서는 매크로가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. `sources` 또는 `overrides: true` graph는 생성 경로를 Macro가 소유합니다.
 

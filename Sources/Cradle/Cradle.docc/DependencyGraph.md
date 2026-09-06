@@ -114,7 +114,7 @@ actor graph에 `overrides: true`를 지정하면 교체 Factory는 `@Sendable` c
 
 ## class graph 동시성
 
-`final class` graph는 동시 접근을 조정하지 않습니다. 여러 Task에서 graph를 공유해야 하면 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다. Macro는 class graph를 동시 접근에 안전하게 만들 lock이나 `@unchecked Sendable`을 생성하지 않습니다.
+일반 비격리 `final class` graph는 동시 접근을 조정하지 않으므로 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다. `.shared`와 직접 `Sendable` 준수를 선언한 class graph는 Swift 컴파일러가 검증한 저장 상태만 Task 사이에 전달할 수 있습니다. Macro는 class graph를 동시 접근에 안전하게 만들 lock이나 `@unchecked Sendable`을 생성하지 않습니다.
 
 ## graph `.shared`
 

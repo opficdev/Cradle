@@ -52,6 +52,10 @@ public actor SharedGraphAllowedEmptyActor {}
 @DependencyGraph(.shared, overrides: true)
 public final class SharedGraphAllowedEmptyClass: Sendable {}
 
+// package 접근 수준을 보존할 shared graph
+@DependencyGraph(.shared)
+package final class SharedGraphAllowedPackage: Sendable {}
+
 func requireSharedGraphAllowedSendable<Value: Sendable>(_ value: Value) {}
 
 // source·조합 graph의 정적 타입 접근 확인
@@ -64,6 +68,7 @@ func sharedGraphAllowedUsage() {
 	_ = SharedGraphAllowedMainActor.shared
 	_ = SharedGraphAllowedActor.shared
 	_ = SharedGraphAllowedQualifiedFeature.shared
+	_ = SharedGraphAllowedPackage.shared
 	requireSharedGraphAllowedSendable(SharedGraphAllowedEmptyActor.override())
 	requireSharedGraphAllowedSendable(SharedGraphAllowedEmptyClass.override())
 }
