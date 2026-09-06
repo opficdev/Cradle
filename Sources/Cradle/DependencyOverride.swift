@@ -13,7 +13,6 @@
 
  - Important: 선택 단계에서는 Factory를 실행하거나 `Graph.shared`를 변경하지 않습니다.
  - Note: `Factory`가 `Sendable`이면 이 값도 `Sendable`을 준수합니다.
- - SeeAlso: <doc:DependencyGraph>
  */
 public enum DependencyOverride<Factory> {
 	// graph 선언에 작성한 기본 Factory 선택
@@ -23,7 +22,6 @@ public enum DependencyOverride<Factory> {
 	 `Graph.override(...)`에서 생략한 등록에도 이 선택을 적용합니다.
 
 	 - Note: 원본 Factory의 평가 시점은 해당 등록의 `DependencyLifetime`를 따릅니다.
-	 - SeeAlso: <doc:DependencyGraph>
 	 */
 	case original
 	// graph 인스턴스에만 적용할 타입 지정 교체 Factory 선택
@@ -33,7 +31,6 @@ public enum DependencyOverride<Factory> {
 	 교체 Factory의 매개변수 타입과 순서, 반환 타입은 원본 `@Provide` Factory와 같습니다.
 
 	 - Important: 교체 Factory의 평가 시점과 결과 보유 방식은 원본 등록의 `DependencyLifetime`를 따릅니다.
-	 - SeeAlso: <doc:DependencyGraph>
 	 */
 	case replace(Factory)
 }

@@ -12,7 +12,6 @@
  `DependencyGraphLifetime`의 graph 인스턴스 보유 범위와 구분됩니다.
 
  - Note: 이 정책은 graph 자체의 생성 방식이나 보유 기간을 변경하지 않습니다.
- - SeeAlso: <doc:DependencyGraph>
  */
 public enum DependencyLifetime: Sendable {
 	// graph 생성 중 한 번 만들고 해당 graph에서 재사용
@@ -22,7 +21,6 @@ public enum DependencyLifetime: Sendable {
 	 같은 graph 인스턴스의 생성 프로퍼티를 여러 번 읽어도 같은 결과를 반환합니다.
 
 	 - Note: 전역 singleton이 아니라 graph 인스턴스별로 결과를 보관합니다.
-	 - SeeAlso: <doc:DependencyGraph>
 	 */
 	case shared
 	// 생성 프로퍼티를 처음 읽을 때 graph별로 한 번 생성
@@ -32,7 +30,6 @@ public enum DependencyLifetime: Sendable {
 	 Factory는 첫 접근 시점의 graph 상태를 읽고, 생성한 결과는 해당 graph가 보관합니다.
 
 	 - Warning: `Sendable`을 준수하는 비격리 class의 `.shared` graph에는 사용할 수 없습니다.
-	 - SeeAlso: <doc:DependencyGraph>
 	 */
 	case lazy
 	// 생성 프로퍼티를 읽을 때마다 Factory를 호출
@@ -42,7 +39,6 @@ public enum DependencyLifetime: Sendable {
 	 graph는 생성한 결과를 보관하지 않습니다.
 
 	 - Important: 호출 시점 입력이 필요하면 Factory 매개변수에 `@External`을 함께 사용합니다.
-	 - SeeAlso: <doc:DependencyGraph>
 	 */
 	case transient
 }

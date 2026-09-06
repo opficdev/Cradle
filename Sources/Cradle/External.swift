@@ -14,7 +14,6 @@
 
  - Important: graph는 이 값을 등록하거나 보관하지 않으며, 명시적인 `.transient` Factory에서만 사용할 수
    있습니다.
- - SeeAlso: <doc:DependencyGraph>
  */
 @propertyWrapper
 public struct External<Value> {
@@ -23,7 +22,6 @@ public struct External<Value> {
 	 원본 Factory 매개변수에 전달할 외부 입력 값입니다.
 
 	 - Note: 생성된 호출 시점 메서드의 서명이나 반환 결과에는 `External<Value>`가 노출되지 않습니다.
-	 - SeeAlso: <doc:DependencyGraph>
 	 */
 	public let wrappedValue: Value
 
@@ -33,7 +31,6 @@ public struct External<Value> {
 
 	 - Parameter wrappedValue: 생성된 호출 시점 메서드가 원본 Factory에 전달할 값입니다.
 	 - Note: 이 initializer는 Macro가 생성한 Factory 호출 경로에서 wrapper 값을 구성합니다.
-	 - SeeAlso: <doc:DependencyGraph>
 	 */
 	public init(wrappedValue: Value) {
 		self.wrappedValue = wrappedValue

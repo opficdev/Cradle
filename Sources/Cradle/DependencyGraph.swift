@@ -30,7 +30,6 @@
      기본값은 `true`입니다.
  - Important: `actor` graph에는 `sources`를 사용할 수 없습니다. `sources` 또는 `overrides: true`를
    사용한 graph에는 initializer를 직접 선언할 수 없습니다.
- - SeeAlso: <doc:DependencyGraph>
  */
 @attached(member, names: arbitrary)
 public macro DependencyGraph(
@@ -51,7 +50,6 @@ public macro DependencyGraph(
  Factory 결과는 graph를 만들 때 한 번 생성되고 해당 graph가 보관합니다.
 
  - Important: 호출 시점 입력이 필요하면 `@Provide(.transient)`와 `@External`을 함께 사용합니다.
- - SeeAlso: <doc:DependencyGraph>
  */
 @attached(peer, names: arbitrary)
 @attached(body)
@@ -71,7 +69,6 @@ public macro Provide() = #externalMacro(
    `.lazy`는 생성 프로퍼티를 처음 읽을 때 한 번, `.transient`는 접근할 때마다 Factory를 평가합니다.
  - Important: `@External` 입력은 명시적인 `.transient` Factory에서만 사용할 수 있으며, 이때 Macro는
    호출 시점 생성 메서드를 만듭니다.
- - SeeAlso: <doc:DependencyGraph>
  */
 @attached(peer, names: arbitrary)
 @attached(body)
