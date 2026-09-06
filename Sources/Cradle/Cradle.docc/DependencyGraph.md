@@ -116,6 +116,18 @@ actor graph에 `overrides: true`를 지정하면 교체 Factory는 `@Sendable` c
 
 `final class` graph는 동시 접근을 조정하지 않습니다. 여러 Task에서 graph를 공유해야 하면 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다. Macro는 class graph를 동시 접근에 안전하게 만들 lock이나 `@unchecked Sendable`을 생성하지 않습니다.
 
+## graph `.shared`
+
+`@DependencyGraph(.shared)`는 `static let shared`를 생성해 프로세스 동안 같은 graph를 보유합니다. 이 graph는 일반 graph 인스턴스와 달리 해제 시점을 검증하는 대상이 아닙니다.
+
+비격리 `final class`에서 `.shared`를 사용하려면 선언에 직접 `Sendable` 준수를 작성해야 합니다. Macro는 `Sendable`을 자동으로 추가하지 않고 `@unchecked Sendable`과 `nonisolated(unsafe)`도 만들지 않습니다. 생성한 저장소, source graph, provider 반환 값이 `Sendable` 조건을 만족하는지는 Swift 컴파일러가 검사합니다. 따라서 `lazy var` 가변 저장소가 필요한 `@Provide(.lazy)`는 `Sendable`을 준수하는 class graph의 `.shared`에서 사용할 수 없습니다.
+
+actor graph도 `.shared`를 사용할 수 있으며 생성 프로퍼티는 기존 actor 격리를 유지합니다. `@MainActor` class graph는 사용자가 선언한 `@MainActor` 격리를 유지하지만 `.shared`를 위해 `@MainActor`를 자동으로 붙이지는 않습니다.
+
+`overrides: true` graph의 `Graph.shared`는 모든 등록을 `.original`로 조립합니다. 테스트 교체는 `Graph.override(...).build(...)`에만 적용합니다. 비격리 `Sendable` class graph의 교체 Factory와 `OverrideBuilder`는 `@Sendable` 조건을 따릅니다.
+
+`Graph.shared`를 교체하거나 초기화하는 API, 전역 provider 저장소, 실행 중 등록소는 제공하지 않습니다.
+
 ## source graph 조합
 
 `sources`는 `final class` 조합 graph에서만 사용할 수 있습니다. 조합 graph가 직접 읽을 source graph type을 `GraphType.self` 배열로 지정합니다. Macro는 source type의 마지막 식별자를 lowerCamelCase로 바꾼 `private let` 저장 프로퍼티와 graph 접근 수준의 initializer를 만듭니다. 조합 Factory 본문에서는 이 저장 프로퍼티로 source graph의 생성 프로퍼티를 직접 읽습니다.
@@ -172,6 +184,21 @@ let feature = graph.feature
 ```
 
 `sources` 배열의 순서는 의미가 없습니다. Macro는 source type의 정규화한 이름순으로 저장 프로퍼티와 initializer 매개변수를 생성하므로 위 예시의 initializer 매개변수도 `appGraph`, `sessionGraph` 순서입니다. 같은 source type을 중복하거나 서로 같은 저장 프로퍼티 이름을 만들면 오류를 냅니다.
+
+`.shared` 조합 graph는 같은 정규화 순서로 `SourceGraph.shared`를 한 번씩 읽고 그 값을 `Graph(...)` initializer에 전달해 `Graph.shared`를 한 번 조립합니다. source graph의 `shared`는 정확한 source graph 타입을 반환해야 하며 호출 위치에서 접근할 수 있어야 합니다. source graph에 `.shared`가 없거나 접근할 수 없으면 Swift 컴파일러가 생성한 `SourceGraph.shared` 호출 위치를 오류로 표시합니다.
+
+```swift
+@DependencyGraph(.shared)
+final class AppGraph: Sendable {}
+
+@DependencyGraph(.shared, sources: [AppGraph.self])
+final class FeatureGraph: Sendable {}
+
+let source: AppGraph = .shared
+let graph = FeatureGraph.shared
+```
+
+source graph 사이의 간접 정적 초기화 순환은 Macro가 진단하지 못할 수 있으며, 이를 전역 등록소나 실행 중 해결 경로로 우회하지 않습니다.
 
 조합 graph는 source graph를 강하게 보관합니다. source graph의 shared 생성 프로퍼티는 source graph마다 같은 값을 반환합니다. 조합 graph의 transient Factory는 source graph의 transient 생성 프로퍼티를 읽을 때마다 source Factory를 다시 호출합니다.
 
@@ -336,6 +363,12 @@ let profile = graph.profile
 ## shared 수명과 lazy 수명, transient 수명
 
 `@Provide`와 `@Provide(.shared)`는 graph를 만들 때 Factory 결과를 한 번 생성하고 graph 전용의 타입 지정 `let` 저장소가 이를 보유하게 합니다. 같은 graph에서 해당 생성 프로퍼티를 여러 번 읽으면 같은 값을 반환합니다. graph가 해제되면 저장소가 보유한 참조도 함께 놓습니다. 이 수명은 전역 싱글턴이 아니라 graph 인스턴스별 수명입니다.
+
+| 대상 | 보유자와 기간 | 테스트와 Preview 경계 |
+| --- | --- | --- |
+| `Graph.shared` | 타입의 정적 graph가 프로세스 동안 보유 | `Graph()` 또는 `Graph.override(...).build(...)`로 독립 graph를 만들며 `Graph.shared`를 바꾸거나 초기화하지 않음 |
+| `@Provide(.shared)` | 각 graph 인스턴스의 `let` 저장소가 graph가 해제될 때까지 보유 | 독립 graph마다 별도 값 생성 |
+| `@Provide(.lazy)` | 각 graph 인스턴스의 `lazy var` 저장소가 첫 접근 뒤 graph가 해제될 때까지 보유 | 독립 graph에서 첫 접근 시점도 분리 |
 
 ```swift
 @DependencyGraph
