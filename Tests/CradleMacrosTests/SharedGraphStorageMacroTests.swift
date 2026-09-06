@@ -105,6 +105,70 @@ func sharedGraphStorageRejectsTransientDependency() {
 	)
 }
 
+// shared Factory가 lazy 등록을 앞당기는지 원본 타입 위치에서 거부 확인
+@Test
+func sharedGraphStorageRejectsLazyDependency() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide(.shared)
+			private func makeRoot(value: Value) -> Root { Root() }
+			@Provide(.lazy)
+			private func makeValue() -> Value { Value() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeRoot(value: Value) -> Root { Root() }
+			private func makeValue() -> Value { Value() }
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "invalidSharedLazyProviderReference"),
+				message: "shared 수명의 `@Provide` Factory는 `.lazy` 등록을 매개변수로 받을 수 없습니다.",
+				line: 4,
+				column: 31,
+				highlights: ["Value"]
+			)
+		],
+		macros: testMacros
+	)
+}
+
+// lazy Factory가 transient 결과를 보관하는지 원본 타입 위치에서 거부 확인
+@Test
+func lazyGraphStorageRejectsTransientDependency() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph
+		final class Graph {
+			@Provide(.lazy)
+			private func makeRoot(value: Value) -> Root { Root() }
+			@Provide(.transient)
+			private func makeValue() -> Value { Value() }
+		}
+		""",
+		expandedSource: """
+		final class Graph {
+			private func makeRoot(value: Value) -> Root { Root() }
+			private func makeValue() -> Value { Value() }
+		}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "invalidLazyProviderReference"),
+				message: "lazy 수명의 `@Provide` Factory는 `.transient` 등록을 매개변수로 받을 수 없습니다.",
+				line: 4,
+				column: 31,
+				highlights: ["Value"]
+			)
+		],
+		macros: testMacros
+	)
+}
+
 // shared 저장소 생성용 등록 descriptor 구성
 private func sharedStorageProviders() throws -> [ProviderDescriptor] {
 	let repositoryType = TypeSyntax("any Repository")

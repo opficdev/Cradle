@@ -78,6 +78,11 @@ struct DependencyGraphMacro: MemberMacro {
 			propertyNames: propertyNames,
 			in: context
 		)
+		let lazyStorage = LazyGraphStorage(
+			providers: registeredProviders,
+			propertyNames: propertyNames,
+			in: context
+		)
 
 		let sourceDeclarations = graph.allowsSources ? sourceGraphDeclarations(
 			for: sources,
@@ -88,7 +93,8 @@ struct DependencyGraphMacro: MemberMacro {
 			for: providerResult.descriptors,
 			accessLevel: graphAccess,
 			propertyNames: propertyNames,
-			storage: storage
+			storage: storage,
+			lazyStorage: lazyStorage
 		)
 		guard overrideConfiguration.isEnabled else {
 			return sourceDeclarations + properties
@@ -313,7 +319,7 @@ struct DependencyGraphMacro: MemberMacro {
 		return hasError
 	}
 
-	// shared Factory가 graph 초기화 뒤에 만들어지는 transient 등록을 요구하는지 확인
+	// graph에 보관하는 Factory가 더 짧은 수명을 고정하는지 확인
 	private static func diagnoseSharedProviderReferenceErrors(
 		in providers: [ProviderDescriptor],
 		context: some MacroExpansionContext
@@ -323,16 +329,19 @@ struct DependencyGraphMacro: MemberMacro {
 		})
 		var hasError = false
 
-		for provider in providers where provider.lifetime == .shared {
+		for provider in providers {
 			for parameter in provider.graphParameters {
 				guard let dependency = registrations[parameter.typeIdentity],
-					dependency.lifetime == .transient else {
+					let diagnostic = providerLifetimeReferenceDiagnostic(
+						providerLifetime: provider.lifetime,
+						dependencyLifetime: dependency.lifetime
+					) else {
 					continue
 				}
 				context.diagnose(
 					Diagnostic(
 						node: parameter.type,
-						message: InvalidSharedProviderReferenceDiagnostic()
+						message: diagnostic
 					)
 				)
 				hasError = true
@@ -343,11 +352,6 @@ struct DependencyGraphMacro: MemberMacro {
 	}
 }
 // swiftlint:enable type_body_length
-
-// 등록 타입 identity와 생성 접근자 이름 연결 생성
-private func propertyNames(for providers: [ProviderDescriptor]) -> [RegisteredTypeIdentity: String] {
-	Dictionary(uniqueKeysWithValues: providers.map { ($0.registrationIdentity, $0.propertyName) })
-}
 
 // graph 본체의 `@Provide` Factory 검증과 수집
 private func providers(
@@ -374,25 +378,4 @@ private func providers(
 	}
 
 	return (descriptors, hasError)
-}
-
-// shared 등록이 있을 때만 graph 전용 저장소 생성
-private func sharedStorage(
-	for providers: [ProviderDescriptor],
-	graphName: TokenSyntax,
-	sources: [SourceGraphDescriptor],
-	propertyNames: [RegisteredTypeIdentity: String],
-	in context: some MacroExpansionContext
-) -> SharedGraphStorage? {
-	let sharedProviders = providers.filter { $0.lifetime == .shared }
-	guard !sharedProviders.isEmpty else {
-		return nil
-	}
-	return SharedGraphStorage(
-		graphName: graphName,
-		providers: sharedProviders,
-		sources: sources,
-		propertyNames: propertyNames,
-		in: context
-	)
 }

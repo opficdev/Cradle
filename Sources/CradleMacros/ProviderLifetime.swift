@@ -15,6 +15,8 @@ enum ProviderLifetime {
 	case transient
 	// graph 생성 중 한 번 만들고 저장하는 기본 수명
 	case shared
+	// graph 생성 뒤 최초 접근에 결과를 보관하는 지연 수명
+	case lazy
 }
 
 // 표현식 평가 없이 인자 생략 또는 직접 작성한 lifetime case만 허용
@@ -39,10 +41,17 @@ func providerLifetime(
 		member.base == nil,
 		member.declName.argumentNames == nil,
 		let name = member.declName.baseName.identifier?.name,
-		name == "shared" || name == "transient",
+		name == "shared" || name == "lazy" || name == "transient",
 		!attribute.hasError else {
 		context.diagnose(Diagnostic(node: arguments, message: InvalidProviderLifetimeDiagnostic()))
 		return nil
 	}
-	return member.declName.baseName.identifier?.name == "shared" ? .shared : .transient
+	switch member.declName.baseName.identifier?.name {
+	case "shared":
+		return .shared
+	case "lazy":
+		return .lazy
+	default:
+		return .transient
+	}
 }

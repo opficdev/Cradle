@@ -19,6 +19,10 @@ private struct TypedOverrideProvider {
 	let stateName: TokenSyntax
 	// builder와 graph 저장소가 공유할 선택 상태 이름
 	let storageName: TokenSyntax
+	// lazy 결과를 보관할 graph 저장 프로퍼티 이름
+	let lazyValueName: TokenSyntax
+	// lazy 결과를 최초 평가할 graph helper 이름
+	let lazyBuilderName: TokenSyntax
 	// actor graph의 교체 Factory 동시성 경계 여부
 	let requiresSendableFactory: Bool
 
@@ -48,12 +52,15 @@ func typedOverrideDeclarations(
 			provider: provider,
 			stateName: typedOverrideUniqueName("TypedOverrideState", in: context),
 			storageName: typedOverrideUniqueName("typedOverrideState", in: context),
+			lazyValueName: typedOverrideUniqueName("typedOverrideLazyValue", in: context),
+			lazyBuilderName: typedOverrideUniqueName("makeTypedOverrideLazy", in: context),
 			requiresSendableFactory: graph.isActor
 		)
 	}
 	let builderName = TokenSyntax.identifier("OverrideBuilder")
 	let shared = overrides.filter { $0.provider.lifetime == .shared }
 	let transient = overrides.filter { $0.provider.lifetime == .transient }
+	let lazy = overrides.filter { $0.provider.lifetime == .lazy }
 	let sharedStorage = TypedOverrideSharedStorage(
 		graphName: graph.name,
 		builderName: builderName,
@@ -76,6 +83,7 @@ func typedOverrideDeclarations(
 			providers: overrides,
 			sources: sources,
 			transient: transient,
+			lazy: lazy,
 			storage: sharedStorage,
 			accessLevel: accessLevel,
 			isActor: graph.isActor
@@ -221,11 +229,13 @@ private func typedOverrideHasTypeMemberModifier(_ modifiers: DeclModifierListSyn
 // `DependencyOverride`를 graph 내부 선택 상태로 변환하는 enum 선언
 private func selectionDeclaration(for override: TypedOverrideProvider) -> DeclSyntax {
 	let sendable = override.requiresSendableFactory ? ": Sendable" : ""
+	let consumed = override.provider.lifetime == .lazy ? "\n    case consumed" : ""
 	return DeclSyntax(
 		"""
 		fileprivate enum \(override.stateName)\(raw: sendable) {
 		    case original
 		    case replace(\(raw: override.factoryType))
+		    \(raw: consumed)
 
 		    init(_ selection: DependencyOverride<\(raw: override.factoryType)>) {
 		        switch selection {
@@ -315,11 +325,15 @@ private func graphInitializers(
 	providers: [TypedOverrideProvider],
 	sources: [SourceGraphDescriptor],
 	transient: [TypedOverrideProvider],
+	lazy: [TypedOverrideProvider],
 	storage: TypedOverrideSharedStorage,
 	accessLevel: AccessLevel,
 	isActor: Bool
 ) -> [DeclSyntax] {
 	let transientAssignments = transient.map { override in
+		"self.\(override.storageName) = overrides.\(override.storageName)"
+	}.joined(separator: "\n")
+	let lazyAssignments = lazy.map { override in
 		"self.\(override.storageName) = overrides.\(override.storageName)"
 	}.joined(separator: "\n")
 	let storageAssignment = storage.initializationAssignment(sources: sources)
@@ -349,6 +363,7 @@ private func graphInitializers(
 		private init(\(raw: privateParameters)) {
 		    \(raw: sourceAssignments)
 		    \(raw: transientAssignments)
+		    \(raw: lazyAssignments)
 		    \(raw: storageAssignment)
 		}
 		"""
@@ -372,6 +387,9 @@ private func typedOverridePropertyDeclarations(
 	let transientStorage = providers.filter { $0.provider.lifetime == .transient }.map { override in
 		DeclSyntax("private let \(override.storageName): \(override.stateName)")
 	}
+	let lazyStorage = providers.filter { $0.provider.lifetime == .lazy }.map { override in
+		DeclSyntax("private var \(override.storageName): \(override.stateName)")
+	}
 	let properties = providers.map { override in
 		if override.provider.hasExternalParameters {
 			return typedOverrideExternalMethodDeclaration(
@@ -388,7 +406,7 @@ private func typedOverridePropertyDeclarations(
 			storage: storage
 		)
 	}
-	return sourceStorage + transientStorage + storage.declarations() + properties
+	return sourceStorage + transientStorage + lazyStorage + storage.declarations() + properties
 }
 
 // 외부 입력을 호출 시점에 원본 또는 교체 Factory로 전달하는 생성 메서드
@@ -442,6 +460,13 @@ private func typedOverridePropertyDeclaration(
 		}
 		""")
 	}
+	if provider.lifetime == .lazy {
+		return typedOverrideLazyPropertyDeclaration(
+			for: override,
+			accessLevel: accessLevel,
+			propertyNames: propertyNames
+		)
+	}
 	let originalArguments = provider.parameters.map { parameter in
 		parameter.factoryArgument(propertyName: propertyNames[parameter.typeIdentity])
 	}.joined(separator: ", ")
@@ -456,6 +481,48 @@ private func typedOverridePropertyDeclaration(
 	    case let .replace(factory):
 	        factory(\(raw: overrideArguments))
 	    }
+	}
+	""")
+}
+
+// 최초 접근에서 원본 또는 교체 Factory를 평가하고 선택 상태를 해제하는 lazy 생성 프로퍼티
+private func typedOverrideLazyPropertyDeclaration(
+	for override: TypedOverrideProvider,
+	accessLevel: AccessLevel,
+	propertyNames: [RegisteredTypeIdentity: String]
+) -> DeclSyntax {
+	let provider = override.provider
+	let signature = "\(accessLevel.rawValue) var \(provider.propertyName): \(provider.returnType.trimmedDescription)"
+	let originalArguments = provider.parameters.map { parameter in
+		parameter.factoryArgument(
+			propertyName: propertyNames[parameter.typeIdentity],
+			qualifyingGraphMember: true
+		)
+	}.joined(separator: ", ")
+	let overrideArguments = provider.parameters.map { parameter in
+		parameter.factoryValue(
+			propertyName: propertyNames[parameter.typeIdentity],
+			qualifyingGraphMember: true
+		)
+	}.joined(separator: ", ")
+	return DeclSyntax("""
+	private lazy var \(override.lazyValueName): \(raw: provider.returnType.trimmedDescription) = \(override.lazyBuilderName)()
+
+	private func \(override.lazyBuilderName)() -> \(raw: provider.returnType.trimmedDescription) {
+	    let selection = \(override.storageName)
+	    \(override.storageName) = .consumed
+	    return switch selection {
+	    case .original:
+	        self.\(raw: provider.factoryName)(\(raw: originalArguments))
+	    case let .replace(factory):
+	        factory(\(raw: overrideArguments))
+	    case .consumed:
+	        preconditionFailure("lazy Factory selection was already consumed")
+	    }
+	}
+
+	\(raw: signature) {
+	    \(override.lazyValueName)
 	}
 	""")
 }
