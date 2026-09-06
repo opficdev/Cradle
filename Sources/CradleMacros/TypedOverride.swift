@@ -517,7 +517,7 @@ private func typedOverrideLazyPropertyDeclaration(
 	    case let .replace(factory):
 	        factory(\(raw: overrideArguments))
 	    case .consumed:
-	        preconditionFailure("lazy Factory selection was already consumed")
+	        Swift.preconditionFailure("lazy Factory selection was already consumed")
 	    }
 	}
 

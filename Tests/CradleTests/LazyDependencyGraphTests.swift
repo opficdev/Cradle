@@ -184,6 +184,19 @@ final class LazyOverrideOriginalGraph {
 	}
 }
 
+// `preconditionFailure` 이름 충돌을 확인할 lazy override 결과
+final class LazyOverridePreconditionFailureService {}
+
+// 표준 함수 이름과 같은 원본 Factory를 포함한 lazy override graph
+@DependencyGraph(overrides: true)
+final class LazyOverridePreconditionFailureGraph {
+	// generated helper의 실패 경로와 같은 이름의 원본 Factory
+	@Provide(.lazy)
+	private func preconditionFailure() -> LazyOverridePreconditionFailureService {
+		LazyOverridePreconditionFailureService()
+	}
+}
+
 // lazy diamond의 동일 leaf를 graph별로 보관할 graph
 @DependencyGraph
 final class LazyDiamondGraph {
@@ -295,6 +308,17 @@ func lazyOverrideGraphDefersOriginalFactoryUntilAccess() {
 	#expect(graph.factoryCount() == 1)
 	#expect(graph.lazyOverrideOriginalService.count == 1)
 	#expect(graph.factoryCount() == 1)
+}
+
+// 표준 함수 이름과 같은 lazy Factory도 original 경로에서 호출하는지 확인
+@Test
+func lazyOverrideGraphSupportsPreconditionFailureFactoryName() {
+	let graph = LazyOverridePreconditionFailureGraph.override().build()
+
+	#expect(
+		graph.lazyOverridePreconditionFailureService
+			=== graph.lazyOverridePreconditionFailureService
+	)
 }
 
 // lazy 교체 closure의 해제 시점을 확인할 참조 값
