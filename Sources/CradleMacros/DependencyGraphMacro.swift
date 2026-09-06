@@ -25,6 +25,13 @@ struct DependencyGraphMacro: MemberMacro {
 			context.diagnose(Diagnostic(node: node, message: CradleMacroDiagnostic.invalidGraph))
 			return []
 		}
+		guard let lifetime = validatedSharedGraphLifetime(
+			for: graph,
+			attribute: node,
+			context: context
+		) else {
+			return []
+		}
 		guard let overrideConfiguration = typedOverrideConfiguration(from: node, in: context) else {
 			return []
 		}
@@ -97,7 +104,10 @@ struct DependencyGraphMacro: MemberMacro {
 			lazyStorage: lazyStorage
 		)
 		guard overrideConfiguration.isEnabled else {
-			return sourceDeclarations + properties
+			let shared = lifetime.createsSharedGraph && sources.isEmpty ? [
+				sharedGraphDeclaration(for: graph, accessLevel: graphAccess)
+			] : []
+			return sourceDeclarations + properties + shared
 		}
 		return typedOverrideDeclarations(
 			for: graph,

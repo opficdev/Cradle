@@ -21,6 +21,10 @@ struct DependencyGraphDeclaration {
 	let isActor: Bool
 	// MainActor 전역 격리 graph 여부
 	let isMainActor: Bool
+	// 비격리 shared graph에 직접 작성한 checked Sendable 준수 여부
+	let isCheckedSendable: Bool
+	// 비격리 shared graph에서 거부할 unchecked Sendable 준수 여부
+	let hasUncheckedSendable: Bool
 
 	// 지원하는 비 generic class·actor 선언을 공통 정보로 변환
 	init?(from declaration: some DeclGroupSyntax) {
@@ -36,6 +40,8 @@ struct DependencyGraphDeclaration {
 			allowsSources = true
 			isActor = false
 			isMainActor = containsMainActorAttribute(in: graph.attributes)
+			isCheckedSendable = containsCheckedSendable(graph.inheritanceClause)
+			hasUncheckedSendable = containsUncheckedSendable(graph.inheritanceClause)
 			return
 		}
 
@@ -50,10 +56,55 @@ struct DependencyGraphDeclaration {
 			allowsSources = false
 			isActor = true
 			isMainActor = containsMainActorAttribute(in: graph.attributes)
+			isCheckedSendable = false
+			hasUncheckedSendable = false
 			return
 		}
 
 		return nil
+	}
+}
+
+// class 선언에 직접 작성한 checked Sendable 준수 확인
+private func containsCheckedSendable(_ clause: InheritanceClauseSyntax?) -> Bool {
+	clause?.inheritedTypes.contains { inherited in
+		isDirectSendableType(inherited.type) && !isUncheckedSendableType(inherited.type)
+	} ?? false
+}
+
+// class 선언에 직접 작성한 unchecked Sendable 준수 확인
+private func containsUncheckedSendable(_ clause: InheritanceClauseSyntax?) -> Bool {
+	clause?.inheritedTypes.contains { inherited in
+		isUncheckedSendableType(inherited.type)
+	} ?? false
+}
+
+// `Sendable`·`Swift.Sendable`·`_Concurrency.Sendable` 직접 표기 확인
+private func isDirectSendableType(_ type: TypeSyntax) -> Bool {
+	if let identifier = type.as(IdentifierTypeSyntax.self) {
+		return identifier.name.identifier?.name == "Sendable"
+	}
+	guard let member = type.as(MemberTypeSyntax.self),
+		let module = member.baseType.as(IdentifierTypeSyntax.self),
+		let moduleName = module.name.identifier?.name,
+		member.name.identifier?.name == "Sendable" else {
+		return false
+	}
+	return moduleName == "Swift" || moduleName == "_Concurrency"
+}
+
+// `@unchecked Sendable` attribute와 Sendable 기반 type을 함께 확인
+private func isUncheckedSendableType(_ type: TypeSyntax) -> Bool {
+	guard let attributed = type.as(AttributedTypeSyntax.self),
+		isDirectSendableType(attributed.baseType) else {
+		return false
+	}
+	return attributed.attributes.contains { element in
+		guard let attribute = element.as(AttributeSyntax.self),
+			let identifier = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
+			return false
+		}
+		return identifier.name.identifier?.name == "unchecked"
 	}
 }
 
