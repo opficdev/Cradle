@@ -408,7 +408,9 @@ let second = graph.userRepository
 
 shared 수명의 Factory는 다른 shared 등록만 매개변수로 받을 수 있습니다. shared 수명의 Factory가 lazy 또는 transient 등록을 받으면 두 등록의 평가 시점이 shared 결과에 고정되므로, Macro는 해당 매개변수 타입 위치에 오류를 표시합니다. lazy 수명의 Factory는 shared 또는 lazy 등록을 받을 수 있지만 transient 등록은 보관할 수 없습니다.
 
-shared Factory 본문은 사용자가 작성한 initializer 본문보다 먼저 실행됩니다. 따라서 `self`, `super`, class·actor graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다. actor graph의 shared Factory가 actor 상태를 읽으면 static helper에서 Swift 컴파일러가 오류를 표시합니다.
+`input`을 지정하지 않은 graph의 shared Factory 본문은 graph initializer보다 먼저 실행됩니다. 따라서 `self`, `super`, class·actor graph 인스턴스 멤버, 다른 Factory를 직접 참조할 수 없습니다. 필요한 shared 의존성은 Factory 매개변수로 선언합니다. actor graph의 shared Factory가 actor 상태를 읽으면 static helper에서 Swift 컴파일러가 오류를 표시합니다.
+
+`input` graph의 shared Factory는 Macro가 input을 저장한 뒤 실행합니다. Macro는 Factory 본문의 `input` 참조만 static helper 매개변수로 전달합니다. 따라서 `input`은 읽을 수 있지만 `self`, `super`, input 이외의 graph 인스턴스 멤버와 다른 Factory는 직접 참조할 수 없습니다.
 
 source graph 저장 프로퍼티는 shared Factory에서 직접 읽을 수 있습니다. Macro는 이 참조를 생성한 static helper의 매개변수로 바꾸고 source 저장 프로퍼티를 대입한 뒤 helper를 실행합니다. source graph의 transient 값을 읽으면 그 표현식은 조합 graph를 초기화할 때 한 번 평가되어 shared 결과에 보관됩니다.
 
@@ -490,7 +492,7 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 ## 접근 수준과 초기화
 
-생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `overrides: true` graph는 `override`, `OverrideBuilder`, `build()`도 graph와 같은 접근 수준으로 생성합니다. `public` graph에서 교체 Factory의 매개변수·반환 타입과 source graph 인자는 외부 모듈에서 접근할 수 있어야 합니다.
+생성 프로퍼티는 graph와 같은 접근 수준을 가집니다. `overrides: true` graph는 `override`, `OverrideBuilder`, `build()`도 graph와 같은 접근 수준으로 생성합니다. `public` graph에서 교체 Factory의 매개변수·반환 타입, initializer input 타입, source graph 인자는 외부 모듈에서 접근할 수 있어야 합니다.
 
 `input`, `sources`, `overrides: true`를 모두 지정하지 않은 graph에서는 Macro가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티를 바꾸지 않습니다. `input`, `sources`, `overrides: true` graph는 Macro가 생성 경로를 소유합니다. 이 graph에서는 사용자가 initializer를 직접 선언하거나 Swift가 자동 초기화하지 않는 인스턴스 저장 프로퍼티를 선언하면 오류를 냅니다. Optional `var`와 기본 initializer가 있는 property wrapper 저장 프로퍼티는 Swift의 자동 초기화를 사용합니다.
 
@@ -498,7 +500,7 @@ Factory 반환 타입과 매개변수 타입에는 직접 작성한 Optional을 
 
 ## 현재 지원 범위
 
-현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결, shared·lazy·transient 수명, 호출 시점 외부 입력 생성 메서드, graph 인스턴스별 Factory 교체를 지원합니다. 다음 기능은 아직 지원하지 않습니다.
+현재 `@DependencyGraph`는 동기 Factory의 타입 기반 연결, shared·lazy·transient 수명, initializer input, 호출 시점 외부 입력 생성 메서드, graph 인스턴스별 Factory 교체를 지원합니다. 다음 기능은 아직 지원하지 않습니다.
 
 - graph 생성 뒤 등록 교체
 - source graph 생성 프로퍼티의 자동 주입
