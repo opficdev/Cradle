@@ -22,18 +22,20 @@
  - Parameters:
    - lifetime: graph 인스턴스의 보유 범위입니다. 기본값은 `.instance`이며, `.shared`는 프로세스 동안
      보유하는 `static let shared` graph를 만듭니다.
+   - input: `final class` graph가 생성자에서 보관할 조립 입력 타입입니다. 기본값은 `nil`입니다.
    - sources: `final class` 조합 graph가 보관하고 Factory에서 읽을 source graph 타입 배열입니다.
      기본값은 빈 배열입니다.
    - overrides: graph 인스턴스별 Factory 교체를 위한 `override`와 `OverrideBuilder` 생성 여부입니다.
      기본값은 `false`입니다.
    - diagram: `CradlePlugin`의 Mermaid 개발 산출물에 해당 graph를 포함할지 정하는 값입니다.
      기본값은 `true`입니다.
- - Important: `actor` graph에는 `sources`를 사용할 수 없습니다. `sources` 또는 `overrides: true`를
-   사용한 graph에는 initializer를 직접 선언할 수 없습니다.
+ - Important: `actor` graph에는 `input` 또는 `sources`를 사용할 수 없습니다. `input`, `sources`,
+   `overrides: true`를 사용한 graph에는 initializer를 직접 선언할 수 없습니다.
  */
 @attached(member, names: arbitrary)
 public macro DependencyGraph(
 	_ lifetime: DependencyGraphLifetime = .instance,
+	input: Any.Type? = nil,
 	sources: [Any.Type] = [],
 	overrides: Bool = false,
 	diagram: Bool = true

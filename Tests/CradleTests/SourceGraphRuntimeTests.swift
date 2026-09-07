@@ -120,6 +120,29 @@ final class SourceGraphSharedFeatureGraph {
 	}
 }
 
+// initializer input과 source graph를 함께 보관할 조합 graph
+@DependencyGraph(input: GraphInput.self, sources: [SourceGraphAppGraph.self])
+final class SourceGraphInputFeatureGraph {
+	// input과 source graph 값을 함께 읽는 shared 결과 생성
+	@Provide
+	private func makeGraphInputUseCase() -> GraphInputUseCase {
+		_ = sourceGraphAppGraph.sourceGraphRepository
+		return GraphInputUseCase(repository: input.repository)
+	}
+}
+
+// input 대입 뒤 source graph를 보관하고 shared 결과를 생성하는지 확인
+@Test
+func sourceGraphCompositionBuildsSharedProviderWithInitializerInput() {
+	let repository = GraphInputRepository()
+	let graph = SourceGraphInputFeatureGraph(
+		input: GraphInput(repository: repository, probe: GraphInputCreationProbe()),
+		sourceGraphAppGraph: SourceGraphAppGraph()
+	)
+
+	#expect(graph.graphInputUseCase.repository === repository)
+}
+
 // source graph의 shared 값은 조합 graph 접근마다 같은 identity를 유지하는지 확인
 @Test
 func sourceGraphCompositionUsesSourceSharedValues() {

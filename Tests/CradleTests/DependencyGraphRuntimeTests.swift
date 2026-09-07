@@ -64,6 +64,65 @@ final class DefaultSharedValue {}
 // 기본 shared 해제 확인용 참조 값
 final class DefaultSharedReleasedValue {}
 
+// graph initializer가 보관할 repository 입력
+final class GraphInputRepository {}
+
+// graph initializer가 받은 repository 입력 묶음
+struct GraphInput {
+	// UseCase 생성에 전달할 repository
+	let repository: GraphInputRepository
+	// provider 생성 횟수 기록
+	let probe: GraphInputCreationProbe
+}
+
+// input provider 생성 시점을 기록할 probe
+final class GraphInputCreationProbe {
+	// shared Factory 실행 횟수
+	var sharedCount = 0
+	// lazy Factory 실행 횟수
+	var lazyCount = 0
+}
+
+// input을 읽어 만든 shared 결과
+final class GraphInputUseCase {
+	// 생성에 사용한 repository
+	let repository: GraphInputRepository
+
+	// repository 연결 생성
+	init(repository: GraphInputRepository) {
+		self.repository = repository
+	}
+}
+
+// input을 최초 접근에서 읽을 lazy 결과
+final class GraphInputLazyValue {
+	// 생성에 사용한 repository
+	let repository: GraphInputRepository
+
+	// repository 연결 생성
+	init(repository: GraphInputRepository) {
+		self.repository = repository
+	}
+}
+
+// initializer input과 provider 수명을 함께 검증할 graph
+@DependencyGraph(input: GraphInput.self)
+final class GraphInputDependencyGraph {
+	// graph 생성 중 input repository로 만들 shared UseCase
+	@Provide
+	private func makeGraphInputUseCase() -> GraphInputUseCase {
+		input.probe.sharedCount += 1
+		return GraphInputUseCase(repository: input.repository)
+	}
+
+	// 최초 접근에서 input repository로 만들 lazy 값
+	@Provide(.lazy)
+	private func makeGraphInputLazyValue() -> GraphInputLazyValue {
+		input.probe.lazyCount += 1
+		return GraphInputLazyValue(repository: input.repository)
+	}
+}
+
 // 인자 생략 Factory의 graph별 shared 수명 검증용 graph
 @DependencyGraph
 final class DefaultSharedGraph {
@@ -183,4 +242,55 @@ func defaultProviderReleasesOwnedSharedValue() {
 		}
 	}
 	#expect(observed == nil)
+}
+
+// 기본 shared provider가 initializer input 대입 뒤 생성되는지 확인
+@Test
+func defaultProviderReadsInitializerInputDuringGraphCreation() {
+	let repository = GraphInputRepository()
+	let probe = GraphInputCreationProbe()
+	let graph = GraphInputDependencyGraph(input: GraphInput(repository: repository, probe: probe))
+
+	#expect(probe.sharedCount == 1)
+	#expect(probe.lazyCount == 0)
+	#expect(graph.graphInputUseCase.repository === repository)
+	#expect(graph.graphInputUseCase === graph.graphInputUseCase)
+}
+
+// lazy provider가 initializer input을 최초 접근까지 읽지 않는지 확인
+@Test
+func lazyProviderReadsInitializerInputAtFirstAccess() {
+	let repository = GraphInputRepository()
+	let probe = GraphInputCreationProbe()
+	let graph = GraphInputDependencyGraph(input: GraphInput(repository: repository, probe: probe))
+
+	#expect(probe.lazyCount == 0)
+	#expect(graph.graphInputLazyValue.repository === repository)
+	#expect(probe.lazyCount == 1)
+	#expect(graph.graphInputLazyValue === graph.graphInputLazyValue)
+	#expect(probe.lazyCount == 1)
+}
+
+// shared helper가 Factory 지역 이름보다 graph input을 우선하는지 확인
+@Test
+func defaultProviderPreservesInputReferenceWhenFactoryDeclaresSameHelperName() {
+	let repository = GraphInputRepository()
+	let probe = GraphInputCreationProbe()
+	let graph = GraphInputShadowingDependencyGraph(
+		input: GraphInput(repository: repository, probe: probe)
+	)
+
+	#expect(graph.graphInputUseCase.repository === repository)
+}
+
+// helper 매개변수와 같은 이름을 가진 지역 선언 회귀 검증용 graph
+@DependencyGraph(input: GraphInput.self)
+final class GraphInputShadowingDependencyGraph {
+	// graph input을 읽는 shared UseCase 생성
+	@Provide
+	private func makeGraphInputUseCase() -> GraphInputUseCase {
+		let graphInput = GraphInput(repository: GraphInputRepository(), probe: input.probe)
+		_ = graphInput
+		return GraphInputUseCase(repository: input.repository)
+	}
 }

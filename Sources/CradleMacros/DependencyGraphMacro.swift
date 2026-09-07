@@ -10,11 +10,11 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length file_length
 // `@Provide` Factory를 호출하는 반환 타입 기반 생성 프로퍼티 추가
 struct DependencyGraphMacro: MemberMacro {
 	// graph 본체의 유효한 Factory별 transient 생성 프로퍼티 생성
-	// swiftlint:disable:next function_body_length
+	// swiftlint:disable:next function_body_length cyclomatic_complexity
 	static func expansion(
 		of node: AttributeSyntax,
 		providingMembersOf declaration: some DeclGroupSyntax,
@@ -25,11 +25,27 @@ struct DependencyGraphMacro: MemberMacro {
 			context.diagnose(Diagnostic(node: node, message: CradleMacroDiagnostic.invalidGraph))
 			return []
 		}
+		let hasInput = graphInputArgument(in: node) != nil
+		let graphInput = GraphInputDescriptor.from(attribute: node, in: context)
+		guard !hasInput || graphInput != nil else {
+			return []
+		}
+		guard let configuredLifetime = dependencyGraphLifetimeConfiguration(from: node, in: context) else {
+			return []
+		}
+		if graphInput != nil && configuredLifetime.createsSharedGraph {
+			context.diagnose(Diagnostic(node: node, message: GraphInputDiagnostic.sharedGraphUnsupported))
+			return []
+		}
 		guard let lifetime = validatedSharedGraphLifetime(
 			for: graph,
 			attribute: node,
 			context: context
 		) else {
+			return []
+		}
+		if graphInput != nil && graph.isActor {
+			context.diagnose(Diagnostic(node: node, message: GraphInputDiagnostic.actorUnsupported))
 			return []
 		}
 		guard let overrideConfiguration = typedOverrideConfiguration(from: node, in: context) else {
@@ -40,6 +56,10 @@ struct DependencyGraphMacro: MemberMacro {
 		}
 		let sourceResult = sourceGraphResult(from: node, in: context)
 		guard let sources = acceptedSourceDescriptors(for: graph, from: node, result: sourceResult, in: context) else {
+			return []
+		}
+		if graphInput != nil,
+			diagnoseGraphInputInitializationErrors(in: graph.memberBlock.members, context: context) {
 			return []
 		}
 		if overrideConfiguration.isEnabled,
@@ -80,6 +100,7 @@ struct DependencyGraphMacro: MemberMacro {
 			for: registeredProviders,
 			graphName: graph.name,
 			sources: sources,
+			input: graphInput,
 			propertyNames: propertyNames,
 			in: context
 		)
@@ -91,6 +112,7 @@ struct DependencyGraphMacro: MemberMacro {
 
 		let sourceDeclarations = graph.allowsSources ? sourceGraphDeclarations(
 			for: sources,
+			input: graphInput,
 			accessLevel: graphAccess,
 			storage: storage
 		) : []
@@ -117,6 +139,7 @@ struct DependencyGraphMacro: MemberMacro {
 			lifetime: lifetime,
 			providers: providerResult.descriptors,
 			sources: sources,
+			input: graphInput,
 			accessLevel: graphAccess,
 			propertyNames: propertyNames,
 			storage: storage,

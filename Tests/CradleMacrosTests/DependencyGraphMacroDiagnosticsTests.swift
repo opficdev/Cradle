@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  DependencyGraphMacroDiagnosticsTests.swift
 //  CradleMacrosTests
@@ -7,6 +8,29 @@
 
 import SwiftSyntaxMacrosTestSupport
 import Testing
+
+// shared graph input이 Sendable 진단보다 먼저 거부되는지 확인
+@Test
+func dependencyGraphRejectsSharedInitializerInputBeforeSendableValidation() {
+	assertMacroExpansion(
+		"""
+		@DependencyGraph(.shared, input: Input.self)
+		final class Graph {}
+		""",
+		expandedSource: """
+		final class Graph {}
+		""",
+		diagnostics: [
+			DiagnosticSpec(
+				id: .init(domain: "Cradle", id: "sharedGraphUnsupported"),
+				message: "`@DependencyGraph(.shared)`는 호출자 initializer input을 받을 수 없습니다.",
+				line: 1,
+				column: 1
+			)
+		],
+		macros: testMacros
+	)
+}
 
 // struct graph 거부 확인
 @Test

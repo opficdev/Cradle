@@ -12,6 +12,8 @@ Factory가 `any UserRepository`를 반환하면 graph의 `userRepository`도 같
 
 기본 `@Provide`와 `@Provide(.shared)`는 graph 생성 중 한 번 만든 값을 해당 graph가 보유하고 이후 같은 값을 반환합니다. `@Provide(.lazy)`는 생성 프로퍼티를 처음 읽을 때 값을 만들고 해당 graph가 보유합니다. 이 값들은 전역 싱글턴이 아니라 graph 인스턴스마다 분리됩니다. 프로퍼티를 읽을 때마다 Factory를 호출해야 하면 `@Provide(.transient)`를 사용합니다.
 
+`@DependencyGraph(input: Input.self)`는 graph 생성자가 보관할 조립 입력을 선언합니다. 기본 `@Provide`는 input 대입 뒤 graph 생성 중 한 번 실행하고, `.lazy`는 최초 생성 프로퍼티 접근에서 input을 읽습니다.
+
 actor graph의 생성 프로퍼티는 actor 격리를 따릅니다. actor 밖에서는 `await`로 읽으며 반환 값이 actor 경계를 통과할 수 있는지는 Swift 컴파일러가 `Sendable` 규칙으로 검사합니다.
 
 `@DependencyGraph(overrides: true)`를 지정하면 등록별 기본값이 `.original`인 static `override`와 `OverrideBuilder.build()`를 사용할 수 있습니다. builder는 교체 선택만 보관하고 `.build()`에서 graph와 shared 등록을 만듭니다. lazy 교체 Factory는 생성 프로퍼티를 처음 읽을 때 실행합니다. actor 교체 Factory는 `@Sendable`이어야 하며, `@MainActor` graph의 builder는 같은 격리를 따릅니다.
@@ -20,7 +22,7 @@ actor graph의 생성 프로퍼티는 actor 격리를 따릅니다. actor 밖에
 
 일반 비격리 class graph는 동시 접근을 조정하지 않으므로 단일 소유자로 사용하거나 `@MainActor`처럼 명시한 전역 actor 격리 안에 둡니다. `.shared`와 직접 `Sendable` 준수를 선언한 class graph는 Swift 컴파일러가 검증한 저장 상태만 Task 사이에 전달할 수 있습니다.
 
-`sources`와 `overrides: true`를 모두 지정하지 않은 graph에서는 매크로가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. `sources` 또는 `overrides: true` graph는 생성 경로를 Macro가 소유합니다.
+`input`, `sources`, `overrides: true`를 모두 지정하지 않은 graph에서는 매크로가 생성자를 추가하지 않으며 사용자가 선언한 생성자와 인스턴스 저장 프로퍼티도 변경하지 않습니다. `input`, `sources`, `overrides: true` graph는 생성 경로를 Macro가 소유합니다.
 
 SwiftPM target에 `CradlePlugin`을 연결하면 build마다 의존성 관계를 Mermaid `.mmd` 개발 산출물로 갱신합니다. 이 산출물은 plugin work directory에만 남으며 library와 app binary에는 포함되지 않습니다.
 
@@ -32,7 +34,7 @@ SwiftPM target에 `CradlePlugin`을 연결하면 build마다 의존성 관계를
 
 ### 매크로
 
-- ``DependencyGraph(_:sources:overrides:diagram:)``
+- ``DependencyGraph(_:input:sources:overrides:diagram:)``
 - ``DependencyGraphLifetime``
 - ``DependencyOverride``
 - ``External``
