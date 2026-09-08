@@ -111,7 +111,7 @@ package final class WorkspaceCompositionAnalyzer {
 					location: descriptor.location
 				)
 			}
-			for member in inputMembersRead(by: provider.descriptor.factoryName, in: descriptor) {
+			for member in inputMembersRead(by: provider.descriptor.factoryName, in: descriptor).sorted() {
 				let inputKey = "composition/input/\(identity)/\(member)"
 				nodes[inputKey] = WorkspaceDiagramNode(
 					key: inputKey,
