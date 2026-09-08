@@ -18,7 +18,10 @@ extension WorkspaceCompositionAnalyzer {
 	) -> Set<String> {
 		guard let declaration = index.typeDeclaration(for: graph.id),
 			let inputTypeName = declaration.graphInputTypeName,
-			let inputType = resolveType(inputTypeName, in: graph.context),
+			let inputType = resolveType(inputTypeName, in: WorkspaceCompositionEvaluationContext(
+				source: graph.context,
+				lexicalPath: Array(graph.id.lexicalPath.dropLast())
+			)),
 			inputType.kind == .struct,
 			let function = workspaceProviderFunction(
 				named: factoryName,
@@ -52,14 +55,21 @@ extension WorkspaceCompositionAnalyzer {
 	) -> [String: WorkspaceCompositionValue] {
 		guard let call = expression?.as(FunctionCallExprSyntax.self),
 			let inputTypeName = index.typeDeclaration(for: inputGraph.id)?.graphInputTypeName,
-			let inputType = resolveType(inputTypeName, in: inputGraph.context),
+			let inputType = resolveType(inputTypeName, in: WorkspaceCompositionEvaluationContext(
+				source: inputGraph.context,
+				lexicalPath: Array(inputGraph.id.lexicalPath.dropLast())
+			)),
 			inputType.kind == .struct else {
 			return unknownInputMembers(
 				for: inputGraph,
 				message: "graph input initializer를 해석할 수 없습니다"
 			)
 		}
-		guard resolveType(call.calledExpression.trimmedDescription, in: inputGraph.context)?.id == inputType.id else {
+		let callerContext = evaluationContexts.last ?? WorkspaceCompositionEvaluationContext(
+			source: graph.descriptor.context,
+			lexicalPath: graph.descriptor.id.lexicalPath
+		)
+		guard resolveType(call.calledExpression.trimmedDescription, in: callerContext)?.id == inputType.id else {
 			return unknownInputMembers(
 				for: inputGraph,
 				message: "graph input에 지정한 생성자를 확인할 수 없습니다"
@@ -160,7 +170,10 @@ extension WorkspaceCompositionAnalyzer {
 		message: String
 	) -> [String: WorkspaceCompositionValue] {
 		guard let inputTypeName = index.typeDeclaration(for: graph.id)?.graphInputTypeName,
-			let inputType = resolveType(inputTypeName, in: graph.context) else {
+			let inputType = resolveType(inputTypeName, in: WorkspaceCompositionEvaluationContext(
+				source: graph.context,
+				lexicalPath: Array(graph.id.lexicalPath.dropLast())
+			)) else {
 			return [:]
 		}
 		return Dictionary(uniqueKeysWithValues: workspaceDirectStoredLetMemberNames(
@@ -179,7 +192,10 @@ extension WorkspaceCompositionAnalyzer {
 		graph: WorkspaceCompositionGraph,
 		contextKey: String
 	) -> WorkspaceCompositionObject {
-		evaluationContexts.append(type.context)
+		evaluationContexts.append(WorkspaceCompositionEvaluationContext(
+			source: type.context,
+			lexicalPath: type.id.lexicalPath
+		))
 		defer { evaluationContexts.removeLast() }
 		let object = WorkspaceCompositionObject(
 			key: "composition/object/\(identity)",
@@ -325,38 +341,27 @@ extension WorkspaceCompositionAnalyzer {
 	// 명목 생성자 이름을 현재 module 또는 직접 import module 선언으로 해석
 	func resolveType(
 		_ name: String,
-		in context: WorkspaceSourceContext
+		in context: WorkspaceCompositionEvaluationContext
 	) -> WorkspaceTypeDeclaration? {
 		let components = name.split(separator: ".").map(String.init)
 		guard !components.isEmpty else {
 			return nil
 		}
-		if 1 < components.count,
-			let target = index.targets.first(where: { $0.moduleName == components[0] }) {
-			guard context.moduleName == target.moduleName
-				|| (context.importedModules.contains(target.moduleName)
-					&& context.dependencyIDs.contains(target.id)) else {
-				return nil
+		var scope = context.lexicalPath
+		while true {
+			let prefix = WorkspaceDeclarationID(targetID: context.source.targetID, lexicalPath: scope + [components[0]])
+			if index.nominalTypes.contains(where: { $0.id == prefix }) {
+				let identifier = WorkspaceDeclarationID(targetID: context.source.targetID, lexicalPath: scope + components)
+				return index.typeDeclaration(for: identifier)
 			}
-			let identifier = WorkspaceDeclarationID(
-				targetID: target.id,
-				lexicalPath: Array(components.dropFirst())
-			)
-			return index.typeDeclaration(for: identifier)
-		}
-		let localIdentifier = WorkspaceDeclarationID(
-			targetID: context.targetID,
-			lexicalPath: components
-		)
-		if index.nominalTypes.contains(where: { $0.id == localIdentifier }),
-			index.typeDeclaration(for: localIdentifier) == nil {
-			return nil
+			guard !scope.isEmpty else { break }
+			scope.removeLast()
 		}
 		let candidates = index.typeDeclarations.filter { declaration in
 			declaration.id.lexicalPath == components
-				&& (declaration.context.targetID == context.targetID
-					|| (context.importedModules.contains(declaration.context.moduleName)
-						&& context.dependencyIDs.contains(declaration.context.targetID)))
+				&& (declaration.context.targetID == context.source.targetID
+					|| (context.source.importedModules.contains(declaration.context.moduleName)
+						&& context.source.dependencyIDs.contains(declaration.context.targetID)))
 		}
 		return candidates.count == 1 ? candidates.first : nil
 	}

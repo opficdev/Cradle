@@ -7,6 +7,14 @@
 
 import SwiftSyntax
 
+// 조립 expression을 해석하는 source와 lexical 소유 경로
+struct WorkspaceCompositionEvaluationContext {
+	// expression이 작성된 source 문맥
+	let source: WorkspaceSourceContext
+	// 현재 소유 type의 lexical 경로
+	let lexicalPath: [String]
+}
+
 // composition graph instance
 struct WorkspaceCompositionGraph {
 	// graph instance key

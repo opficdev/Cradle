@@ -34,7 +34,7 @@ package final class WorkspaceCompositionAnalyzer {
 	// 생성한 일반 조립 객체 수
 	var constructedObjectCount = 0
 	// 현재 평가하는 Factory 또는 조립 type의 source 문맥
-	var evaluationContexts = [WorkspaceSourceContext]()
+	var evaluationContexts = [WorkspaceCompositionEvaluationContext]()
 
 	package init(
 		index: WorkspaceDeclarationIndex,
@@ -163,9 +163,12 @@ package final class WorkspaceCompositionAnalyzer {
 			evaluatingProviders.remove(cacheKey)
 			evaluatingProviderDeclarations.remove(provider.key)
 		}
-		evaluationContexts.append(provider.graph.descriptor.context)
+		evaluationContexts.append(WorkspaceCompositionEvaluationContext(
+			source: provider.graph.descriptor.context,
+			lexicalPath: provider.graph.descriptor.id.lexicalPath
+		))
 		defer { evaluationContexts.removeLast() }
-		let type = resolveType(provider.descriptor.identity.canonicalText, in: provider.graph.descriptor.context)
+		let type = resolveType(provider.descriptor.identity.canonicalText, in: evaluationContexts.last!)
 		let function = index.typeDeclaration(for: provider.graph.descriptor.id).flatMap {
 			workspaceProviderFunction(named: provider.descriptor.factoryName, in: $0.memberBlock)
 		}
@@ -294,7 +297,10 @@ package final class WorkspaceCompositionAnalyzer {
 		contextKey: String
 	) -> WorkspaceCompositionValue {
 		let name = call.calledExpression.trimmedDescription
-		let context = evaluationContexts.last ?? graph.descriptor.context
+		let context = evaluationContexts.last ?? WorkspaceCompositionEvaluationContext(
+			source: graph.descriptor.context,
+			lexicalPath: graph.descriptor.id.lexicalPath
+		)
 		guard let type = resolveType(name, in: context) else {
 			return unknown(
 				"`\(name)` 생성자 선언을 해석할 수 없습니다",
@@ -302,7 +308,7 @@ package final class WorkspaceCompositionAnalyzer {
 				context: graph.descriptor
 			)
 		}
-		let identity = "\(contextKey)/\(graph.descriptor.context.path)/\(call.positionAfterSkippingLeadingTrivia.utf8Offset)/\(type.id.lexicalName)"
+		let identity = "\(contextKey)/\(context.source.path)/\(call.positionAfterSkippingLeadingTrivia.utf8Offset)/\(type.id.lexicalName)"
 		if let graphDescriptor = index.graphs.first(where: { $0.id == type.id }) {
 			let inputExpression = call.arguments.first(where: { $0.label?.text == "input" })?.expression
 			let inputs = workspaceInputArguments(
