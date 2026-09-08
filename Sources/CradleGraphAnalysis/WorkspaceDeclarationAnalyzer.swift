@@ -37,7 +37,7 @@ package struct WorkspaceDeclarationAnalyzer {
 					key: key,
 					kind: .provider,
 					targetID: graph.id.targetID,
-					label: "\(provider.typeName)<br/>\(provider.factoryName)<br/>.\(provider.lifetime.rawValue)",
+					label: "\(provider.typeName)\n\(provider.factoryName)\n.\(provider.lifetime.rawValue)",
 					lifetime: provider.lifetime.rawValue,
 					location: graph.location,
 					graphKey: graphKey

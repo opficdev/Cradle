@@ -95,7 +95,7 @@ package final class WorkspaceCompositionAnalyzer {
 				key: provider.key,
 				kind: .provider,
 				targetID: descriptor.id.targetID,
-				label: "\(provider.descriptor.typeName)<br/>\(provider.descriptor.factoryName)<br/>.\(provider.descriptor.lifetime.rawValue)",
+				label: "\(provider.descriptor.typeName)\n\(provider.descriptor.factoryName)\n.\(provider.descriptor.lifetime.rawValue)",
 				lifetime: provider.descriptor.lifetime.rawValue,
 				location: descriptor.location,
 				graphKey: graph.key
