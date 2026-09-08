@@ -81,6 +81,90 @@ func workspaceCompositionAnalyzerConnectsGraphInputBindings() {
 	#expect(model.edges.contains { $0.kind == .inputBinding && nodes[$0.from]?.label == "input.repository" && nodes[$0.destination]?.label.contains("makeRepository") == true })
 }
 
+// 동명 일반 함수보다 수집한 @Provide Factory의 input 읽기를 우선하는지 검증
+@Test
+func workspaceCompositionAnalyzerUsesExactProviderDeclaration() {
+	let target = WorkspaceTargetDescriptor(
+		id: WorkspaceTargetID("App"), moduleName: "App", dependencyIDs: []
+	)
+	let collector = WorkspaceDeclarationCollector(targets: [target])
+	collector.collect(sourceFile: Parser.parse(source: """
+	struct Input {
+		let primary: Service
+		let backup: Service
+	}
+	class Worker {}
+	final class PrimaryWorker: Worker {}
+	final class BackupWorker: Worker {}
+	final class Container {
+		let worker: Worker
+		let service: Service
+		init(worker: Worker, service: Service) {
+			self.worker = worker
+			self.service = service
+		}
+	}
+	@DependencyGraph(input: Input.self) final class Entry {
+		private func make(_ ignored: Int) -> Container {
+			Container(worker: BackupWorker(), service: input.backup)
+		}
+		@Provide private func make() -> Container {
+			Container(worker: PrimaryWorker(), service: input.primary)
+		}
+	}
+	"""), context: compositionContext(targetID: "App", moduleName: "App", path: "App.swift"))
+
+	let model = WorkspaceCompositionAnalyzer(
+		index: collector.index(),
+		roots: [WorkspaceDeclarationID(targetID: WorkspaceTargetID("App"), lexicalPath: ["Entry"])],
+		compositionTypes: [
+			WorkspaceDeclarationID(targetID: WorkspaceTargetID("App"), lexicalPath: ["Container"]),
+			WorkspaceDeclarationID(targetID: WorkspaceTargetID("App"), lexicalPath: ["PrimaryWorker"]),
+			WorkspaceDeclarationID(targetID: WorkspaceTargetID("App"), lexicalPath: ["BackupWorker"])
+		]
+	).analyze()
+
+	#expect(model.nodes.contains { $0.kind == .input && $0.label == "input.primary" })
+	#expect(!model.nodes.contains { $0.kind == .input && $0.label == "input.backup" })
+	#expect(model.nodes.contains { $0.label == "App.PrimaryWorker" })
+	#expect(!model.nodes.contains { $0.label == "App.BackupWorker" })
+}
+
+// guard binding이 가린 input과 명시적인 self.input 참조를 구분하는지 검증
+@Test
+func workspaceCompositionAnalyzerHonorsGuardInputShadowing() throws {
+	let target = WorkspaceTargetDescriptor(
+		id: WorkspaceTargetID("App"), moduleName: "App", dependencyIDs: []
+	)
+	let collector = WorkspaceDeclarationCollector(targets: [target])
+	collector.collect(sourceFile: Parser.parse(source: """
+	struct Input { let service: Service }
+	final class Feature { init(service: Service) {} }
+	@DependencyGraph(input: Input.self) final class Entry {
+		@Provide func makeShadowed() -> Feature {
+			guard let input = localInput() else { return Feature(service: Service()) }
+			return Feature(service: input.service)
+		}
+		@Provide func makeExplicit() -> Feature {
+			guard let input = localInput() else { return Feature(service: Service()) }
+			return Feature(service: self.input.service)
+		}
+	}
+	"""), context: compositionContext(targetID: "App", moduleName: "App", path: "App.swift"))
+
+	let model = WorkspaceCompositionAnalyzer(
+		index: collector.index(),
+		roots: [WorkspaceDeclarationID(targetID: WorkspaceTargetID("App"), lexicalPath: ["Entry"])],
+		compositionTypes: []
+	).analyze()
+	let input = try #require(model.nodes.first { $0.kind == .input && $0.label == "input.service" })
+	let readSources = model.edges.filter { $0.kind == .inputRead && $0.destination == input.key }.map(\.from)
+
+	#expect(readSources.count == 1)
+	#expect(model.nodes.first { $0.key == readSources[0] }?.label.contains("makeExplicit") == true)
+	#expect(model.diagnostics.contains { $0.code == .unsupportedControlFlow })
+}
+
 // composition fixture source context 생성
 private func compositionContext(targetID: String, moduleName: String, path: String, dependencies: Set<String> = [], imports: Set<String> = []) -> WorkspaceSourceContext {
 	WorkspaceSourceContext(targetID: WorkspaceTargetID(targetID), moduleName: moduleName, path: path, dependencyIDs: Set(dependencies.map(WorkspaceTargetID.init)), importedModules: imports)

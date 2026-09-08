@@ -13,7 +13,7 @@ import SwiftSyntaxBuilder
 extension WorkspaceCompositionAnalyzer {
 	// graph Factory가 직접 읽는 선언된 input 저장 멤버 수집
 	func inputMembersRead(
-		by factoryName: String,
+		by provider: GraphDiagramProvider,
 		in graph: WorkspaceGraphDescriptor
 	) -> WorkspaceInputReferenceCollection {
 		guard let declaration = index.typeDeclaration(for: graph.id),
@@ -24,7 +24,7 @@ extension WorkspaceCompositionAnalyzer {
 			)),
 			inputType.kind == .struct,
 			let function = workspaceProviderFunction(
-				named: factoryName,
+				matching: provider,
 				in: declaration.memberBlock
 			) else {
 			return WorkspaceInputReferenceCollection(members: [], unsupported: [])

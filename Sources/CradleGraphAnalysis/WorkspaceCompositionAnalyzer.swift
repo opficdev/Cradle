@@ -112,7 +112,7 @@ package final class WorkspaceCompositionAnalyzer {
 					location: descriptor.location
 				)
 			}
-			let references = inputMembersRead(by: provider.descriptor.factoryName, in: descriptor)
+			let references = inputMembersRead(by: provider.descriptor, in: descriptor)
 			for unsupported in references.unsupported {
 				diagnostics.insert(WorkspaceDiagramDiagnostic(
 					code: unsupported.code,
@@ -201,7 +201,7 @@ package final class WorkspaceCompositionAnalyzer {
 		defer { evaluationContexts.removeLast() }
 		let type = resolveType(provider.descriptor.identity.canonicalText, in: evaluationContexts.last!)
 		let function = index.typeDeclaration(for: provider.graph.descriptor.id).flatMap {
-			workspaceProviderFunction(named: provider.descriptor.factoryName, in: $0.memberBlock)
+			workspaceProviderFunction(matching: provider.descriptor, in: $0.memberBlock)
 		}
 		guard let type, compositionTypes.contains(type.id), let function else {
 			let value = WorkspaceCompositionValue.provider(provider, accessKey: contextKey)

@@ -187,14 +187,14 @@ func workspaceStoredLetAssignment(
 	return WorkspaceStoredLetAssignment(member: member.declName.baseName.text, expression: elements[2])
 }
 
-// provider 이름에 대응하는 직접 member function 반환
+// 수집한 provider 선언 위치에 대응하는 직접 member function 반환
 func workspaceProviderFunction(
-	named name: String,
+	matching provider: GraphDiagramProvider,
 	in memberBlock: MemberBlockSyntax
 ) -> FunctionDeclSyntax? {
-	memberBlock.members.compactMap { $0.decl.as(FunctionDeclSyntax.self) }.first {
-		$0.name.text == name
-	}
+	let collector = WorkspaceProviderFunctionCollector(provider: provider)
+	collector.walk(memberBlock)
+	return collector.function
 }
 
 // input 또는 self.input의 직접 member access 수집기
@@ -261,6 +261,19 @@ final class WorkspaceInputMemberReferenceCollector: SyntaxVisitor {
 	}
 	override func visit(_ node: ForStmtSyntax) -> SyntaxVisitorContinueKind {
 		recordUnsupportedInputUse(in: node, code: .unsupportedControlFlow)
+		return .skipChildren
+	}
+
+	// guard 성공 경로에서 유효한 optional binding 이름을 가림 처리
+	override func visit(_ node: GuardStmtSyntax) -> SyntaxVisitorContinueKind {
+		recordUnsupportedInputUse(in: node, code: .unsupportedControlFlow)
+		for element in node.conditions {
+			guard let binding = element.condition.as(OptionalBindingConditionSyntax.self),
+				let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
+				continue
+			}
+			insert(pattern.identifier.text)
+		}
 		return .skipChildren
 	}
 

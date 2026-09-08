@@ -204,6 +204,7 @@ private final class GraphDiagramProviderCollector: SyntaxVisitor {
 		providers.append(
 			GraphDiagramProvider(
 				factoryName: graphIdentifierName(node.name),
+				sourceOffset: graphSourceOffset(of: node.name),
 				typeName: returnType.trimmedDescription,
 				identity: graphTypeIdentity(for: returnType),
 				lifetime: graphProviderLifetime(in: attribute),

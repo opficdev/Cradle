@@ -31,6 +31,8 @@ package struct GraphDiagramSource: Hashable {
 package struct GraphDiagramProvider: Hashable {
 	// Factory 선언 이름
 	package let factoryName: String
+	// 원본 Factory 이름 위치
+	package let sourceOffset: Int
 	// Factory 반환 타입의 원본 표기
 	package let typeName: String
 	// provider 연결용 정규 반환 타입 철자

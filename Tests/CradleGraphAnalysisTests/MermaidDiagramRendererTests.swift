@@ -112,16 +112,16 @@ func targetGraphDiagramResolvesExactLexicalSources() throws {
 @Test
 func mermaidDiagramOrdersConditionalProviderVariants() {
 	let variants = [
-		GraphDiagramProvider(factoryName: "make", typeName: "Feature",
+		GraphDiagramProvider(factoryName: "make", sourceOffset: 0, typeName: "Feature",
 			identity: GraphTypeIdentity(canonicalText: "Feature"), lifetime: .shared,
 			dependencyIdentities: [], sourceNames: ["first"]),
-		GraphDiagramProvider(factoryName: "make", typeName: "Feature",
+		GraphDiagramProvider(factoryName: "make", sourceOffset: 1, typeName: "Feature",
 			identity: GraphTypeIdentity(canonicalText: "Feature"), lifetime: .transient,
 			dependencyIdentities: [], sourceNames: ["first"]),
-		GraphDiagramProvider(factoryName: "make", typeName: "Feature",
+		GraphDiagramProvider(factoryName: "make", sourceOffset: 2, typeName: "Feature",
 			identity: GraphTypeIdentity(canonicalText: "Feature"), lifetime: .shared,
 			dependencyIdentities: [], sourceNames: ["second"]),
-		GraphDiagramProvider(factoryName: "make", typeName: "Feature",
+		GraphDiagramProvider(factoryName: "make", sourceOffset: 3, typeName: "Feature",
 			identity: GraphTypeIdentity(canonicalText: "Feature"), lifetime: .shared,
 			dependencyIdentities: [GraphTypeIdentity(canonicalText: "Feature")], sourceNames: [])
 	]
@@ -150,6 +150,7 @@ func mermaidDiagramRendersSolidRelationshipsAndLifetimeBorders() {
 		providers: [
 			GraphDiagramProvider(
 				factoryName: "makeRepository",
+				sourceOffset: 0,
 				typeName: "Repository",
 				identity: GraphTypeIdentity(canonicalText: "Repository"),
 				lifetime: .shared,
@@ -158,6 +159,7 @@ func mermaidDiagramRendersSolidRelationshipsAndLifetimeBorders() {
 			),
 			GraphDiagramProvider(
 				factoryName: "makeFeature",
+				sourceOffset: 1,
 				typeName: "Feature",
 				identity: GraphTypeIdentity(canonicalText: "Feature"),
 				lifetime: .transient,
@@ -186,6 +188,7 @@ func mermaidDiagramRendersLazyLifetimeBorder() {
 		providers: [
 			GraphDiagramProvider(
 				factoryName: "makeLazyFeature",
+				sourceOffset: 0,
 				typeName: "LazyFeature",
 				identity: GraphTypeIdentity(canonicalText: "LazyFeature"),
 				lifetime: .lazy,
@@ -212,6 +215,7 @@ func mermaidDiagramEscapesLabelsWithoutChangingNodeIDs() {
 		providers: [
 			GraphDiagramProvider(
 				factoryName: "make\"Feature",
+				sourceOffset: 0,
 				typeName: "Feature<Protocol>",
 				identity: GraphTypeIdentity(canonicalText: "FeatureProtocol"),
 				lifetime: .shared,
