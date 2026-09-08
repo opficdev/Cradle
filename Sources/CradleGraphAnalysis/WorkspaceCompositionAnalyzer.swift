@@ -173,7 +173,7 @@ package final class WorkspaceCompositionAnalyzer {
 			workspaceProviderFunction(named: provider.descriptor.factoryName, in: $0.memberBlock)
 		}
 		guard let type, compositionTypes.contains(type.id), let function else {
-			let value = WorkspaceCompositionValue.provider(provider)
+			let value = WorkspaceCompositionValue.provider(provider, accessKey: contextKey)
 			materializedProviders[cacheKey] = value
 			return value
 		}
@@ -183,7 +183,7 @@ package final class WorkspaceCompositionAnalyzer {
 			let identity = graphTypeIdentity(for: parameter.type)
 			let candidates = provider.graph.providers.filter { $0.descriptor.identity == identity }
 			if candidates.count == 1, let candidate = candidates.first {
-				environment[name] = .provider(candidate)
+				environment[name] = .provider(candidate, accessKey: "\(contextKey)/\(name)")
 				insertEdge(
 					from: provider.key,
 					to: candidate.key,
@@ -199,7 +199,7 @@ package final class WorkspaceCompositionAnalyzer {
 			}
 		}
 		guard function.body != nil else {
-			let value = WorkspaceCompositionValue.provider(provider)
+			let value = WorkspaceCompositionValue.provider(provider, accessKey: contextKey)
 			materializedProviders[cacheKey] = value
 			return value
 		}

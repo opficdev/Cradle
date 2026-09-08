@@ -71,7 +71,7 @@ indirect enum WorkspaceCompositionValue {
 	// 일반 조립 객체
 	case object(WorkspaceCompositionObject)
 	// provider 결과
-	case provider(WorkspaceCompositionProvider)
+	case provider(WorkspaceCompositionProvider, accessKey: String?)
 	// input 생성자 label별 값
 	case input([String: WorkspaceCompositionValue])
 	// 출처를 해석하지 못한 값

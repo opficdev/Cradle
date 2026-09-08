@@ -306,7 +306,7 @@ extension WorkspaceCompositionAnalyzer {
 				graphAccessorName(for: TypeSyntax(stringLiteral: provider.descriptor.typeName)) == name
 			}
 			if matches.count == 1, let provider = matches.first {
-				return .provider(provider)
+				return .provider(provider, accessKey: contextKey)
 			}
 			return unknown(
 				"`\(name)` graph accessor를 해석할 수 없습니다",
@@ -319,8 +319,8 @@ extension WorkspaceCompositionAnalyzer {
 				location: graph.descriptor.location,
 				context: graph.descriptor
 			)
-		case let .provider(provider):
-			let value = materialize(provider, contextKey: contextKey)
+		case let .provider(provider, accessKey):
+			let value = materialize(provider, contextKey: accessKey ?? contextKey)
 			guard case .provider = value else {
 				return evaluateMember(base: value, name: name, graph: graph, contextKey: contextKey)
 			}
@@ -372,7 +372,7 @@ extension WorkspaceCompositionAnalyzer {
 		graph: WorkspaceCompositionGraph
 	) -> String? {
 		switch value {
-		case let .provider(provider):
+		case let .provider(provider, _):
 			return provider.key
 		case let .graph(instance):
 			return instance.key
