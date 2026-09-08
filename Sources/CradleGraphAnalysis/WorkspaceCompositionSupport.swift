@@ -281,11 +281,13 @@ final class WorkspaceInputMemberReferenceCollector: SyntaxVisitor {
 			base.baseName.text == "input",
 			!isShadowed("input") {
 			record(node.declName.baseName.text)
+			return .skipChildren
 		} else if let base = node.base?.as(MemberAccessExprSyntax.self),
 			let selfBase = base.base?.as(DeclReferenceExprSyntax.self),
 			selfBase.baseName.tokenKind == .keyword(.self),
 			base.declName.baseName.text == "input" {
 			record(node.declName.baseName.text)
+			return .skipChildren
 		}
 		return .visitChildren
 	}
