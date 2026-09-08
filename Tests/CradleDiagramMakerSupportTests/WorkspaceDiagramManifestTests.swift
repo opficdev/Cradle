@@ -164,6 +164,13 @@ func workspaceDiagramOutputWriterWritesComposition() throws {
 	#expect(mermaid.contains("input.service"))
 	#expect(report.contains("\"view\" : \"composition\""))
 	#expect(report.contains("makeService") && report.contains("makeRepository"))
+	let json = try #require(JSONSerialization.jsonObject(with: Data(report.utf8)) as? [String: Any])
+	#expect(json["schemaVersion"] as? Int == 2)
+	let edges = try #require(json["edges"] as? [[String: Any]])
+	#expect(edges.contains { $0["kind"] as? String == "compositionReturn" })
+	#expect(edges.contains { $0["kind"] as? String == "compositionCreation" })
+	let nodes = try #require(json["nodes"] as? [[String: Any]])
+	#expect(nodes.contains { $0["kind"] as? String == "compositionObject" })
 }
 
 // JSON 문자열을 manifest DTO로 해독

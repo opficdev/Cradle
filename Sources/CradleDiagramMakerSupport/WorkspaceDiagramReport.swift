@@ -11,7 +11,7 @@ import Foundation
 // workspace Mermaid와 함께 저장할 구조화 분석 결과
 private struct WorkspaceDiagramReport: Encodable {
 	// report 형식 버전
-	let schemaVersion = 1
+	let schemaVersion = 2
 	// 생성한 보기 이름
 	let view: WorkspaceDiagramView
 	// 선택 target과 실제 module 이름

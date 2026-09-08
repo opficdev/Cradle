@@ -238,7 +238,8 @@ package final class WorkspaceCompositionAnalyzer {
 			function,
 			environment: &environment,
 			graph: provider.graph,
-			contextKey: cacheKey
+			contextKey: cacheKey,
+			providerKey: provider.key
 		)
 		materializedProviders[cacheKey] = value
 		return value
@@ -249,7 +250,8 @@ package final class WorkspaceCompositionAnalyzer {
 		_ function: FunctionDeclSyntax,
 		environment: inout [String: WorkspaceCompositionValue],
 		graph: WorkspaceCompositionGraph,
-		contextKey: String
+		contextKey: String,
+		providerKey: String
 	) -> WorkspaceCompositionValue {
 		guard let body = function.body else { return .unknown("본문 없음") }
 		for statement in body.statements {
@@ -269,10 +271,16 @@ package final class WorkspaceCompositionAnalyzer {
 				continue
 			}
 			if let returnStatement = statement.item.as(ReturnStmtSyntax.self), let expression = returnStatement.expression {
-				return evaluate(expression, environment: environment, graph: graph, contextKey: contextKey)
+				let value = evaluate(expression, environment: environment, graph: graph, contextKey: contextKey)
+				recordCompositionReturn(value, from: providerKey, expression: expression, context: graph.descriptor.context)
+				return value
 			}
 			if let expression = statement.item.as(ExprSyntax.self) {
-				return evaluate(expression, environment: environment, graph: graph, contextKey: contextKey)
+				let value = evaluate(expression, environment: environment, graph: graph, contextKey: contextKey)
+				if body.statements.count == 1 {
+					recordCompositionReturn(value, from: providerKey, expression: expression, context: graph.descriptor.context)
+				}
+				return value
 			}
 		}
 		return unknown(

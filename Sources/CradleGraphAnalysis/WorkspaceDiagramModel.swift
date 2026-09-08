@@ -11,6 +11,8 @@ package enum WorkspaceDiagramNodeKind: String, Codable {
 	case graph
 	// @Provide Factory
 	case provider
+	// 실제 평가된 일반 조립 객체
+	case compositionObject
 	// graph initializer input의 저장 멤버
 	case input
 	// 분석할 수 없는 source graph
@@ -31,6 +33,12 @@ package enum WorkspaceDiagramEdgeKind: String, Codable {
 	case inputRead
 	// graph input에 실제 provider 값을 전달한 관계
 	case inputBinding
+	// Factory가 반환한 조립 객체 또는 graph
+	case compositionReturn
+	// 저장 멤버 초기화 과정에서 직접 생성한 객체 또는 graph
+	case compositionCreation
+	// 전달받은 객체 또는 graph를 저장한 관계
+	case compositionRetention
 }
 
 // workspace 분석 진단 심각도
@@ -151,9 +159,9 @@ package struct WorkspaceDiagramNode: Hashable, Codable {
 
 // workspace Mermaid edge와 source 근거
 package struct WorkspaceDiagramEdge: Hashable, Codable {
-	// 의존하는 node key
+	// 관계의 시작 node key
 	package let from: String
-	// 의존 대상 node key
+	// 관계의 대상 node key
 	package let destination: String
 	// 관계 역할
 	package let kind: WorkspaceDiagramEdgeKind

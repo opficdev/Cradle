@@ -21,8 +21,16 @@ package func workspaceMermaidDiagram(for model: WorkspaceDiagramModel) -> String
 		"    classDef shared stroke:#333,stroke-width:2px;",
 		"    classDef lazy stroke:#333,stroke-width:2px,stroke-dasharray:2 3;",
 		"    classDef transient stroke:#333,stroke-width:2px,stroke-dasharray:5 5;",
+		"    classDef compositionObject fill:#eef5ff,stroke:#476582;",
 		"    classDef unknown stroke:#888,stroke-dasharray:4 4;"
 	]
+	if model.nodes.contains(where: { $0.kind == .compositionObject }) {
+		lines += [
+			"    subgraph workspaceLegend[\"관계 범례\"]",
+			"        workspaceLegendText[\"실선: 값 의존 관계<br/>점선: 정적으로 확인한 반환·생성·보관<br/>실행 순서나 수명 보장을 뜻하지 않음\"]",
+			"    end"
+		]
+	}
 	for (index, target) in model.targets.enumerated() {
 		let targetNodes = nodes.filter { $0.targetID == target.id }
 		guard !targetNodes.isEmpty else {
@@ -44,7 +52,12 @@ package func workspaceMermaidDiagram(for model: WorkspaceDiagramModel) -> String
 		guard let from = nodeIDs[edge.from], let destination = nodeIDs[edge.destination] else {
 			continue
 		}
-		lines.append("    \(from) --> \(destination)")
+		switch edge.kind {
+		case .compositionReturn: lines.append("    \(from) -. 반환 .-> \(destination)")
+		case .compositionCreation: lines.append("    \(from) -. 생성 .-> \(destination)")
+		case .compositionRetention: lines.append("    \(from) -. 보관 .-> \(destination)")
+		default: lines.append("    \(from) --> \(destination)")
+		}
 	}
 	for node in nodes {
 		guard let nodeID = nodeIDs[node.key] else {
@@ -55,6 +68,8 @@ package func workspaceMermaidDiagram(for model: WorkspaceDiagramModel) -> String
 			lines.append("    class \(nodeID) source")
 		case .provider:
 			lines.append("    class \(nodeID) \(node.lifetime ?? "shared")")
+		case .compositionObject:
+			lines.append("    class \(nodeID) compositionObject")
 		case .unknown:
 			lines.append("    class \(nodeID) unknown")
 		}

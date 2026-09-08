@@ -8,6 +8,5 @@ public struct UseCaseInput {
 }
 @DependencyGraph(input: UseCaseInput.self)
 public final class UseCaseGraph {
-	public init(input: UseCaseInput) {}
-	@Provide public func makeUseCase() -> UseCase { UseCase(repository: input.repository) }
+	@Provide private func makeUseCase() -> UseCase { UseCase(repository: input.repository) }
 }

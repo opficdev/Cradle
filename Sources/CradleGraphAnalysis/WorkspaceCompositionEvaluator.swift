@@ -204,6 +204,7 @@ extension WorkspaceCompositionAnalyzer {
 			key: "composition/object/\(identity)",
 			declaration: type
 		)
+		recordCompositionObject(object)
 		var environment = [String: WorkspaceCompositionValue]()
 		let storedMemberNames = Set(workspaceDirectStoredLetMemberNames(in: type.memberBlock))
 		for member in type.memberBlock.members {
@@ -223,6 +224,7 @@ extension WorkspaceCompositionAnalyzer {
 					contextKey: contextKey
 				)
 				object.members[identifier.identifier.text] = value
+				recordCompositionStorage(value, in: object, expression: initializer.value)
 			}
 		}
 		let initializers = workspaceInitializers(
@@ -288,6 +290,7 @@ extension WorkspaceCompositionAnalyzer {
 					contextKey: contextKey
 				)
 				object.members[assignment.member] = value
+				recordCompositionStorage(value, in: object, expression: assignment.expression)
 				if environment[assignment.member] == nil {
 					environment[assignment.member] = value
 				}

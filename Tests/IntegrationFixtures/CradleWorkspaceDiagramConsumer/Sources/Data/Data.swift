@@ -9,6 +9,5 @@ public struct RepositoryInput {
 }
 @DependencyGraph(input: RepositoryInput.self)
 public final class RepositoryGraph {
-	public init(input: RepositoryInput) {}
-	@Provide public func makeRepository() -> any Repository { LiveRepository(service: input.service) }
+	@Provide private func makeRepository() -> any Repository { LiveRepository(service: input.service) }
 }
