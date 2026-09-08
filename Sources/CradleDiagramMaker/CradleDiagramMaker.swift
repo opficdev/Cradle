@@ -15,10 +15,19 @@ struct CradleDiagramMakerCommand {
 	static func main() {
 		do {
 			let command = try diagramMakerCommand(arguments: Array(CommandLine.arguments.dropFirst()))
-			let outputs = try DiagramOutputWriter().write(request: command.request)
-			print("Cradle Mermaid output: \(command.request.outputDirectoryURL.appendingPathComponent(command.request.moduleName).path)")
-			for output in outputs {
-				print(output.path)
+			switch command {
+			case let .target(request):
+				let outputs = try DiagramOutputWriter().write(request: request)
+				print("Cradle Mermaid output: \(request.outputDirectoryURL.appendingPathComponent(request.moduleName).path)")
+				for output in outputs {
+					print(output.path)
+				}
+			case let .workspace(request):
+				let outputs = try WorkspaceDiagramOutputWriter().write(request: request)
+				print("Cradle workspace Mermaid output: \(request.outputDirectoryURL.path)")
+				for output in outputs {
+					print(output.path)
+				}
 			}
 		} catch {
 			// 실패 원인과 source 위치를 읽을 수 있는 도구 오류로 보고
@@ -26,27 +35,4 @@ struct CradleDiagramMakerCommand {
 			exit(EXIT_FAILURE)
 		}
 	}
-}
-
-// Build Tool Plugin 인자를 산출물 요청과 선언 output file로 변환
-private func diagramMakerCommand(arguments: [String]) throws -> DiagramMakerCommand {
-	guard 4 <= arguments.count,
-		arguments[0] == "--module",
-		arguments[2] == "--output",
-		arguments[4...].allSatisfy({ !$0.hasPrefix("--") }) else {
-		throw DiagramOutputError.invalidArguments
-	}
-	return DiagramMakerCommand(
-		request: DiagramOutputRequest(
-			moduleName: arguments[1],
-			sourceURLs: arguments.dropFirst(4).map { URL(fileURLWithPath: $0) },
-			outputDirectoryURL: URL(fileURLWithPath: arguments[3])
-		)
-	)
-}
-
-// Mermaid 생성 요청을 명령행 분석 결과로 보관
-private struct DiagramMakerCommand {
-	// source와 출력 디렉터리를 포함한 Mermaid 생성 요청
-	let request: DiagramOutputRequest
 }
