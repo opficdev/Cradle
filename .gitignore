@@ -15,6 +15,10 @@ xcuserdata/
 # Mermaid 개발 산출물
 .cradle/
 
+# 문서화
+*.drawio
+*.drawio.bkp
+
 # 인증·환경
 .netrc
 .env
