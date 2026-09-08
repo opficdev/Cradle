@@ -180,5 +180,6 @@ tag를 원격에 push한 뒤 exact version 소비자 검증이 실패하면 tag�
 
 - [ExampleApp](Examples/ExampleApp) — 단일 app target에서 `sources`, `@External`, SwiftUI `@Observable`과 `@State`를 쓰는 상품 상세 예제
 - [아키텍처](docs/Architecture.md) — Macro 확장, `CradlePlugin`, Mermaid artifact 제작 경로
+- [여러 모듈 workspace Mermaid](docs/WorkspaceDependencyDiagram.md) — Tuist 등 여러 모듈의 선언과 input 조립 경로 분석
 - [DependencyGraph 안내](Sources/Cradle/Cradle.docc/DependencyGraph.md) — `sources`, 수명, actor graph, `CradlePlugin`, 선언 조건과 compiler diagnostic
 - [CradleTesting 안내](Sources/CradleTesting/CradleTesting.docc/CradleTesting.md) — `overrides: true`, `.replace`, `.mock`, graph별 테스트 대역 구성

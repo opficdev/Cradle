@@ -436,6 +436,8 @@ Xcode 프로젝트에서는 target의 **Build Phases → Run Build Tool Plug-ins
 
 plugin은 macOS용 `CradleDiagramMaker` artifact를 실행합니다. 소비자 빌드에서 분석 도구의 SwiftSyntax 의존성을 직접 빌드하지 않으며 도구는 앱이나 라이브러리에 링크되지 않습니다. 도구 소스를 수정한 뒤 저장소 루트에서 `bash Scripts/build-diagram-artifact.sh`를 실행하면 arm64·x86_64 실행 파일을 갱신할 수 있습니다.
 
+여러 module의 `GraphSet`과 `Graph(input:)` 전달 경로는 plugin 출력에 합치지 않습니다. 별도 manifest를 `CradleDiagramMaker --workspace <manifest> --output <directory> --view composition`으로 분석합니다. manifest 계약, 지원 구문, 실행 script는 [여러 모듈 workspace Mermaid](../../../docs/WorkspaceDependencyDiagram.md)에서 확인합니다.
+
 `.mmd`를 resource로 등록하지 않기 위해 명령의 `outputFiles`는 비워 둡니다. Xcode가 명령을 매 빌드에 실행한다는 경고를 표시할 수 있으며 이는 의도한 동작입니다. 도구는 내용이 같은 `.mmd`를 다시 쓰지 않습니다.
 
 `@DependencyGraph`의 `diagram` 인자는 기본값이 `true`입니다. 특정 graph를 제외할 때만 직접 작성한 `false`를 지정합니다.
