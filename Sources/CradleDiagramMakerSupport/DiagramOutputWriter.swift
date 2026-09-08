@@ -42,7 +42,10 @@ package enum DiagramOutputError: LocalizedError {
 		case let .invalidSource(url):
 			return "DependencyGraph Mermaid 분석을 할 수 없는 Swift source입니다: \(url.path)"
 		case .invalidArguments:
-			return "사용법: CradleDiagramMaker --module <module> --output <directory> <source>..."
+			return """
+			사용법: CradleDiagramMaker --module <module> --output <directory> <source>... |
+			--workspace <manifest.json> --output <directory> [--view declarations|composition]
+			"""
 		}
 	}
 }

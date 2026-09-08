@@ -1,0 +1,16 @@
+{
+	"schemaVersion": 1,
+	"workspaceName": "CradleWorkspaceDiagramConsumer",
+	"rootDirectory": ".",
+	"targets": [
+		{"id":"Domain","moduleName":"Domain","sourceFiles":["Sources/Domain/Domain.swift"],"dependencies":[]},
+		{"id":"Infra","moduleName":"Infra","sourceFiles":["Sources/Infra/Infra.swift"],"dependencies":[]},
+		{"id":"Data","moduleName":"Data","sourceFiles":["Sources/Data/Data.swift"],"dependencies":["Domain","Infra"]},
+		{"id":"AppComposition","moduleName":"AppComposition","sourceFiles":["Sources/AppComposition/AppComposition.swift"],"dependencies":["Domain","Data","Infra"]}
+	],
+	"roots": [{"targetID":"AppComposition","graph":"AppGraph"}],
+	"compositionTypes": [
+		{"targetID":"AppComposition","type":"InfraGraphSet"},
+		{"targetID":"AppComposition","type":"DevelopmentGraphSet"}
+	]
+}
