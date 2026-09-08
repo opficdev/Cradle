@@ -15,7 +15,7 @@ extension WorkspaceCompositionAnalyzer {
 	func inputMembersRead(
 		by factoryName: String,
 		in graph: WorkspaceGraphDescriptor
-	) -> Set<String> {
+	) -> WorkspaceInputReferenceCollection {
 		guard let declaration = index.typeDeclaration(for: graph.id),
 			let inputTypeName = declaration.graphInputTypeName,
 			let inputType = resolveType(inputTypeName, in: WorkspaceCompositionEvaluationContext(
@@ -27,11 +27,11 @@ extension WorkspaceCompositionAnalyzer {
 				named: factoryName,
 				in: declaration.memberBlock
 			) else {
-			return []
+			return WorkspaceInputReferenceCollection(members: [], unsupported: [])
 		}
 		let members = Set(workspaceDirectStoredLetMemberNames(in: inputType.memberBlock))
 		guard !members.isEmpty, let body = function.body else {
-			return []
+			return WorkspaceInputReferenceCollection(members: [], unsupported: [])
 		}
 		let parameters = Set(function.signature.parameterClause.parameters.map {
 			workspaceParameterName($0)
@@ -41,7 +41,10 @@ extension WorkspaceCompositionAnalyzer {
 			parameterNames: parameters
 		)
 		collector.walk(body)
-		return collector.members
+		return WorkspaceInputReferenceCollection(
+			members: collector.members,
+			unsupported: collector.unsupported
+		)
 	}
 
 	// graph input struct의 실제 initializer 대입을 member 값으로 변환

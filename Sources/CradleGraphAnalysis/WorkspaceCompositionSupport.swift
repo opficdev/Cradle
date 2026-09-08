@@ -15,6 +15,22 @@ struct WorkspaceCompositionEvaluationContext {
 	let lexicalPath: [String]
 }
 
+// graph input 참조 수집 결과
+struct WorkspaceInputReferenceCollection {
+	// 직접 읽은 input 저장 멤버
+	let members: Set<String>
+	// 지원하지 않는 input 사용 위치
+	let unsupported: [WorkspaceUnsupportedInputReference]
+}
+
+// 지원하지 않는 input 사용의 진단 정보
+struct WorkspaceUnsupportedInputReference {
+	// 진단 종류
+	let code: WorkspaceDiagnosticCode
+	// source UTF-8 위치
+	let utf8Offset: Int
+}
+
 // composition graph instance
 struct WorkspaceCompositionGraph {
 	// graph instance key
@@ -189,6 +205,8 @@ final class WorkspaceInputMemberReferenceCollector: SyntaxVisitor {
 	private var scopes: [Set<String>]
 	// 읽은 input 저장 멤버
 	private(set) var members = Set<String>()
+	// 지원하지 않는 input 사용 위치
+	private(set) var unsupported = [WorkspaceUnsupportedInputReference]()
 
 	init(memberNames: Set<String>, parameterNames: Set<String>) {
 		self.memberNames = memberNames
@@ -220,16 +238,43 @@ final class WorkspaceInputMemberReferenceCollector: SyntaxVisitor {
 	}
 
 	// closure·중첩 선언·제어 흐름 내부는 첫 버전에서 input read로 단정하지 않음
-	override func visit(_ node: ClosureExprSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: ClosureExprSyntax) -> SyntaxVisitorContinueKind {
+		recordUnsupportedInputUse(in: node, code: .unsupportedExpression)
+		return .skipChildren
+	}
 	override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
 	override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
 	override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
 	override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
 	override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
-	override func visit(_ node: IfExprSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
-	override func visit(_ node: SwitchExprSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
-	override func visit(_ node: WhileStmtSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
-	override func visit(_ node: ForStmtSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+	override func visit(_ node: IfExprSyntax) -> SyntaxVisitorContinueKind {
+		recordUnsupportedInputUse(in: node, code: .unsupportedControlFlow)
+		return .skipChildren
+	}
+	override func visit(_ node: SwitchExprSyntax) -> SyntaxVisitorContinueKind {
+		recordUnsupportedInputUse(in: node, code: .unsupportedControlFlow)
+		return .skipChildren
+	}
+	override func visit(_ node: WhileStmtSyntax) -> SyntaxVisitorContinueKind {
+		recordUnsupportedInputUse(in: node, code: .unsupportedControlFlow)
+		return .skipChildren
+	}
+	override func visit(_ node: ForStmtSyntax) -> SyntaxVisitorContinueKind {
+		recordUnsupportedInputUse(in: node, code: .unsupportedControlFlow)
+		return .skipChildren
+	}
+
+	// 특정 멤버를 읽지 않는 bare input 전달은 별도 경고로 기록
+	override func visit(_ node: DeclReferenceExprSyntax) -> SyntaxVisitorContinueKind {
+		guard node.baseName.text == "input", !isShadowed("input") else {
+			return .skipChildren
+		}
+		unsupported.append(WorkspaceUnsupportedInputReference(
+			code: .opaqueInputUse,
+			utf8Offset: node.positionAfterSkippingLeadingTrivia.utf8Offset
+		))
+		return .skipChildren
+	}
 
 	override func visit(_ node: MemberAccessExprSyntax) -> SyntaxVisitorContinueKind {
 		if let base = node.base?.as(DeclReferenceExprSyntax.self),
@@ -265,6 +310,18 @@ final class WorkspaceInputMemberReferenceCollector: SyntaxVisitor {
 			return
 		}
 		members.insert(name)
+	}
+
+	// 지원하지 않는 구문 안에 실제 graph input 사용이 있을 때만 경고 추가
+	private func recordUnsupportedInputUse(in node: some SyntaxProtocol, code: WorkspaceDiagnosticCode) {
+		let source = node.trimmedDescription
+		guard source.contains("self.input") || (!isShadowed("input") && source.contains("input")) else {
+			return
+		}
+		unsupported.append(WorkspaceUnsupportedInputReference(
+			code: code,
+			utf8Offset: node.positionAfterSkippingLeadingTrivia.utf8Offset
+		))
 	}
 }
 

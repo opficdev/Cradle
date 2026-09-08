@@ -8,6 +8,7 @@
 import SwiftSyntax
 import SwiftSyntaxBuilder
 
+// swiftlint:disable file_length
 // 제한된 생성자·저장 멤버 구문으로 graph input 출처를 추적하는 분석기
 // swiftlint:disable:next type_body_length
 package final class WorkspaceCompositionAnalyzer {
@@ -111,7 +112,24 @@ package final class WorkspaceCompositionAnalyzer {
 					location: descriptor.location
 				)
 			}
-			for member in inputMembersRead(by: provider.descriptor.factoryName, in: descriptor).sorted() {
+			let references = inputMembersRead(by: provider.descriptor.factoryName, in: descriptor)
+			for unsupported in references.unsupported {
+				diagnostics.insert(WorkspaceDiagramDiagnostic(
+					code: unsupported.code,
+					message: "지원하지 않는 graph input 사용",
+					location: WorkspaceSourceLocation(
+						targetID: descriptor.id.targetID,
+						path: descriptor.context.path,
+						utf8Offset: unsupported.utf8Offset
+					),
+					context: WorkspaceDiagnosticContext(
+						targetID: descriptor.id.targetID,
+						declarationID: descriptor.id,
+						memberName: provider.descriptor.factoryName
+					)
+				))
+			}
+			for member in references.members.sorted() {
 				let inputKey = "composition/input/\(identity)/\(member)"
 				nodes[inputKey] = WorkspaceDiagramNode(
 					key: inputKey,
@@ -382,3 +400,4 @@ package final class WorkspaceCompositionAnalyzer {
 	}
 
 }
+// swiftlint:enable file_length
