@@ -103,11 +103,25 @@ package struct WorkspaceDeclarationIndex {
 }
 
 // 제한된 조립 구문 분석에 사용할 일반·graph type 원본 선언
+package enum WorkspaceTypeDeclarationKind: Equatable {
+	// class 선언
+	case classType
+	// actor 선언
+	case actor
+	// struct 선언
+	case `struct`
+	// enum 선언
+	case `enum`
+}
+
+// 제한된 조립 구문 분석에 사용할 일반·graph type 원본 선언
 package struct WorkspaceTypeDeclaration {
 	// type 선언 식별자
 	package let id: WorkspaceDeclarationID
 	// source context
 	package let context: WorkspaceSourceContext
+	// 명목 선언의 종류
+	package let kind: WorkspaceTypeDeclarationKind
 	// 직접 member 선언 block
 	package let memberBlock: MemberBlockSyntax
 	// DependencyGraph input type 표기
@@ -116,11 +130,13 @@ package struct WorkspaceTypeDeclaration {
 	package init(
 		id: WorkspaceDeclarationID,
 		context: WorkspaceSourceContext,
+		kind: WorkspaceTypeDeclarationKind,
 		memberBlock: MemberBlockSyntax,
 		graphInputTypeName: String?
 	) {
 		self.id = id
 		self.context = context
+		self.kind = kind
 		self.memberBlock = memberBlock
 		self.graphInputTypeName = graphInputTypeName
 	}
@@ -203,7 +219,7 @@ private final class WorkspaceTypeDeclarationCollector: SyntaxVisitor {
 	}
 
 	override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
-		appendDeclaration(name: node.name, attributes: node.attributes, memberBlock: node.memberBlock)
+		appendDeclaration(name: node.name, attributes: node.attributes, kind: .classType, memberBlock: node.memberBlock)
 		return .visitChildren
 	}
 
@@ -212,7 +228,7 @@ private final class WorkspaceTypeDeclarationCollector: SyntaxVisitor {
 	}
 
 	override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
-		appendDeclaration(name: node.name, attributes: node.attributes, memberBlock: node.memberBlock)
+		appendDeclaration(name: node.name, attributes: node.attributes, kind: .actor, memberBlock: node.memberBlock)
 		return .visitChildren
 	}
 
@@ -221,7 +237,7 @@ private final class WorkspaceTypeDeclarationCollector: SyntaxVisitor {
 	}
 
 	override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
-		appendDeclaration(name: node.name, attributes: node.attributes, memberBlock: node.memberBlock)
+		appendDeclaration(name: node.name, attributes: node.attributes, kind: .struct, memberBlock: node.memberBlock)
 		return .visitChildren
 	}
 
@@ -230,7 +246,7 @@ private final class WorkspaceTypeDeclarationCollector: SyntaxVisitor {
 	}
 
 	override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
-		appendDeclaration(name: node.name, attributes: node.attributes, memberBlock: node.memberBlock)
+		appendDeclaration(name: node.name, attributes: node.attributes, kind: .enum, memberBlock: node.memberBlock)
 		return .visitChildren
 	}
 
@@ -241,6 +257,7 @@ private final class WorkspaceTypeDeclarationCollector: SyntaxVisitor {
 	private func appendDeclaration(
 		name: TokenSyntax,
 		attributes: AttributeListSyntax,
+		kind: WorkspaceTypeDeclarationKind,
 		memberBlock: MemberBlockSyntax
 	) {
 		path.append(workspaceIdentifierName(name))
@@ -248,6 +265,7 @@ private final class WorkspaceTypeDeclarationCollector: SyntaxVisitor {
 			WorkspaceTypeDeclaration(
 				id: WorkspaceDeclarationID(targetID: context.targetID, lexicalPath: path),
 				context: context,
+				kind: kind,
 				memberBlock: memberBlock,
 				graphInputTypeName: workspaceGraphInputTypeName(in: attributes)
 			)

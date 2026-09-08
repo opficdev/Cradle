@@ -47,6 +47,22 @@ package enum WorkspaceDiagnosticCode: String, Codable {
 	case ambiguousType
 	// diagram: false graph를 참조한 경우
 	case excludedGraph
+	// 지원하지 않는 expression을 만난 경우
+	case unsupportedExpression
+	// 지원하지 않는 제어 흐름을 만난 경우
+	case unsupportedControlFlow
+	// 지원하지 않는 저장 멤버를 만난 경우
+	case unsupportedMember
+	// input 전체를 특정 멤버로 좁힐 수 없는 경우
+	case opaqueInputUse
+	// initializer 후보가 여러 개인 경우
+	case ambiguousInitializer
+	// provider 후보가 여러 개인 경우
+	case ambiguousProvider
+	// provider·object 평가가 순환한 경우
+	case cyclicEvaluation
+	// 정한 분석 한도를 넘은 경우
+	case analysisLimit
 }
 
 // workspace 분석 진단의 graph·멤버 문맥

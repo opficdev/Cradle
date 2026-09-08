@@ -105,6 +105,67 @@ func workspaceDiagramOutputWriterWritesDeclarations() throws {
 	#expect(report.contains("\"view\" : \"declarations\""))
 }
 
+// root graph의 일반 조립 객체와 Graph(input:)을 composition 산출물로 연결하는지 확인
+@Test
+// swiftlint:disable:next function_body_length
+func workspaceDiagramOutputWriterWritesComposition() throws {
+	let temporary = try makeWorkspaceDiagramTemporaryDirectory()
+	defer { try? FileManager.default.removeItem(at: temporary) }
+	let domain = temporary.appendingPathComponent("Domain.swift")
+	let app = temporary.appendingPathComponent("App.swift")
+	let manifest = temporary.appendingPathComponent("workspace.json")
+	try """
+	struct DomainInput {
+		let service: Service
+		init(from provider: Service) { self.service = provider }
+	}
+	@DependencyGraph(input: DomainInput.self) final class DomainGraph {
+		@Provide func makeRepository() -> Repository { Repository(service: input.service) }
+	}
+	""".write(to: domain, atomically: true, encoding: .utf8)
+	try """
+	import Domain
+	final class AppGraphSet {
+		let domainGraph: DomainGraph
+		init(service: Service) {
+			self.domainGraph = DomainGraph(input: DomainInput(from: service))
+		}
+	}
+	@DependencyGraph final class AppGraph {
+		@Provide func makeService() -> Service { Service() }
+		@Provide func makeGraphSet(service: Service) -> AppGraphSet { AppGraphSet(service: service) }
+	}
+	""".write(to: app, atomically: true, encoding: .utf8)
+	try """
+	{
+		"schemaVersion": 1,
+		"workspaceName": "ExampleWorkspace",
+		"rootDirectory": ".",
+		"targets": [
+			{"id":"Domain","moduleName":"Domain","sourceFiles":["Domain.swift"],"dependencies":[]},
+			{"id":"App","moduleName":"App","sourceFiles":["App.swift"],"dependencies":["Domain"]}
+		],
+		"roots": [{"targetID":"App","graph":"AppGraph"}],
+		"compositionTypes": [{"targetID":"App","type":"AppGraphSet"}]
+	}
+	""".write(to: manifest, atomically: true, encoding: .utf8)
+
+	let outputs = try WorkspaceDiagramOutputWriter().write(
+		request: WorkspaceDiagramRequest(
+			manifestURL: manifest,
+			outputDirectoryURL: temporary.appendingPathComponent("output"),
+			view: .composition
+		)
+	)
+
+	#expect(outputs.map(\.lastPathComponent) == ["Composition.mmd", "Composition.analysis.json"])
+	let mermaid = try String(contentsOf: outputs[0], encoding: .utf8)
+	let report = try String(contentsOf: outputs[1], encoding: .utf8)
+	#expect(mermaid.contains("input.service"))
+	#expect(report.contains("\"view\" : \"composition\""))
+	#expect(report.contains("makeService") && report.contains("makeRepository"))
+}
+
 // JSON 문자열을 manifest DTO로 해독
 private func workspaceManifest(from string: String) throws -> WorkspaceDiagramManifest {
 	try JSONDecoder().decode(WorkspaceDiagramManifest.self, from: Data(string.utf8))

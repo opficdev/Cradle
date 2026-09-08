@@ -14,6 +14,7 @@ package struct WorkspaceDiagramOutputWriter {
 
 	// 요청 view에 대응하는 tool 소유 산출물 반환
 	@discardableResult
+	// swiftlint:disable:next function_body_length
 	package func write(request: WorkspaceDiagramRequest) throws -> [URL] {
 		let loaded = try WorkspaceDiagramLoader().load(request: request)
 		let model: WorkspaceDiagramModel
@@ -21,7 +22,33 @@ package struct WorkspaceDiagramOutputWriter {
 		case .declarations:
 			model = WorkspaceDeclarationAnalyzer(index: loaded.index).analyze(index: loaded.index)
 		case .composition:
-			throw WorkspaceDiagramOutputError.unsupportedView(request.view)
+			let roots = loaded.manifest.roots.map { root in
+				WorkspaceDeclarationID(
+					targetID: WorkspaceTargetID(root.targetID),
+					lexicalPath: root.graph.split(separator: ".").map(String.init)
+				)
+			}
+			let rootGraphs = roots.compactMap { root in
+				loaded.index.graphs.first { $0.id == root }
+			}
+			guard rootGraphs.count == roots.count,
+				rootGraphs.allSatisfy({ graph in
+					graph.diagram.sources.isEmpty
+						&& loaded.index.typeDeclaration(for: graph.id)?.graphInputTypeName == nil
+				}) else {
+				throw WorkspaceDiagramOutputError.invalidRoot
+			}
+			let compositionTypes = Set(loaded.manifest.compositionTypes.map { type in
+				WorkspaceDeclarationID(
+					targetID: WorkspaceTargetID(type.targetID),
+					lexicalPath: type.type.split(separator: ".").map(String.init)
+				)
+			})
+			model = WorkspaceCompositionAnalyzer(
+				index: loaded.index,
+				roots: roots,
+				compositionTypes: compositionTypes
+			).analyze()
 		}
 		let mermaid = workspaceMermaidDiagram(for: model)
 		let report = try workspaceDiagramReportData(view: request.view, model: model)
@@ -70,12 +97,12 @@ package struct WorkspaceDiagramOutputWriter {
 
 // workspace 산출물 생성 중단 사유
 package enum WorkspaceDiagramOutputError: LocalizedError {
-	case unsupportedView(WorkspaceDiagramView)
+	case invalidRoot
 
 	package var errorDescription: String? {
 		switch self {
-		case let .unsupportedView(view):
-			return "workspace Mermaid \(view.rawValue) 보기는 아직 사용할 수 없습니다"
+		case .invalidRoot:
+			return "workspace Mermaid composition root는 input과 sources가 없는 graph여야 합니다"
 		}
 	}
 }
