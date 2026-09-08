@@ -288,6 +288,14 @@ final class WorkspaceInputMemberReferenceCollector: SyntaxVisitor {
 			base.declName.baseName.text == "input" {
 			record(node.declName.baseName.text)
 			return .skipChildren
+		} else if let base = node.base?.as(DeclReferenceExprSyntax.self),
+			base.baseName.tokenKind == .keyword(.self),
+			node.declName.baseName.text == "input" {
+			unsupported.append(WorkspaceUnsupportedInputReference(
+				code: .opaqueInputUse,
+				utf8Offset: node.positionAfterSkippingLeadingTrivia.utf8Offset
+			))
+			return .skipChildren
 		}
 		return .visitChildren
 	}

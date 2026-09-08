@@ -360,13 +360,28 @@ extension WorkspaceCompositionAnalyzer {
 			guard !scope.isEmpty else { break }
 			scope.removeLast()
 		}
-		let candidates = index.typeDeclarations.filter { declaration in
-			declaration.id.lexicalPath == components
-				&& (declaration.context.targetID == context.source.targetID
-					|| (context.source.importedModules.contains(declaration.context.moduleName)
-						&& context.source.dependencyIDs.contains(declaration.context.targetID)))
+		var candidates = [WorkspaceDeclarationID]()
+		if 1 < components.count,
+			let module = index.targets.first(where: { $0.moduleName == components[0] }),
+			context.source.moduleName == module.moduleName
+				|| (context.source.importedModules.contains(module.moduleName)
+					&& context.source.dependencyIDs.contains(module.id)) {
+			candidates.append(WorkspaceDeclarationID(
+				targetID: module.id,
+				lexicalPath: Array(components.dropFirst())
+			))
 		}
-		return candidates.count == 1 ? candidates.first : nil
+		for target in index.targets where context.source.importedModules.contains(target.moduleName)
+			&& context.source.dependencyIDs.contains(target.id) {
+			candidates.append(WorkspaceDeclarationID(targetID: target.id, lexicalPath: components))
+		}
+		let resolved = Array(Set(candidates)).filter { candidate in
+			index.nominalTypes.contains { $0.id == candidate }
+		}.sorted()
+		guard resolved.count == 1, let identifier = resolved.first else {
+			return nil
+		}
+		return index.typeDeclaration(for: identifier)
 	}
 
 	// input node가 실제 provider 또는 graph에 연결될 때 node key 반환
