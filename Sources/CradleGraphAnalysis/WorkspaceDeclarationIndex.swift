@@ -210,6 +210,8 @@ private final class WorkspaceTypeDeclarationCollector: SyntaxVisitor {
 	private let context: WorkspaceSourceContext
 	// 현재 type 경로
 	private var path = [String]()
+	// extension 진입마다 추가한 경로 항목 수
+	private var extensionPathCounts = [Int]()
 	// 수집한 원본 type 선언
 	private(set) var declarations = [WorkspaceTypeDeclaration]()
 
@@ -254,6 +256,20 @@ private final class WorkspaceTypeDeclarationCollector: SyntaxVisitor {
 		path.removeLast()
 	}
 
+	// extension 대상 경로 안쪽 type 선언의 lexical 이름 보존
+	override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+		let extensionPath = workspaceExtensionPath(node)
+		path += extensionPath
+		extensionPathCounts.append(extensionPath.count)
+		return .visitChildren
+	}
+
+	// extension 종료 시 추가한 경로만 제거
+	override func visitPost(_ node: ExtensionDeclSyntax) {
+		guard let count = extensionPathCounts.popLast() else { return }
+		path.removeLast(count)
+	}
+
 	private func appendDeclaration(
 		name: TokenSyntax,
 		attributes: AttributeListSyntax,
@@ -294,6 +310,8 @@ private final class WorkspaceNominalTypeCollector: SyntaxVisitor {
 	private let context: WorkspaceSourceContext
 	// 현재 명목 type 경로
 	private var path = [String]()
+	// extension 진입마다 추가한 경로 항목 수
+	private var extensionPathCounts = [Int]()
 	// 수집한 명목 선언
 	private(set) var nominalTypes = [WorkspaceNominalType]()
 
@@ -353,6 +371,20 @@ private final class WorkspaceNominalTypeCollector: SyntaxVisitor {
 		return .skipChildren
 	}
 
+	// extension 대상 경로 안쪽 명목 선언의 lexical 이름 보존
+	override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+		let extensionPath = workspaceExtensionPath(node)
+		path += extensionPath
+		extensionPathCounts.append(extensionPath.count)
+		return .visitChildren
+	}
+
+	// extension 종료 시 추가한 경로만 제거
+	override func visitPost(_ node: ExtensionDeclSyntax) {
+		guard let count = extensionPathCounts.popLast() else { return }
+		path.removeLast(count)
+	}
+
 	private func appendNominalType(_ name: TokenSyntax) {
 		path.append(workspaceIdentifierName(name))
 		nominalTypes.append(
@@ -372,4 +404,9 @@ private final class WorkspaceNominalTypeCollector: SyntaxVisitor {
 // Swift identifier의 backtick 표기를 제거
 private func workspaceIdentifierName(_ token: TokenSyntax) -> String {
 	token.identifier?.name ?? token.text
+}
+
+// 기존 GraphDiagramParser와 같은 extension 대상 lexical 경로 반환
+private func workspaceExtensionPath(_ node: ExtensionDeclSyntax) -> [String] {
+	node.extendedType.trimmedDescription.split(separator: ".").map(String.init)
 }

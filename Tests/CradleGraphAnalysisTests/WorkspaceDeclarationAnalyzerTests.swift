@@ -156,6 +156,32 @@ func workspaceDeclarationAnalyzerConnectsImportedNestedGraph() {
 	#expect(model.edges.contains { $0.destination == "graph/Domain/Scope.SharedGraph" })
 }
 
+// extension 안쪽 graph와 원본 type 선언의 lexical 경로를 동일하게 보존하는지 검증
+@Test
+func workspaceDeclarationCollectorKeepsExtensionTypePaths() {
+	let target = WorkspaceTargetDescriptor(
+		id: WorkspaceTargetID("App"), moduleName: "App", dependencyIDs: []
+	)
+	let collector = WorkspaceDeclarationCollector(targets: [target])
+	collector.collect(sourceFile: Parser.parse(source: """
+	enum Scope {}
+	extension Scope {
+		@DependencyGraph final class Graph {}
+	}
+	@DependencyGraph final class Graph {}
+	"""), context: workspaceContext(targetID: "App", moduleName: "App", path: "App.swift"))
+
+	let index = collector.index()
+	let scoped = WorkspaceDeclarationID(targetID: WorkspaceTargetID("App"), lexicalPath: ["Scope", "Graph"])
+	let topLevel = WorkspaceDeclarationID(targetID: WorkspaceTargetID("App"), lexicalPath: ["Graph"])
+
+	#expect(Set(index.graphs.map(\.id)) == [scoped, topLevel])
+	#expect(index.typeDeclaration(for: scoped)?.id == scoped)
+	#expect(index.nominalTypes.contains { $0.id == scoped })
+	#expect(index.typeDeclaration(for: topLevel)?.id == topLevel)
+	#expect(index.nominalTypes.contains { $0.id == topLevel })
+}
+
 // workspace source context 생성
 private func workspaceContext(
 	targetID: String,
