@@ -73,6 +73,7 @@ package final class WorkspaceCompositionAnalyzer {
 	}
 
 	// graph instance와 provider node·input node를 생성
+	// swiftlint:disable:next function_body_length
 	private func constructGraph(
 		_ descriptor: WorkspaceGraphDescriptor,
 		inputs: [String: WorkspaceCompositionValue],
@@ -98,6 +99,18 @@ package final class WorkspaceCompositionAnalyzer {
 				location: descriptor.location,
 				graphKey: graph.key
 			)
+			for dependency in provider.descriptor.dependencyIdentities {
+				let candidates = graph.providers.filter { $0.descriptor.identity == dependency }
+				guard candidates.count == 1, let candidate = candidates.first else {
+					continue
+				}
+				insertEdge(
+					from: provider.key,
+					to: candidate.key,
+					kind: .providerParameter,
+					location: descriptor.location
+				)
+			}
 			for member in inputMembersRead(by: provider.descriptor.factoryName, in: descriptor) {
 				let inputKey = "composition/input/\(identity)/\(member)"
 				nodes[inputKey] = WorkspaceDiagramNode(
