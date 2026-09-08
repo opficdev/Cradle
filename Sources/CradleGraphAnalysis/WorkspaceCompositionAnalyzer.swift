@@ -254,8 +254,10 @@ package final class WorkspaceCompositionAnalyzer {
 		providerKey: String
 	) -> WorkspaceCompositionValue {
 		guard let body = function.body else { return .unknown("본문 없음") }
+		var canRecordReturn = true
 		for statement in body.statements {
 			if let variable = statement.item.as(VariableDeclSyntax.self) {
+				if !compositionSupportsReturnBinding(variable) { canRecordReturn = false }
 				for binding in variable.bindings {
 					guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self),
 						let initializer = binding.initializer else {
@@ -272,16 +274,19 @@ package final class WorkspaceCompositionAnalyzer {
 			}
 			if let returnStatement = statement.item.as(ReturnStmtSyntax.self), let expression = returnStatement.expression {
 				let value = evaluate(expression, environment: environment, graph: graph, contextKey: contextKey)
-				recordCompositionReturn(value, from: providerKey, expression: expression, context: graph.descriptor.context)
-				return value
-			}
-			if let expression = statement.item.as(ExprSyntax.self) {
-				let value = evaluate(expression, environment: environment, graph: graph, contextKey: contextKey)
-				if body.statements.count == 1 {
+				if canRecordReturn {
 					recordCompositionReturn(value, from: providerKey, expression: expression, context: graph.descriptor.context)
 				}
 				return value
 			}
+			if let expression = statement.item.as(ExprSyntax.self) {
+				let value = evaluate(expression, environment: environment, graph: graph, contextKey: contextKey)
+				if canRecordReturn && body.statements.count == 1 {
+					recordCompositionReturn(value, from: providerKey, expression: expression, context: graph.descriptor.context)
+				}
+				return value
+			}
+			canRecordReturn = false
 		}
 		return unknown(
 			"`\(function.name.text)` Factory의 반환식을 해석할 수 없습니다",

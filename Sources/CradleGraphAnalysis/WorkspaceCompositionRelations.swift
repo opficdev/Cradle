@@ -50,7 +50,8 @@ extension WorkspaceCompositionAnalyzer {
 	func recordCompositionStorage(
 		_ value: WorkspaceCompositionValue,
 		in object: WorkspaceCompositionObject,
-		expression: ExprSyntax
+		expression: ExprSyntax,
+		boundNames: Set<String>
 	) {
 		guard let destination = compositionKey(for: value) else { return }
 		var unwrapped = expression
@@ -59,7 +60,9 @@ extension WorkspaceCompositionAnalyzer {
 			unwrapped = element.expression
 		}
 		let kind: WorkspaceDiagramEdgeKind
-		if unwrapped.is(FunctionCallExprSyntax.self) {
+		if let call = unwrapped.as(FunctionCallExprSyntax.self) {
+			guard let name = compositionCallRootName(call.calledExpression),
+				!boundNames.contains(name) else { return }
 			kind = .compositionCreation
 		} else if unwrapped.is(DeclReferenceExprSyntax.self) || unwrapped.is(MemberAccessExprSyntax.self) {
 			kind = .compositionRetention
@@ -71,6 +74,26 @@ extension WorkspaceCompositionAnalyzer {
 			location: compositionLocation(expression, context: object.declaration.context)
 		)
 	}
+}
+
+// 호출 경로의 첫 이름이 값에 가려졌는지 확인하기 위한 식별자 조회
+private func compositionCallRootName(_ expression: ExprSyntax) -> String? {
+	if let reference = expression.as(DeclReferenceExprSyntax.self) {
+		return reference.baseName.text
+	}
+	if let member = expression.as(MemberAccessExprSyntax.self), let base = member.base {
+		return compositionCallRootName(base)
+	}
+	return nil
+}
+
+// 반환 관계의 근거로 사용할 수 있는 단일 불변 지역 선언 확인
+func compositionSupportsReturnBinding(_ variable: VariableDeclSyntax) -> Bool {
+	guard variable.bindingSpecifier.tokenKind == .keyword(.let),
+		variable.bindings.count == 1, variable.attributes.isEmpty,
+		let binding = variable.bindings.first else { return false }
+	return binding.pattern.is(IdentifierPatternSyntax.self)
+		&& binding.initializer != nil && binding.accessorBlock == nil
 }
 
 // 평가 전 source 문맥과 원본 expression에 대응하는 위치

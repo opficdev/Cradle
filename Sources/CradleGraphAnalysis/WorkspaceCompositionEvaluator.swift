@@ -224,7 +224,7 @@ extension WorkspaceCompositionAnalyzer {
 					contextKey: contextKey
 				)
 				object.members[identifier.identifier.text] = value
-				recordCompositionStorage(value, in: object, expression: initializer.value)
+				recordCompositionStorage(value, in: object, expression: initializer.value, boundNames: [])
 			}
 		}
 		let initializers = workspaceInitializers(
@@ -290,7 +290,9 @@ extension WorkspaceCompositionAnalyzer {
 					contextKey: contextKey
 				)
 				object.members[assignment.member] = value
-				recordCompositionStorage(value, in: object, expression: assignment.expression)
+				recordCompositionStorage(
+					value, in: object, expression: assignment.expression, boundNames: Set(environment.keys)
+				)
 				if environment[assignment.member] == nil {
 					environment[assignment.member] = value
 				}

@@ -148,6 +148,67 @@ func workspaceRelationsRenderDistinctEdgeKinds() {
 	#expect(model.edges.filter { $0.kind == .providerParameter }.count == 3)
 }
 
+// 매개변수가 타입 또는 module 이름을 가리면 직접 생성 관계를 기록하지 않는지 검증
+@Test(arguments: ["WorkerGraph()", "(WorkerGraph())", "Kernel.WorkerGraph()"])
+func workspaceRelationsRejectShadowedConstructorCalls(call: String) {
+	let name = call.hasPrefix("Kernel.") ? "Kernel" : "WorkerGraph"
+	let model = relationModel(source: """
+	import Kernel
+	final class Container {
+		let worker: WorkerGraph
+		init(\(name): () -> WorkerGraph) { self.worker = \(call) }
+	}
+	@DependencyGraph final class Entry {
+		@Provide func makeContainer() -> Container {
+			Container(\(name): { WorkerGraph() })
+		}
+	}
+	""", types: ["Container"])
+	#expect(!model.edges.contains { $0.kind == .compositionCreation || $0.kind == .compositionRetention })
+	#expect(model.edges.filter { $0.kind == .compositionReturn }.count == 1)
+	#expect(model.nodes.contains { $0.label == "Kernel.WorkerGraph" })
+	#expect(model.edges.filter { $0.kind == .providerParameter }.count == 1)
+}
+
+// 다른 이름의 매개변수가 있는 한정 생성자 호출은 유지하는지 검증
+@Test
+func workspaceRelationsKeepUnshadowedQualifiedConstructor() {
+	let model = relationModel(source: """
+	import Kernel
+	final class Container {
+		let worker: WorkerGraph
+		init(WorkerGraph: () -> WorkerGraph) { self.worker = Kernel.WorkerGraph() }
+	}
+	@DependencyGraph final class Entry {
+		@Provide func makeContainer() -> Container { Container(WorkerGraph: { WorkerGraph() }) }
+	}
+	""", types: ["Container"])
+	#expect(model.edges.filter { $0.kind == .compositionCreation }.count == 1)
+}
+
+// 해석하지 못한 선행 문장 뒤의 반환을 확정하지 않는지 검증
+@Test(arguments: [
+	"guard false else { return Container() }",
+	"guard true else { return Container() }",
+	"defer {}",
+	"var value = Container()",
+	"let first = Container(), second = Container()",
+	"let (first, second) = (Container(), Container())"
+])
+func workspaceRelationsRejectReturnAfterUnsupportedStatement(statement: String) {
+	let model = relationModel(source: """
+	final class Container {}
+	@DependencyGraph final class Entry {
+		@Provide func makeContainer() -> Container {
+			\(statement)
+			return Container()
+		}
+	}
+	""", types: ["Container"])
+	#expect(!model.edges.contains { $0.kind == .compositionReturn })
+	#expect(model.nodes.contains { $0.kind == .compositionObject })
+}
+
 // 비교할 조립 간선 종류
 private let relationKinds: Set<WorkspaceDiagramEdgeKind> = [
 	.compositionReturn, .compositionCreation, .compositionRetention
